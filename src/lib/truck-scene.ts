@@ -452,15 +452,34 @@ export function mountTruck(
     { id: 'prep2', x: .55, z: -Z + .82, ry: Math.PI, pose: 'stir' as const }, { id: 'fridge', x: 1.75, z: -Z + .9, ry: Math.PI * .85, pose: 'reach' as const },
     { id: 'pass', x: -2.9, z: 0, ry: Math.PI / 2, pose: 'reach' as const },
   ];
-  type Crew = { p: Person; at: number; path: THREE.Vector3[]; timer: number; home: boolean };
+  type Crew = { p: Person; at: number; from: number; path: THREE.Vector3[]; timer: number; home: boolean };
   const crew: Crew[] = [];
   const taken = new Set<number>();
+  // Only one person uses the aisle at a time, so nobody walks through anybody.
+  let aisle: Crew | null = null;
+  let foodFn: ((id: FoodId, size?: number) => THREE.Object3D) | null = null;
+  const counterMeals: THREE.Object3D[] = [];
+  const tool = (c: Crew, id: FoodId | null, size = .22) => { c.p.carry(id && foodFn ? (() => { const o = foodFn!(id, size); o.rotation.set(Math.PI / 2, 0, 0); return o; })() : null); };
   const sendTo = (c: Crew, i: number) => {
-    taken.delete(c.at); taken.add(i); c.at = i;
+    if (aisle && aisle !== c) return false;
+    aisle = c; taken.delete(c.at); taken.add(i); c.from = c.at; c.at = i;
     const st = STATIONS[i], o = c.p.obj.position;
-    // Walk out to the centre aisle, along it, then step into the station.
     c.path = [new THREE.Vector3(o.x, FLOOR, 0), new THREE.Vector3(st.x, FLOOR, 0), new THREE.Vector3(st.x, FLOOR, st.z)];
+    // What they carry depends on where they are going: meals to the window, produce from the fridge.
+    const to = STATIONS[i].id, from = STATIONS[c.from].id;
+    tool(c, to.startsWith('window') ? 'styrofoam-dinner' : from === 'fridge' ? (['tomato', 'cabbage', 'carrot'] as FoodId[])[Math.floor(Math.random() * 3)] : null, to.startsWith('window') ? .26 : .14);
     c.p.set('walk');
+    return true;
+  };
+  const atStation = (c: Crew) => {
+    const st = STATIONS[c.at];
+    // Set down whatever they brought: a meal joins the row on the serving counter.
+    if (st.id.startsWith('window') && foodFn && c.p.hand.children.some((x) => x.userData.carried)) {
+      const m = foodFn('styrofoam-dinner', .26); m.position.set(-.2 + (counterMeals.length % 4) * .3, WB + .06, Z + .18); m.rotation.y = (Math.random() - .5) * .3; truck.add(m); counterMeals.push(m);
+      if (counterMeals.length > 6) counterMeals.shift()!.removeFromParent();
+    }
+    tool(c, st.id === 'stove' ? 'cooking-spoon' : st.id.startsWith('prep') ? (Math.random() < .5 ? 'whisk' : 'cooking-spoon') : null, .3);
+    c.p.set(st.pose);
   };
   let server: Person | null = null, serveFlash = 0;
 
@@ -480,19 +499,41 @@ export function mountTruck(
     crewKinds.forEach((k, i) => {
       const p = c.make(k, { height: 1.68, skin: [1, 3, 4, 0, 2][i] });
       const st = STATIONS[starts[i]]; p.obj.position.set(st.x, FLOOR, st.z); p.obj.rotation.y = st.ry; truck.add(p.obj); p.set(st.pose);
-      const cr: Crew = { p, at: starts[i], path: [], timer: 2 + Math.random() * 5, home: i === 0 }; taken.add(starts[i]); crew.push(cr);
+      const cr: Crew = { p, at: starts[i], from: starts[i], path: [], timer: 2 + Math.random() * 5, home: i === 0 }; taken.add(starts[i]); crew.push(cr);
       if (i === 0) server = p;
     });
     friend = c.make('w-formal', { height: 1.64, skin: 2 }); place(friend.obj, picnic, .45, SIT_Y, -.95); friend.set('sit');
   }).catch(() => {});
   loadFood().then(async (food) => {
     if (!alive) return;
+    foodFn = food;
     const F = (id: FoodId, size: number, x: number, y: number, z: number, ry = 0) => place(food(id, size), truck, x, y, z, ry);
     for (let i = 0; i < 4; i++) F('styrofoam-dinner', .26, -.2 + i * .3, WB + .06 + (i % 2) * .09, Z + .18, (rnd() - .5) * .3);
     F('pot-stew', .36, -1.9, FLOOR + .96, -Z + .38); F('pot-stew', .32, -1.25, FLOOR + .96, -Z + .4);
     F('loaf-round', .2, -1.8, WB + .07, Z + .2); F('apple', .08, -1.5, WB + .05, Z + .22); F('orange', .08, -1.4, WB + .05, Z + .16);
     for (let i = 0; i < 6; i++) F((['pumpkin-basic', 'cabbage', 'carrot', 'tomato', 'corn', 'cabbage'] as FoodId[])[i], .15, .1 + i * .32, 2.24, -Z + .2, rnd() * 3);
     for (let i = 0; i < 6; i++) F('styrofoam-dinner', .24, 1.4 + (i % 2) * .3, FLOOR + .93 + Math.floor(i / 2) * .1, Z - .32);
+    // A working kitchen: stove top, prep line, shelves, rail, sink.
+    const BACK = FLOOR + .93, bz = -Z + .4;
+    F('frying-pan', .34, -2.25, BACK + .02, bz, .6); F('pot-lid', .26, -1.05, BACK + .02, bz + .05);
+    F('cutting-board', .4, -.55, BACK, bz); F('carrot', .14, -.62, BACK + .04, bz - .02, 1); F('tomato', .08, -.42, BACK + .04, bz + .05);
+    F('cutting-board', .4, .55, BACK, bz, .2); F('cabbage', .16, .5, BACK + .06, bz); F('bread', .2, .7, BACK + .05, bz + .04, .4);
+    F('knife-block', .2, .05, BACK, bz - .1); F('bottle-oil', .2, -2.85, BACK, bz - .1); F('shaker-salt', .08, -2.7, BACK, bz - .05); F('shaker-pepper', .08, -2.62, BACK, bz - .1);
+    F('bowl', .2, 1.05, BACK, bz); F('rollingPin', .3, -.1, BACK + .02, bz + .12, 1.2);
+    for (let i = 0; i < 5; i++) F('plate', .24, 1.25, 2.17 + i * .018, -Z + .26);
+    for (let i = 0; i < 4; i++) F('plate-deep', .22, 1.6, 2.17 + i * .03, -Z + .26);
+    for (let i = 0; i < 4; i++) F('cup', .09, .45 + i * .14, 2.62, -Z + .26);
+    for (let i = 0; i < 3; i++) F('bowl', .18, .1 + i * .22, 2.62, -Z + .26);
+    // Pan rail above the prep line.
+    truck.add(rot(mesh(new THREE.CylinderGeometry(.012, .012, 1.8, 8), chrome, -.6, TOP - .55, -Z + .25), 0, 0, Math.PI / 2));
+    for (let i = 0; i < 4; i++) { const pan = food(i % 2 ? 'pan' : 'frying-pan', .3); pan.rotation.set(Math.PI / 2, 0, 0); place(pan, truck, -1.3 + i * .45, TOP - .75, -Z + .22); }
+    // Sink with a tap, a paper towel roll, a bin, ticket slips on a rail.
+    truck.add(mesh(new THREE.BoxGeometry(.5, .06, .4), std('#9EA4A8', { metalness: .8, roughness: .2 }), 1.75, BACK - .02, Z - .32));
+    truck.add(mesh(new THREE.TorusGeometry(.1, .012, 8, 16, Math.PI), chrome, 1.75, BACK + .12, Z - .48));
+    truck.add(rot(mesh(new THREE.CylinderGeometry(.06, .06, .26, 16), std('#FFFFFF', { roughness: .9 }), 2.3, 2.05, Z - .12), 0, 0, Math.PI / 2));
+    truck.add(mesh(new THREE.CylinderGeometry(.16, .14, .5, 20), std('#3B4A40', { roughness: .6 }), 2.25, FLOOR + .25, -.1));
+    truck.add(mesh(new THREE.BoxGeometry(1.3, .02, .03), chrome, -.75, WT - .12, Z - .08));
+    for (let i = 0; i < 5; i++) truck.add(mesh(new THREE.PlaneGeometry(.1, .14), std(i % 2 ? '#FFF8E1' : '#FFFFFF', { side: THREE.DoubleSide }), -1.3 + i * .26, WT - .21, Z - .09));
     // Your seat: a warm tray, and a friend across the table.
     for (const [id, sz, x, z] of [['plate-dinner', .34, .45, .22], ['bowl-soup', .2, .4, .2], ['loaf-round', .13, .62, .12], ['apple', .07, .25, .35], ['mug', .1, .7, .34], ['utensil-spoon', .16, .2, .18]] as [FoodId, number, number, number][]) place(food(id, sz), picnic, x, .8, z, rnd() * .4);
     for (const [id, sz, x, z] of [['plate-dinner', .34, .45, -.25], ['salad', .18, .45, -.25], ['cup-tea', .09, .2, -.3]] as [FoodId, number, number, number][]) place(food(id, sz), picnic, x, .8, z);
@@ -649,7 +690,7 @@ export function mountTruck(
       const o = c.p.obj;
       if (c.path.length) {
         const tgt = c.path[0], d = v.subVectors(tgt, o.position); d.y = 0; const dist = d.length();
-        if (dist < .04) { c.path.shift(); if (!c.path.length) { const st = STATIONS[c.at]; c.p.set(st.pose); c.timer = 4 + Math.random() * 7; } }
+        if (dist < .04) { c.path.shift(); if (!c.path.length) { if (aisle === c) aisle = null; atStation(c); c.timer = 4 + Math.random() * 7; } }
         else { o.position.addScaledVector(d.normalize(), Math.min(dist, dt * .9)); o.rotation.y += Math.atan2(Math.sin(Math.atan2(d.x, d.z) - o.rotation.y), Math.cos(Math.atan2(d.x, d.z) - o.rotation.y)) * Math.min(1, dt * 8); }
         continue;
       }
@@ -659,7 +700,7 @@ export function mountTruck(
       c.timer -= dt;
       if (c.timer <= 0) {
         if (c.home || Math.random() < .35) { c.p.set(Math.random() < .5 ? st.pose : 'idle'); c.timer = 3 + Math.random() * 5; }
-        else { const free = STATIONS.map((_, i) => i).filter((i) => !taken.has(i) && i !== 0); if (free.length) sendTo(c, free[Math.floor(Math.random() * free.length)]); else c.timer = 3; }
+        else { const free = STATIONS.map((_, i) => i).filter((i) => !taken.has(i) && i !== 0); if (!free.length || !sendTo(c, free[Math.floor(Math.random() * free.length)])) c.timer = 1 + Math.random() * 2; }
       }
     }
     friend?.update(dt);

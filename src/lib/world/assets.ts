@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-export const FOODS = ['bowl-soup', 'bowl-broth', 'plate-dinner', 'salad', 'loaf-round', 'apple', 'orange', 'mug', 'cup-tea', 'pot-stew', 'sandwich', 'styrofoam-dinner', 'utensil-spoon', 'pie', 'pumpkin-basic', 'carrot', 'cabbage', 'tomato', 'corn', 'rice-ball'] as const;
+export const FOODS = ['bowl-soup', 'bowl-broth', 'plate-dinner', 'salad', 'loaf-round', 'apple', 'orange', 'mug', 'cup-tea', 'pot-stew', 'sandwich', 'styrofoam-dinner', 'utensil-spoon', 'pie', 'pumpkin-basic', 'carrot', 'cabbage', 'tomato', 'corn', 'rice-ball', 'plate', 'bowl', 'cutting-board', 'frying-pan', 'pan', 'knife-block', 'pot', 'pot-lid', 'cooking-spoon', 'whisk', 'cup', 'plate-deep', 'bottle-oil', 'shaker-salt', 'shaker-pepper', 'rollingPin', 'bread'] as const;
 export type FoodId = typeof FOODS[number];
 
 const loader = new GLTFLoader();
