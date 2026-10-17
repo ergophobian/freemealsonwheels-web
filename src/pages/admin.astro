@@ -1,0 +1,62 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base title="Staff roster" description="Who is coming this Saturday.">
+  <section class="wrap page-hero">
+    <span class="eyebrow">Staff only</span>
+    <h1>Saturday roster</h1>
+    <p class="lead">Everyone who signed up, by role. Demo data until Firebase is connected.</p>
+  </section>
+  <section class="wrap section" style="padding-top:16px">
+    <div class="bar card">
+      <select id="kitchen"><option value="san_jose">San Jose</option><option value="san_ramon">San Ramon</option></select>
+      <select id="date"></select>
+      <span class="spacer"></span>
+      <button class="btn ghost" id="csv" type="button">Download CSV</button>
+      <button class="btn ghost" id="reset" type="button">Reset demo data</button>
+    </div>
+    <div class="grid" id="roster"></div>
+  </section>
+</Base>
+
+<script>
+  import { ROLES, upcomingSaturdays, listSignups, cancel, resetDemo, type Kitchen } from '../lib/store';
+  const k = document.getElementById('kitchen') as HTMLSelectElement;
+  const d = document.getElementById('date') as HTMLSelectElement;
+  const roster = document.getElementById('roster')!;
+  d.innerHTML = upcomingSaturdays().map((x) => `<option value="${x}">${new Date(x + 'T12:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</option>`).join('');
+  const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+
+  function render() {
+    const all = listSignups(k.value as Kitchen, d.value);
+    roster.innerHTML = ROLES.map((r) => {
+      const booked = all.filter((s) => s.role === r.id && s.status === 'booked');
+      const wait = all.filter((s) => s.role === r.id && s.status === 'waitlist');
+      const count = booked.reduce((n, s) => n + s.party, 0);
+      const row = (s: typeof all[number]) => `<li><span>${esc(s.name)}${s.party > 1 ? ` <em>+${s.party - 1}</em>` : ''}${s.firstTime ? ' <em>new</em>' : ''}</span><button data-id="${s.id}" title="Cancel">×</button></li>`;
+      return `<article class="card"><h3>${r.name}</h3><p class="muted small">${r.time} · ${count}/${r.capacity} filled</p>
+        <ul>${booked.map(row).join('') || '<li class="muted">No one yet</li>'}</ul>
+        ${wait.length ? `<p class="small"><b>Waitlist</b></p><ul>${wait.map(row).join('')}</ul>` : ''}</article>`;
+    }).join('');
+  }
+  roster.addEventListener('click', (e) => { const b = (e.target as HTMLElement).closest('button'); if (b?.dataset.id) { cancel(b.dataset.id); render(); } });
+  k.onchange = d.onchange = render;
+  document.getElementById('reset')!.onclick = () => { resetDemo(); render(); };
+  document.getElementById('csv')!.onclick = () => {
+    const rows = listSignups(k.value as Kitchen, d.value).map((s) => [s.date, s.kitchen, s.role, s.status, s.name, s.email, s.phone, s.party, s.firstTime].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','));
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([['date,kitchen,role,status,name,email,phone,party,first_time', ...rows].join('\n')], { type: 'text/csv' }));
+    a.download = `roster-${k.value}-${d.value}.csv`; a.click();
+  };
+  render();
+</script>
+
+<style>
+  .bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 16px; margin-bottom: 20px; }
+  .spacer { flex: 1; }
+  select { font: inherit; padding: .7rem 1rem; border-radius: 12px; border: 1.5px solid var(--line); background: #fff; }
+  #roster :global(ul) { list-style: none; padding: 0; margin: 0 0 12px; }
+  #roster :global(li) { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  #roster :global(em) { font-style: normal; font-size: .75rem; background: rgb(47 63 232 / .08); color: var(--brand); padding: 1px 8px; border-radius: 99px; }
+  #roster :global(li button) { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 1.1rem; }
+</style>
