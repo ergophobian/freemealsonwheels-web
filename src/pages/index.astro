@@ -12,7 +12,7 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
         <button data-open="volunteer">Volunteer</button>
         <button data-open="resources">Get a meal</button>
         <button data-open="contact">Contact</button>
-        <a class="hud-link" href={`${import.meta.env.BASE_URL.replace(/\/?$/, '/')}my-shifts`}>My shifts</a>
+        <button data-shifts>My shifts</button>
         <button class="hud-give" data-open="donate">Donate</button>
       </nav>
     </header>
@@ -75,7 +75,7 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
 <script>
   import { mountTruck, type StationId } from '../lib/truck-scene';
   const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
-  import { KITCHENS, ROLES, upcomingSaturdays, spotsLeft, book, type Kitchen, type RoleId } from '../lib/store';
+  import { KITCHENS, ROLES, upcomingSaturdays, spotsLeft, book, signupsFor, reschedule, cancel, type Kitchen, type RoleId } from '../lib/store';
 
   const ORDER: StationId[] = ['volunteer', 'donate', 'about', 'resources', 'contact'];
   const root = document.getElementById('world')!, pop = document.getElementById('pop')!, body = document.getElementById('pop-body')!;
@@ -137,6 +137,7 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
     }
     else if (b.dataset.d) { vol.date = b.dataset.d; volunteerCard(); }
     else if (b.dataset.r) { vol.role = b.dataset.r as RoleId; vol.step = 'form'; volunteerCard(); }
+    else if ('shiftsIn' in b.dataset) { try { localStorage.setItem('fmow.session.v1', String(body.querySelector('.done')?.getAttribute('data-email') || '')); } catch {} openShifts(); }
     else if ('back' in b.dataset || 'again' in b.dataset) { vol.step = 'pick'; volunteerCard(); }
     else if (b.dataset.amt) {
       body.querySelectorAll('[data-amt]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
@@ -154,10 +155,10 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
     const t = (x: string) => { const [hm, ap] = x.trim().split(' '); let [h, m] = hm.split(':').map(Number); if (ap === 'PM' && h < 12) h += 12; return vol.date.replace(/-/g, '') + 'T' + String(h).padStart(2, '0') + String(m).padStart(2, '0') + '00'; };
     const ics = `BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nSUMMARY:Free Meals on Wheels · ${r.name}\nDTSTART:${t(st.includes('M') ? st : st + ' ' + en.split(' ')[1])}\nDTEND:${t(en)}\nLOCATION:${KITCHENS[vol.kitchen]} kitchen\nEND:VEVENT\nEND:VCALENDAR`;
     body.innerHTML = s.status === 'booked' ? `
-      <div class="done"><span class="tick">✓</span><h2 id="pop-title">You're in, ${esc(s.name.split(' ')[0])}!</h2>
+      <div class="done" data-email="${esc(s.email)}"><span class="tick">✓</span><h2 id="pop-title">You're in, ${esc(s.name.split(' ')[0])}!</h2>
       <p class="muted">${r.name} · ${fmt(vol.date, { weekday: 'long', month: 'long', day: 'numeric' })} · ${r.time}. A confirmation is on its way to ${esc(s.email)}.</p>
       <a class="btn wide" download="free-meals-shift.ics" href="data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}">Add to calendar</a>
-      <a class="link" href="${BASE}my-shifts">Manage your shifts →</a><br /><button class="link" data-again>Book another shift</button></div>` : `
+      <button class="link" data-shifts-in>Manage your shifts →</button><br /><button class="link" data-again>Book another shift</button></div>` : `
       <div class="done"><span class="tick wait">…</span><h2 id="pop-title">You're on the waitlist</h2>
       <p class="muted">That shift is full. We'll email ${esc(s.email)} the moment a spot opens.</p>
       <button class="link" data-again>Pick a different shift</button></div>`;
@@ -338,8 +339,79 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   addEventListener('resize', applyMode); applyMode(); syncDots();
   root.querySelector('canvas')!.addEventListener('pointerdown', () => setTimeout(() => root.classList.add('moved'), 400), { once: true });
   for (const el of [document.getElementById('prev')!, document.getElementById('next')!]) el.addEventListener('click', () => root.classList.add('moved'), { once: true });
+  // ——— My shifts, inside the world: the camera goes to the truck and a sign-in card opens beside it.
+  const SKEY = 'fmow.session.v1';
+  const sess = () => { try { return localStorage.getItem(SKEY); } catch { return null; } };
+  const sfmt = (d: string) => new Date(d + 'T12:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const sh = { step: 'email' as 'email' | 'code' | 'list', email: '', code: '', editing: '', cancelling: [] as string[] };
+  const REASONS = ['Schedule conflict', 'Feeling unwell', 'Transportation', 'Booked by mistake', 'Something else'];
+  function shiftsCard() {
+    if (sess()) sh.step = 'list';
+    if (sh.step === 'email') {
+      body.innerHTML = `<p class="kicker">Volunteers</p><h2 id="pop-title">Your shifts</h2>
+        <p class="muted">Sign in with the email you booked with. We'll send a one-time code.</p>
+        <form class="sform" data-s="email"><label>Email<input name="email" type="email" required autocomplete="email" placeholder="you@example.com" /></label><button class="btn wide">Send my code</button></form>`;
+    } else if (sh.step === 'code') {
+      body.innerHTML = `<button class="back" data-s-back>‹ Different email</button><h2 id="pop-title">Check your inbox</h2>
+        <p class="muted">We sent a 6-digit code to ${esc(sh.email)}.</p>
+        <form class="sform" data-s="code"><label>Code<input name="code" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" required autocomplete="one-time-code" /></label><button class="btn wide">Sign in</button></form>
+        <p class="fine">Preview mode: your code is <b>${sh.code}</b>. Real emails start once the site is connected.</p>`;
+    } else {
+      const email = sess()!, list = signupsFor(email);
+      const row = (x: ReturnType<typeof signupsFor>[number]) => {
+        const r = ROLES.find((y) => y.id === x.role)!;
+        if (sh.editing === x.id) return `<li class="srow editing"><form class="sform" data-s="edit" data-id="${x.id}">
+          <label>Kitchen<select name="kitchen">${(Object.keys(KITCHENS) as Kitchen[]).map((k) => `<option value="${k}" ${k === x.kitchen ? 'selected' : ''}>${KITCHENS[k]}</option>`).join('')}</select></label>
+          <label>Saturday<select name="date">${upcomingSaturdays().map((d) => `<option value="${d}" ${d === x.date ? 'selected' : ''}>${sfmt(d)}</option>`).join('')}</select></label>
+          <label>Role<select name="role">${ROLES.map((y) => `<option value="${y.id}" ${y.id === x.role ? 'selected' : ''}>${y.name}</option>`).join('')}</select></label>
+          <div class="srow-acts"><button type="button" class="link" data-s-x>Keep as is</button><button class="btn">Save</button></div></form></li>`;
+        return `<li class="srow ${x.status}"><div><b>${sfmt(x.date)} · ${r.time}</b><small>${r.name} · ${KITCHENS[x.kitchen]}${x.status === 'waitlist' ? ' · waitlist' : ''}</small></div>
+          <div class="srow-acts"><button class="link" data-s-edit="${x.id}">Change</button><button class="link danger" data-s-cancel="${x.id}">Cancel</button></div></li>`;
+      };
+      const cancelBox = sh.cancelling.length ? `<form class="sform cancelbox" data-s="cancel"><b>${sh.cancelling.length > 1 ? `Cancel all ${sh.cancelling.length} shifts?` : 'Cancel this shift?'}</b>
+        <small class="muted">A quick reason helps the kitchen plan.</small>
+        <div class="reasons">${REASONS.map((r, i) => `<label class="reason"><input type="radio" name="reason" value="${r}" ${i === 0 ? 'checked' : ''} /> ${r}</label>`).join('')}</div>
+        <textarea name="comment" rows="2" placeholder="Anything else? (optional)"></textarea>
+        <div class="srow-acts"><button type="button" class="link" data-s-x>Keep</button><button class="btn danger-btn">${sh.cancelling.length > 1 ? 'Cancel all' : 'Cancel shift'}</button></div></form>` : '';
+      body.innerHTML = `<p class="kicker">Signed in as ${esc(email)}</p><h2 id="pop-title">Your shifts</h2>
+        ${cancelBox}
+        ${list.length ? `<ul class="slist">${list.slice(0, 40).map(row).join('')}</ul>` : '<p class="muted">No upcoming shifts yet.</p>'}
+        <div class="srow-acts spread"><button class="btn" data-s-book>Book a shift</button>${list.length > 1 ? '<button class="link danger" data-s-all>Cancel all</button>' : ''}<button class="link" data-s-out>Sign out</button></div>`;
+    }
+  }
+  function openShifts() {
+    idx = -1; syncDots(); root.classList.add('focus'); closeSheets(); root.classList.remove('open');
+    api?.focus('volunteer'); pop.dataset.kitchen = ''; shiftsCard();
+    clearTimeout(openTimer); openTimer = window.setTimeout(() => { root.classList.add('open'); pop.setAttribute('aria-hidden', 'false'); }, api ? 650 : 0);
+    history.replaceState(null, '', '#shifts');
+  }
+  document.querySelectorAll<HTMLElement>('[data-shifts]').forEach((b) => (b.onclick = openShifts));
+  body.addEventListener('submit', (e) => {
+    const f = e.target as HTMLFormElement, kind = f.dataset.s; if (!kind) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    const d = new FormData(f);
+    if (kind === 'email') { sh.email = String(d.get('email')).trim().toLowerCase(); sh.code = String(Math.floor(100000 + Math.random() * 900000)); sh.step = 'code'; }
+    else if (kind === 'code') { if (String(d.get('code')) !== sh.code) { f.querySelector('input')!.setCustomValidity('That code does not match'); f.reportValidity(); return; } try { localStorage.setItem(SKEY, sh.email); } catch {} sh.step = 'list'; }
+    else if (kind === 'edit') { reschedule(f.dataset.id!, { kitchen: d.get('kitchen') as Kitchen, date: String(d.get('date')), role: d.get('role') as RoleId }); sh.editing = ''; }
+    else if (kind === 'cancel') { const reason = [d.get('reason'), String(d.get('comment') || '').trim()].filter(Boolean).join(': '); sh.cancelling.forEach((id) => cancel(id, reason)); sh.cancelling = []; }
+    shiftsCard();
+  }, true);
+  body.addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('button'); if (!b) return;
+    const D = b.dataset;
+    if ('sBack' in D) { sh.step = 'email'; }
+    else if (D.sEdit) { sh.editing = D.sEdit; sh.cancelling = []; }
+    else if (D.sCancel) { sh.cancelling = [D.sCancel]; sh.editing = ''; }
+    else if ('sAll' in D) { sh.cancelling = signupsFor(sess()!).map((x) => x.id); sh.editing = ''; }
+    else if ('sX' in D) { sh.editing = ''; sh.cancelling = []; }
+    else if ('sOut' in D) { try { localStorage.removeItem(SKEY); } catch {} sh.step = 'email'; }
+    else if ('sBook' in D) { open('volunteer'); return; }
+    else return;
+    shiftsCard();
+  });
+
   const fromHash = location.hash.slice(1) as StationId;
-  if (ORDER.includes(fromHash)) open(fromHash);
+  if (ORDER.includes(fromHash)) open(fromHash); else if (location.hash === '#shifts') openShifts();
 </script>
 
 <style>
@@ -587,5 +659,23 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   :global(.surfaces) .cork.surface .pinned { zoom: 1.22 !important; width: calc(1760px / 1.22) !important; height: calc(1060px / 1.22); gap: 22px !important; padding: 34px 44px !important; align-content: start; }
   :global(.surfaces) .cork.surface .pinned .letter textarea { rows: 2; }
   .pinned .card b { font-size: .82rem !important; white-space: nowrap; overflow-wrap: normal !important; }
+
+  /* My shifts card */
+  .pop :global(.slist) { list-style: none; padding: 0; margin: 6px 0 14px; display: grid; gap: 8px; max-height: 46vh; overflow: auto; }
+  .pop :global(.srow) { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 14px; background: #fff; }
+  .pop :global(.srow div:first-child) { display: grid; }
+  .pop :global(.srow small) { color: var(--muted); }
+  .pop :global(.srow.waitlist) { border-style: dashed; }
+  .pop :global(.srow.editing) { display: block; }
+  .pop :global(.srow-acts) { display: flex; gap: 14px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+  .pop :global(.srow-acts.spread) { justify-content: space-between; }
+  .pop :global(.srow-acts .link) { margin: 0; }
+  .pop :global(.danger) { color: #b4433a !important; }
+  .pop :global(.danger-btn) { background: #b4433a !important; border: 0; color: #fff; padding: .6rem 1rem; border-radius: 999px; font: inherit; font-weight: 600; cursor: pointer; }
+  .pop :global(.cancelbox) { padding: 12px; border-radius: 16px; background: rgb(180 67 58 / .06); margin-bottom: 12px; }
+  .pop :global(.reasons) { display: grid; gap: 6px; }
+  .pop :global(.reason) { display: flex !important; gap: 8px; align-items: center; padding: .45rem .7rem; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; cursor: pointer; }
+  .pop :global(.reason:has(input:checked)) { border-color: var(--green-2); }
+  .pop :global(textarea) { font: inherit; padding: .6rem .8rem; border: 1.5px solid var(--line); border-radius: 12px; resize: vertical; }
   @media (prefers-reduced-motion: reduce) { .pop, .labels button i { transition: none; animation: none; } }
 </style>

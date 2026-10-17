@@ -4,12 +4,13 @@ interface Props { title: string; description?: string; immersive?: boolean }
 const { title, immersive = false, description = 'Free Meals on Wheels cooks and delivers free, fresh meals to neighbors in need across the Bay Area.' } = Astro.props;
 const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+// Every page shares the world's glass header; links go back into the 3D world's stations.
 const nav = [
-  [`${B}about`, 'About'],
-  [`${B}programs`, 'Programs'],
-  [`${B}volunteer`, 'Volunteer'],
-  [`${B}resources`, 'Resources'],
-  [`${B}contact`, 'Contact'],
+  [`${B}#about`, 'Our story'],
+  [`${B}#volunteer`, 'Volunteer'],
+  [`${B}#resources`, 'Get a meal'],
+  [`${B}#contact`, 'Contact'],
+  [`${B}my-shifts`, 'My shifts'],
 ];
 ---
 <!doctype html>
@@ -25,42 +26,33 @@ const nav = [
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Kalam:wght@300;400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </head>
 <body class:list={[{ immersive }]}>
-  {!immersive && <header class="site-header">
-    <div class="wrap bar">
-      <a href={`${B}`} class="brand"><img src={`${B}logo.png`} alt="" width="36" height="36" /> Free Meals on Wheels</a>
-      <input type="checkbox" id="menu" class="menu-toggle" aria-label="Open menu" />
-      <label for="menu" class="menu-btn" aria-hidden="true"><span></span></label>
-      <nav>
-        {nav.map(([href, label]) => <a href={href} aria-current={path.replace(/\/$/, '') === href.replace(/\/$/, '') ? 'page' : undefined}>{label}</a>)}
-        <a href={`${B}donate`} class="btn btn-sm">Donate</a>
-      </nav>
-    </div>
+  {!immersive && <header class="glass-head">
+    <a href={B} class="gh-brand"><img src={`${B}img/logo-heart.png`} alt="" width="38" height="34" /><span>Free Meals on Wheels</span></a>
+    <nav class="gh-nav">
+      {nav.map(([href, label]) => <a href={href} aria-current={path.replace(/\/$/, '') === href.replace(/\/$/, '') ? 'page' : undefined}>{label}</a>)}
+      <a href={`${B}#donate`} class="gh-give">Donate</a>
+    </nav>
   </header>}
   <main><slot /></main>
   <Feedback />
-  {!immersive && <footer class="site-footer">
-    <div class="wrap footer-grid">
-      <div>
-        <img src={`${B}img/logo-banner.png`} alt="Free Meals on Wheels" width="220" style="margin-bottom:12px" />
-        <p class="muted">Bringing smiles, one meal at a time. A 501(c)(3) nonprofit with kitchens in San Jose and San Ramon.</p>
-      </div>
-      <div>
-        <h4>Get involved</h4>
-        <a href={`${B}donate`}>Donate</a><a href={`${B}volunteer`}>Volunteer</a><a href={`${B}programs`}>Programs</a>
-      </div>
-      <div>
-        <h4>Say hello</h4>
-        <a href="mailto:info@freemealsonwheels.com">info@freemealsonwheels.com</a>
-        <a href="https://www.instagram.com/freemealsonwheels/">Instagram</a>
-        <a href="https://www.facebook.com/Freemeals20/">Facebook</a>
-      </div>
-    </div>
-    <p class="wrap muted small">© {new Date().getFullYear()} Free Meals on Wheels. Every dollar goes to meals.</p>
-  </footer>}
+  {!immersive && <footer class="glass-foot"><a href={B}>← Back to the truck</a><span>Free Meals on Wheels · a 501(c)(3) nonprofit · <a href="mailto:info@freemealsonwheels.com">info@freemealsonwheels.com</a></span></footer>}
 </body>
 </html>
 
 <style is:global>
+  body:not(.immersive) { min-height: 100vh; background: radial-gradient(1200px 600px at 15% -10%, #dcefe3 0%, transparent 60%), radial-gradient(900px 500px at 110% 10%, #fde7cf 0%, transparent 55%), #f7f3ec; }
+  .glass-head { position: sticky; top: 0; z-index: 20; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px; }
+  .glass-head .gh-brand, .glass-head .gh-nav { background: linear-gradient(135deg, rgb(255 255 255 / .7), rgb(255 255 255 / .4)); backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4); border: 1px solid rgb(255 255 255 / .7); box-shadow: inset 0 1px 0 #fff, 0 8px 24px rgb(20 60 40 / .1); border-radius: 999px; }
+  .glass-head .gh-brand { display: flex; align-items: center; gap: 10px; padding: 6px 16px 6px 8px; text-decoration: none; color: #16231c; font-weight: 600; }
+  .glass-head .gh-brand img { width: 38px; height: 34px; object-fit: contain; }
+  .glass-head .gh-nav { display: flex; gap: 4px; padding: 5px; }
+  .glass-head .gh-nav a { padding: .55rem 1rem; border-radius: 999px; color: #16231c; text-decoration: none; font-weight: 550; }
+  .glass-head .gh-nav a:hover, .glass-head .gh-nav a[aria-current] { background: rgb(255 255 255 / .6); }
+  .glass-head .gh-nav .gh-give { background: var(--btn); color: #fff; box-shadow: var(--btn-shadow); }
+  .glass-foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 28px 24px 40px; color: var(--muted); font-size: .9rem; }
+  .glass-foot a { color: var(--green-2); font-weight: 600; text-decoration: none; }
+  @media (max-width: 760px) { .glass-head .gh-nav a:not(.gh-give):not([href$="my-shifts"]) { display: none; } .glass-head .gh-brand span { display: none; } }
+
   html.embed .site-header, html.embed .site-footer { display: none; }
   html.embed body { background: transparent; }
   html.embed main > .page-hero:first-child { padding-top: 28px; }

@@ -25,7 +25,7 @@ const C = {
 };
 
 const ANCHORS: Record<StationId, [number, number, number]> = {
-  volunteer: [-.5, 5.15, 0], donate: [3.2, 1.85, 3.1], about: [5.6, 2.9, 4.4], resources: [-6.2, 3.2, 3.9], contact: [-9.6, 3.15, 6.6],
+  volunteer: [-.5, 5.15, 0], donate: [3.2, 1.85, 3.1], about: [5.6, 2.9, 4.4], resources: [6.2, 2.6, 9.4], contact: [-3.4, 3.15, 6.6],
 };
 
 const std = (color: string, extra: THREE.MeshStandardMaterialParameters = {}) => new THREE.MeshStandardMaterial({ color, roughness: .7, metalness: 0, ...extra });
@@ -400,7 +400,7 @@ export function mountTruck(
   board.add(mesh(new THREE.PlaneGeometry(BOARD.w, BOARD.h), new THREE.MeshBasicMaterial({ map: boardTex, toneMapped: false }), 0, BOARD.y, BOARD.z));
 
   // ——— Contact: a community bulletin board under a little roof.
-  const bulletin = new THREE.Group(); bulletin.position.set(-9.6, .14, 6.6); bulletin.rotation.y = .6; scene.add(bulletin);
+  const bulletin = new THREE.Group(); bulletin.position.set(-3.4, .14, 6.6); bulletin.rotation.y = .3; scene.add(bulletin);
   for (const x of [-.95, .95]) bulletin.add(mesh(new THREE.BoxGeometry(.1, 2.7, .1), std(C.wood), x, 1.35, 0));
   bulletin.add(mesh(rbox(1.9, 1.16, .1, .03), std('#8A5E3C'), 0, 1.82, 0));
   const PIN = { w: 1.76, h: 1.06, y: 1.82, z: .055 };
@@ -449,8 +449,9 @@ export function mountTruck(
     if (!reserve) for (const sx of [-.45, .45]) for (const sz of [-.68, .68]) seats.push({ pos: t.localToWorld(new THREE.Vector3(sx, -.14, sz)), face: rot + (sz > 0 ? Math.PI : 0), taken: false });
     return t;
   };
-  const picnic = table(-6.2, 3.9, .2, true, true);
-  table(-6.4, 11.4, -.3, true); table(5.8, 8.8, .2, true); table(2.4, 11.6, -.15, false); table(-11.5, 12, .15, false); table(11, 7.4, .4, true);
+  const picnic = table(6.2, 9.4, -.2, false, true);
+  table(-6.2, 3.9, .2, true);
+  table(-6.4, 11.4, -.3, true);  table(-11.5, 12, .15, false); table(11, 7.4, .4, true);
 
   // ——— Planters, lamps, trees, string lights.
   const flowerCols = ['#E9A86A', '#E38C8C', '#F0D27A', '#FFFFFF', '#B9A0D8'];
@@ -473,7 +474,7 @@ export function mountTruck(
   let heartGlowMat: THREE.Mesh | null = null;
   const ledBulbs: THREE.Mesh[] = []; let signFace: THREE.Mesh | null = null;
   // ——— The logo as a sculpture: the heart drawn as a single tube, with a fork and spoon crossing at its point.
-  const statue = new THREE.Group(); statue.position.set(-3.2, .14, 7.4); statue.rotation.y = .25; statue.scale.setScalar(1.45); scene.add(statue);
+  const statue = new THREE.Group(); statue.position.set(11.5, .14, 7); statue.rotation.y = -.35; statue.scale.setScalar(1.45); scene.add(statue);
   statue.add(mesh(rbox(1.6, .5, 1.1, .08), std('#E9E2D6', { roughness: .8, roughnessMap: grime }), 0, .25, 0));
   statue.add(mesh(rbox(1.75, .08, 1.25, .03), std('#D6CCBC'), 0, .54, 0));
   const plaque = logoCanvas(512, 128, (c, w, h) => { c.fillStyle = '#2E3B33'; c.fillRect(0, 0, w, h); c.fillStyle = '#E9D9B4'; c.font = '600 44px Inter, sans-serif'; c.textAlign = 'center'; c.fillText('Free Meals on Wheels', w / 2, 62); c.font = 'italic 30px Georgia, serif'; c.fillText('Bringing smiles, one meal at a time', w / 2, 104); });
@@ -649,12 +650,12 @@ export function mountTruck(
       entries: [new THREE.Vector3(-21, .14, 2.1), new THREE.Vector3(21, .14, 2.1), new THREE.Vector3(-19, .14, 13), new THREE.Vector3(19, .14, 14)],
       exits: [new THREE.Vector3(-22, .14, 2.1), new THREE.Vector3(22, .14, 2.1), new THREE.Vector3(-20, .14, 13), new THREE.Vector3(20, .14, 14)],
       obstacles: [
-        ...truckObstacles, { x: -3.2, z: 7.4, r: 2.1 }, { x: 3.2, z: 3.1, r: .55 }, { x: 5.6, z: 4.4, r: 1 }, { x: -9.6, z: 6.6, r: 1.2 },
-        { x: -6.2, z: 3.9, r: 1.25 }, { x: -6.4, z: 11.4, r: 1.25 }, { x: 5.8, z: 8.8, r: 1.25 }, { x: 2.4, z: 11.6, r: 1.25 }, { x: -11.5, z: 12, r: 1.25 }, { x: 11, z: 7.4, r: 1.25 },
+        ...truckObstacles, { x: 11.5, z: 7, r: 2.1 }, { x: 3.2, z: 3.1, r: .55 }, { x: 5.6, z: 4.4, r: 1 }, { x: -3.4, z: 6.6, r: 1.2 },
+        { x: -6.2, z: 3.9, r: 1.25 }, { x: -6.4, z: 11.4, r: 1.25 }, { x: -6.2, z: 4.4, r: 1.25 }, { x: -11.5, z: 12, r: 1.25 }, { x: 11, z: 7.4, r: 1.25 },
         ...[-17, -13, 12, 16].map((x) => ({ x, z: 3.4, r: 1.4 })), ...[-14, -11, 8.5, 12].map((x) => ({ x, z: 2.4, r: .25 })),
-        { x: -14, z: 9, r: 2.6 }, { x: 14, z: 11, r: 2.6 }, { x: -6, z: 15, r: 2.6 }, { x: 8, z: 16, r: 2.6 }, { x: 1, z: 12, r: .9 }, { x: -8, z: 2.4, r: .25 }, { x: 5.6, z: 2.4, r: .25 },
+        { x: -14, z: 9, r: 2.6 }, { x: 14, z: 11, r: 2.6 }, { x: -6, z: 15, r: 2.6 }, { x: 8, z: 16, r: 2.6 }, { x: -8, z: 2.4, r: .25 }, { x: 5.6, z: 2.4, r: .25 },
       ],
-      max: tier > 1 ? 18 : 11,
+      max: tier > 1 ? 12 : 8,
       meal: () => food('styrofoam-dinner', .26),
       onOrder: () => server?.set('nod'),
       onServe: () => { server?.set('reach'); serveFlash = 1.2; },
@@ -697,7 +698,7 @@ export function mountTruck(
     for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; scene.add(mesh(new THREE.SphereGeometry(.07, 8, 6), std(['#FF6F91', '#FFD166', '#FFFFFF', '#C08BFF'][i % 4]), x + Math.cos(a) * .7, .78, z + Math.sin(a) * .7)); }
     bench(x + 2, z, -Math.PI / 2); bench(x - 2, z, Math.PI / 2);
   }
-  for (const [x, z, ry] of [[1, 12, 0], [-9, 17, 0], [17, 15, -.4], [-18, 13, .4]] as const) bench(x, z, ry);
+  for (const [x, z, ry] of [[-9, 17, 0], [17, 15, -.4], [-18, 13, .4]] as const) bench(x, z, ry);
   const bed = (x: number, z: number, w: number) => {
     scene.add(mesh(rbox(w, .3, 1, .06), std('#9C8B78', { roughness: .9 }), x, .29, z));
     scene.add(mesh(new THREE.BoxGeometry(w - .15, .06, .85), std('#4E6B3A', { roughness: 1 }), x, .45, z));

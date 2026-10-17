@@ -8,7 +8,7 @@ export interface Role { id: RoleId; name: string; time: string; note: string; ca
 export interface Signup {
   id: string; kitchen: Kitchen; date: string; role: RoleId;
   name: string; email: string; phone: string; party: number; firstTime: boolean;
-  status: 'booked' | 'waitlist' | 'cancelled'; createdAt: string;
+  status: 'booked' | 'waitlist' | 'cancelled'; createdAt: string; cancelReason?: string;
 }
 
 export const KITCHENS: Record<Kitchen, string> = { san_jose: 'San Jose', san_ramon: 'San Ramon' };
@@ -72,7 +72,7 @@ export function book(input: Omit<Signup, 'id' | 'status' | 'createdAt'>): Signup
   return s;
 }
 
-export function cancel(id: string) { save(load().map((s) => (s.id === id ? { ...s, status: 'cancelled' } : s))); }
+export function cancel(id: string, reason?: string) { save(load().map((s) => (s.id === id ? { ...s, status: 'cancelled', cancelReason: reason } : s))); }
 
 export function listSignups(kitchen: Kitchen, date: string): Signup[] {
   return load().filter((s) => s.kitchen === kitchen && s.date === date && s.status !== 'cancelled');

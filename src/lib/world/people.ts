@@ -52,6 +52,7 @@ export class Person {
   private t = Math.random() * 10;
   private model: THREE.Group;
   private wasSeated = false;
+  private feet: Record<string, THREE.Object3D | undefined> = {};
   private height = 1.72;
   constructor(model: THREE.Group, clips: THREE.AnimationClip[], o: PersonOpts) {
     const h = o.height ?? 1.72; this.height = h;
@@ -71,6 +72,7 @@ export class Person {
       m.material = Array.isArray(m.material) ? mats : mats[0];
     });
     for (const n of ['UpperLeg.L', 'UpperLeg.R', 'LowerLeg.L', 'LowerLeg.R', 'Hips', 'Wrist.R', 'Wrist.L', 'Chest', 'UpperArm.L', 'UpperArm.R', 'LowerArm.L', 'LowerArm.R', 'Head']) this.bones[n] = model.getObjectByName(n) ?? model.getObjectByName(n.replace('.', '')) ?? undefined; // GLTFLoader strips '.' from node names
+    for (const sd of ['L', 'R']) this.feet[sd] = model.getObjectByName(`Foot${sd}`) ?? model.getObjectByName(`Foot.${sd}`) ?? undefined;
     this.hand = new THREE.Object3D();
     (this.bones['Wrist.R'] ?? model).add(this.hand);
     this.hand.scale.setScalar(1 / model.scale.x);
@@ -111,17 +113,36 @@ export class Person {
     this.hand.children.filter((c) => c.userData.carried).forEach((c) => c.removeFromParent());
     if (o) { o.userData.carried = true; this.hand.add(o); }
   }
+  // Turn a bone (in world space) so the direction from it to its child matches dir. Works on any rest pose.
+  private aim(bone: THREE.Object3D | undefined, child: THREE.Object3D | undefined, dir: THREE.Vector3) {
+    if (!bone || !child || !bone.parent) return;
+    bone.updateWorldMatrix(true, false); child.updateWorldMatrix(false, false);
+    const cur = V2.setFromMatrixPosition(child.matrixWorld).sub(V1.setFromMatrixPosition(bone.matrixWorld)).normalize();
+    const delta = Q1.setFromUnitVectors(cur, dir);
+    const world = bone.getWorldQuaternion(Q2).premultiply(delta);
+    bone.quaternion.copy(bone.parent.getWorldQuaternion(Q3).invert().multiply(world));
+    bone.updateWorldMatrix(false, true);
+  }
   update(dt: number) {
     this.t += dt;
     this.mixer.update(dt);
-    // Seated people sit behind benches and tables: tuck the legs away and lower the body to seat height.
     const seated = this.pose === 'sit';
     if (seated !== this.wasSeated) {
       this.wasSeated = seated;
-      this.model.traverse((c) => { if ((c as THREE.Mesh).isMesh && /Legs|Feet/i.test(c.name)) c.visible = !seated; });
-      this.model.position.y = seated ? -this.height * .27 : 0;
+      // Seat height: pelvis just above a .62 m bench; standing pelvis sits at about 53% of height.
+      this.model.position.set(0, seated ? .69 - this.height * .53 : 0, seated ? -.12 : 0);
+    }
+    if (seated) {
+      const q = this.obj.getWorldQuaternion(Q4);
+      const fwd = V3.set(0, -.05, 1).applyQuaternion(q).normalize(), down = V4.set(0, -1, .08).applyQuaternion(q).normalize();
+      for (const sd of ['L', 'R']) {
+        this.aim(this.bones[`UpperLeg.${sd}`], this.bones[`LowerLeg.${sd}`], fwd);
+        this.aim(this.bones[`LowerLeg.${sd}`], this.feet[sd], down);
+      }
     }
   }
 }
+
+
 const V1 = new THREE.Vector3(), V2 = new THREE.Vector3(), V3 = new THREE.Vector3(), V4 = new THREE.Vector3();
 const Q1 = new THREE.Quaternion(), Q2 = new THREE.Quaternion(), Q3 = new THREE.Quaternion(), Q4 = new THREE.Quaternion();

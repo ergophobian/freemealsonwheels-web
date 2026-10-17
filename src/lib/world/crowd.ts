@@ -26,7 +26,7 @@ export class Crowd {
       meal: () => THREE.Object3D; onServe: () => void; onOrder: () => void; make: (mobility: Mobility) => Person;
     },
   ) {
-    for (let i = 0; i < 17; i++) this.spawn(i < 4 ? 'queue' : i < 11 ? 'sit' : 'pass', true);
+    for (let i = 0; i < 11; i++) this.spawn(i < 3 ? 'queue' : i < 8 ? 'sit' : 'pass', true);
   }
   limit(n: number) { this.opts.max = n; }
   private slotPos(i: number) { return this.opts.window.clone().addScaledVector(this.opts.queueDir, i * .95); }
@@ -65,7 +65,7 @@ export class Crowd {
     const q = this.queue().length, passing = this.npcs.filter((n) => n.state === 'leave' && !n.seat).length;
     if (this.spawnIn <= 0) {
       if (q < 3 || (q < 6 && Math.random() < .5)) this.spawn('enter');
-      else if (passing < this.opts.max - 8) this.spawn('pass');
+      else if (passing < 3) this.spawn('pass');
       this.spawnIn = rand(1.6, 3.4);
     }
 
