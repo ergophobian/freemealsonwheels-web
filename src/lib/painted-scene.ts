@@ -2,21 +2,21 @@
 // Paper, grain and the 12 fps "boil" follow the painted-explainers recipe (youtube-automation).
 import * as THREE from 'three';
 
-const PAL = {
-  paper: '#F6EFE2', ink: '#1F3A2B', coat: '#2F6B4A', scarf: '#E07A3C', blanket: '#C9826B', shirt: '#6F86A6',
-  skin1: '#C68A62', skin2: '#8E5B3E', wood: '#8A5E3C', street: '#F1E0CA', city: '#D9AFA2', cityFar: '#E9C7B4',
-  cream: '#FFF3DE', trouser: '#3A4652',
+export const PAL = {
+  paper: '#F6EFE2', ink: '#1F3A2B', coat: '#2F6B4A', scarf: '#E07A3C', blanket: '#B9906F', shirt: '#6F86A6',
+  skin1: '#D7A684', skin2: '#9C6C50', wood: '#8A5E3C', street: '#E4E2D2', city: '#D9AFA2', cityFar: '#E9C7B4',
+  cream: '#FFF3DE', gold: '#E2C27A', trouser: '#3A4652',
 };
 const BOIL_FPS = 12;
 
-function lcg(seed: number) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
-const clamp = (x: number, a = 0, b = 1) => Math.max(a, Math.min(b, x));
-const ease = (x: number) => { x = clamp(x); return x * x * (3 - 2 * x); };
-const seg = (x: number, a: number, b: number) => ease((x - a) / (b - a));
+export function lcg(seed: number) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+export const clamp = (x: number, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+export const ease = (x: number) => { x = clamp(x); return x * x * (3 - 2 * x); };
+export const seg = (x: number, a: number, b: number) => ease((x - a) / (b - a));
 const mix2 = (a: number[], b: number[], k: number) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
 
 // Paper base with soft ochre blotches and multiplied grain.
-function makePaper(w = 1024, h = 1024) {
+export function makePaper(w = 1024, h = 1024) {
   const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
   const c = cv.getContext('2d')!, rnd = lcg(11);
   c.fillStyle = PAL.paper; c.fillRect(0, 0, w, h);
@@ -34,7 +34,7 @@ function makePaper(w = 1024, h = 1024) {
   return t;
 }
 
-function makeGlow() {
+export function makeGlow() {
   const cv = document.createElement('canvas'); cv.width = cv.height = 128;
   const c = cv.getContext('2d')!, g = c.createRadialGradient(64, 64, 0, 64, 64, 64);
   g.addColorStop(0, 'rgba(255,236,190,1)'); g.addColorStop(.35, 'rgba(255,200,120,.45)'); g.addColorStop(1, 'rgba(255,180,100,0)');
@@ -42,7 +42,7 @@ function makeGlow() {
   return new THREE.CanvasTexture(cv);
 }
 
-const PAINT_FRAG = /* glsl */ `
+export const PAINT_FRAG = /* glsl */ `
   uniform sampler2D tScene, tPaper;
   uniform vec2 uRes; uniform float uBoil;
   varying vec2 vUv;
@@ -75,14 +75,14 @@ const PAINT_FRAG = /* glsl */ `
     vec3 paper = texture2D(tPaper, vUv * vec2(uRes.x / uRes.y, 1.) * .9).rgb;
     c = mix(c, vec3(1.), .1 + smoothstep(.85, 1., l) * .4) * paper;
     float v = smoothstep(1.2, .45, length(vUv - .5) * 1.4);
-    c *= mix(vec3(.9, .84, .8), vec3(1.), v);
+    c *= mix(vec3(.92, .9, .87), vec3(1.), v);
     gl_FragColor = vec4(c, 1.);
   }`;
 
-const SKY_FRAG = /* glsl */ `
+export const SKY_FRAG = /* glsl */ `
   varying vec2 vUv;
   void main() {
-    vec3 top = vec3(.96, .86, .8), mid = vec3(.98, .79, .64), low = vec3(1., .87, .6);
+    vec3 top = vec3(.96, .86, .8), mid = vec3(.98, .79, .64), low = vec3(1., .9, .72);
     vec3 c = mix(low, mid, smoothstep(.0, .35, vUv.y));
     c = mix(c, top, smoothstep(.35, .9, vUv.y));
     vec2 p = vUv * vec2(2.25, 1.);
@@ -92,16 +92,42 @@ const SKY_FRAG = /* glsl */ `
     gl_FragColor = vec4(c, 1.);
   }`;
 
-const mat = (color: string, emissive?: string) =>
-  new THREE.MeshLambertMaterial({ color, flatShading: true, ...(emissive ? { emissive, emissiveIntensity: .6 } : {}) });
+// Three soft tones, like a wash laid in layers.
+const toneMap = (() => {
+  const t = new THREE.DataTexture(new Uint8Array([120, 120, 120, 255, 190, 190, 190, 255, 255, 255, 255, 255]), 3, 1);
+  t.minFilter = t.magFilter = THREE.NearestFilter; t.needsUpdate = true; return t;
+})();
+export const mat = (color: string, emissive?: string) =>
+  new THREE.MeshToonMaterial({ color, gradientMap: toneMap, ...(emissive ? { emissive, emissiveIntensity: .6 } : {}) });
 
-function limb(r: number, len: number, color: string) {
+// Hand-inked outline: a slightly fattened back-face hull.
+const inkMat = new THREE.ShaderMaterial({
+  uniforms: { uW: { value: .02 } },
+  vertexShader: 'uniform float uW; void main() { gl_Position = projectionMatrix * modelViewMatrix * vec4(position + normal * uW, 1.); }',
+  fragmentShader: 'void main() { gl_FragColor = vec4(.29, .2, .15, 1.); }',
+  side: THREE.BackSide,
+});
+export function ink(root: THREE.Object3D) {
+  const meshes: THREE.Mesh[] = [];
+  root.traverse((o) => { if ((o as THREE.Mesh).isMesh && o.userData.ink !== false) meshes.push(o as THREE.Mesh); });
+  for (const m of meshes) { const o = new THREE.Mesh(m.geometry, inkMat); o.userData.ink = false; m.add(o); }
+}
+
+export function makeBlob(color: string) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128;
+  const c = cv.getContext('2d')!, g = c.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = g; c.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(cv);
+}
+
+export function limb(r: number, len: number, color: string) {
   const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 4, 8), mat(color));
   m.position.y = -len / 2; return m;
 }
 
 // A two-bone arm posed in its parent's side plane (x right, y up).
-function arm(sleeve: string, skin: string, l1: number, l2: number) {
+export function arm(sleeve: string, skin: string, l1: number, l2: number) {
   const shoulder = new THREE.Group(), elbow = new THREE.Group();
   shoulder.add(limb(.075, l1, sleeve)); elbow.position.y = -l1; shoulder.add(elbow);
   elbow.add(limb(.065, l2, sleeve));
@@ -111,7 +137,7 @@ function arm(sleeve: string, skin: string, l1: number, l2: number) {
 
 const tmp = new THREE.Vector3();
 // Point the hand at a world-space (x, y) with a planar two-bone solve.
-function reach(a: ReturnType<typeof arm>, wx: number, wy: number, bend: 1 | -1) {
+export function reach(a: ReturnType<typeof arm>, wx: number, wy: number, bend: 1 | -1) {
   const parent = a.shoulder.parent!;
   parent.updateMatrixWorld(true);
   tmp.set(wx, wy, a.shoulder.getWorldPosition(new THREE.Vector3()).z);
@@ -131,8 +157,8 @@ export function mountPaintedScene(canvas: HTMLCanvasElement, progress: () => num
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog('#F6DCC0', 12, 40);
-  scene.add(new THREE.HemisphereLight('#fff4e4', '#d8b4a0', 2.3));
+  scene.fog = new THREE.Fog('#F4E6D2', 12, 40);
+  scene.add(new THREE.HemisphereLight('#fff8ee', '#cfc8b4', 1.35));
   const rim = new THREE.DirectionalLight('#ffe2bd', 1.6); rim.position.set(6, 4, -6); scene.add(rim);
   const key = new THREE.DirectionalLight('#ffe9cf', .9); key.position.set(-4, 5, 6); scene.add(key);
 
@@ -159,6 +185,22 @@ export function mountPaintedScene(canvas: HTMLCanvasElement, progress: () => num
 
   // Street, sidewalk, bench, lamp.
   const street = new THREE.Mesh(new THREE.PlaneGeometry(80, 30), mat(PAL.street)); street.rotation.x = -Math.PI / 2; street.position.z = -5; scene.add(street);
+  const grass = new THREE.Mesh(new THREE.PlaneGeometry(80, 3.2), mat('#B9C99A')); grass.rotation.x = -Math.PI / 2; grass.position.set(0, .01, -2.6); scene.add(grass);
+
+  // Trees in brand greens, framing the moment.
+  const leafCols = ['#4F7F58', '#6E9A62', '#8DB06E', '#3F6B4C'];
+  const trees: THREE.Group[] = [];
+  for (const [x, z, s] of [[-6.5, -6, 1.3], [5.6, -4.5, 1.3], [-11, -9, 1.5], [10, -9, 1.6], [2.4, -12, 1.3]] as const) {
+    const tr = new THREE.Group();
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.07, .12, 2.2, 7), mat(PAL.wood)); trunk.position.y = 1.1; tr.add(trunk);
+    const tr2 = lcg(Math.round(x * 13 + 99));
+    for (let i = 0; i < 7; i++) {
+      const r = .45 + tr2() * .4;
+      const b = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 2), mat(leafCols[i % 4]));
+      b.position.set((tr2() - .5) * 1.3, 2.3 + tr2() * .9, (tr2() - .5) * .8); tr.add(b);
+    }
+    tr.position.set(x, .12, z); tr.scale.setScalar(s); scene.add(tr); trees.push(tr);
+  }
   const bench = new THREE.Group();
   const seat = new THREE.Mesh(new THREE.BoxGeometry(1.7, .08, .5), mat(PAL.wood)); seat.position.y = .48; bench.add(seat);
   const back = new THREE.Mesh(new THREE.BoxGeometry(1.7, .4, .06), mat(PAL.wood)); back.position.set(0, .8, -.24); back.rotation.x = -.12; bench.add(back);
@@ -204,7 +246,7 @@ export function mountPaintedScene(canvas: HTMLCanvasElement, progress: () => num
   const tail = new THREE.Mesh(tailGeo, new THREE.MeshLambertMaterial({ color: PAL.scarf, side: THREE.DoubleSide })); tail.position.set(-.1, .74, -.1); gBody.add(tail);
   const gHead = new THREE.Group(); gHead.position.set(0, 1.0, 0); gBody.add(gHead);
   gHead.add(new THREE.Mesh(new THREE.SphereGeometry(.19, 20, 16), mat(PAL.skin1)));
-  const beanie = new THREE.Mesh(new THREE.SphereGeometry(.2, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat(PAL.scarf)); beanie.position.y = .04; gHead.add(beanie);
+  const beanie = new THREE.Mesh(new THREE.SphereGeometry(.2, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat(PAL.gold)); beanie.position.y = .04; gHead.add(beanie);
   for (const z of [.11, -.11]) {
     const leg = new THREE.Mesh(new THREE.CapsuleGeometry(.09, .55, 4, 8), mat(PAL.trouser)); leg.position.set(0, .36, z); giver.add(leg);
     const shoe = new THREE.Mesh(new THREE.BoxGeometry(.26, .09, .13), mat(PAL.ink)); shoe.position.set(.06, .05, z); giver.add(shoe);
@@ -222,6 +264,40 @@ export function mountPaintedScene(canvas: HTMLCanvasElement, progress: () => num
     const s = new THREE.Mesh(new THREE.IcosahedronGeometry(.05, 0), new THREE.MeshBasicMaterial({ color: '#fff7ea', transparent: true }));
     scene.add(s); return s;
   });
+  // Faces: closed, content eyes and a little warmth in the cheeks.
+  const eyeMat = new THREE.MeshBasicMaterial({ color: '#3a2a20' }), blushMat = new THREE.MeshBasicMaterial({ color: '#E8907A', transparent: true, opacity: .55 });
+  const face = (head: THREE.Group, dir: 1 | -1, r: number) => {
+    for (const z of [.07, -.07]) {
+      const e = new THREE.Mesh(new THREE.CapsuleGeometry(.018, .05, 2, 6), eyeMat); e.rotation.x = Math.PI / 2;
+      e.position.set(dir * r * .9, .02, z); e.userData.ink = false; head.add(e);
+      const b = new THREE.Mesh(new THREE.SphereGeometry(.035, 8, 6), blushMat); b.scale.set(.4, .7, 1);
+      b.position.set(dir * r * .86, -.04, z * 1.4); b.userData.ink = false; head.add(b);
+    }
+  };
+  face(gHead, 1, .19); face(nHead, -1, .18);
+  ink(giver); ink(neighbor); ink(bench); ink(lamp); ink(box); trees.slice(0, 2).forEach(ink);
+
+  // Soft contact shadows, cast long by the low sun.
+  const shadowTex = makeBlob('rgba(90,60,45,.5)');
+  for (const [x, z, sx, sz] of [[-.5, .05, 1.4, .5], [1.1, -.05, 2.4, .7], [2.4, -.9, 1.2, .3], [-6.7, -6, 2.6, .9], [5.2, -4.5, 2.8, .9]] as const) {
+    const s = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false }));
+    s.rotation.x = -Math.PI / 2; s.position.set(x - sx * .25, .13, z); s.scale.set(sx, sz, 1); scene.add(s);
+  }
+
+  // Clouds, birds and drifting leaves.
+  const cloudTex = makeBlob('rgba(255,246,232,.9)');
+  const clouds = Array.from({ length: 7 }, (_, i) => {
+    const c = new THREE.Sprite(new THREE.SpriteMaterial({ map: cloudTex, transparent: true, opacity: .75, depthWrite: false, fog: false }));
+    c.scale.set(6 + (i % 3) * 3, 1.6 + (i % 2), 1); c.position.set(-24 + i * 8, 7 + (i % 3) * 2.2, -26); scene.add(c); return c;
+  });
+  const birdGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-.18, .06, 0), new THREE.Vector3(0, 0, 0), new THREE.Vector3(.18, .06, 0)]);
+  const birds = Array.from({ length: 4 }, () => { const b = new THREE.Line(birdGeo.clone(), new THREE.LineBasicMaterial({ color: '#6b4a3a' })); scene.add(b); return b; });
+  const leafGeo = new THREE.PlaneGeometry(.07, .045);
+  const leaves = Array.from({ length: 14 }, (_, i) => {
+    const l = new THREE.Mesh(leafGeo, new THREE.MeshBasicMaterial({ color: ['#E09A3E', '#C9772F', '#E2C27A', '#8DB06E'][i % 4], side: THREE.DoubleSide }));
+    scene.add(l); return { l, seed: i * 2.39 };
+  });
+
   const motes = Array.from({ length: 36 }, (_, i) => { const m = glowSprite(.12 + (i % 4) * .03, 0); scene.add(m); return { m, seed: i * 1.618 }; });
 
   const camera = new THREE.PerspectiveCamera(28, 1, .1, 120);
@@ -283,7 +359,7 @@ export function mountPaintedScene(canvas: HTMLCanvasElement, progress: () => num
     // Warmth grows as the meal arrives.
     const warm = .55 + .45 * toNeighbor;
     boxGlow.scale.setScalar(1.1 + warm * 1.2 + Math.sin(t * 2.3) * .06);
-    boxLight.intensity = .6 + warm * 1.1;
+    boxLight.intensity = .3 + warm * .6;
     steam.forEach((s, i) => {
       const age = (t * .35 + i / steam.length) % 1;
       s.position.set(box.position.x + Math.sin(age * 7 + i) * .06, box.position.y + .14 + age * .55, .02);
@@ -293,6 +369,19 @@ export function mountPaintedScene(canvas: HTMLCanvasElement, progress: () => num
       const age = (t * .08 + seed) % 1, r = .2 + age * 1.6;
       m.position.set(box.position.x + Math.sin(seed * 7 + t * .4) * r * .7, box.position.y + age * 2.6, Math.cos(seed * 5) * .6);
       (m.material as THREE.SpriteMaterial).opacity = Math.sin(age * Math.PI) * (.25 + .75 * warm) * .8;
+    });
+
+    clouds.forEach((c, i) => { c.position.x = ((-24 + i * 8 + t * .15 + 28) % 56) - 28; });
+    birds.forEach((b, i) => {
+      const p = (t * .03 + i * .17) % 1;
+      b.position.set(-14 + p * 30 + i * .6, 6.5 + i * .5 + Math.sin(t + i) * .3, -18);
+      const f = Math.sin(t * 6 + i * 2) * .08, a = b.geometry.attributes.position;
+      a.setY(0, .06 + f); a.setY(2, .06 + f); a.needsUpdate = true;
+    });
+    leaves.forEach(({ l, seed }) => {
+      const age = (t * .05 + seed) % 1;
+      l.position.set(-2 + (seed * 3.1 % 9) + Math.sin(t * .8 + seed) * .5 + age * 2, 3.6 - age * 3.6, -1.2 + (seed % 2.4));
+      l.rotation.set(t * 1.3 + seed, t * .9 + seed, t + seed);
     });
 
     camera.position.set(mouse.x * .5 + .2, 1.7 - mouse.y * .3, 11 - h * 1.6);
