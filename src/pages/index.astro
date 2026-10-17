@@ -17,7 +17,7 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
     </header>
     <div class="intro">
       <span class="eyebrow">San Jose and San Ramon · every Saturday</span>
-      <h1>Dignity starts with a full belly.</h1>
+      <h1>Dignity starts with <em>a full belly.</em></h1>
       <p class="hint-desktop">Welcome to the truck. Drag to look around, click anyone to say hi.</p>
       <p class="hint-mobile">Swipe around the truck and tap what you need.</p>
     </div>
@@ -30,7 +30,7 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
     </div>
     <div class="swiper" id="swiper">
       <button id="prev" aria-label="Previous">‹</button>
-      <span id="dots"></span>
+      <span class="count"><b id="count">01</b> / 05 · <i id="cname">Volunteer</i></span><span id="dots"></span>
       <button id="next" aria-label="Next">›</button>
     </div>
     <div class="quick">
@@ -84,7 +84,7 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   const fmt = (d: string, o: Intl.DateTimeFormatOptions) => new Date(d + 'T12:00').toLocaleDateString('en-US', o);
   let idx = 0, openTimer = 0;
 
-  const api = mountTruck(document.getElementById('scene') as HTMLCanvasElement, labels, (id) => open(id));
+  const api = mountTruck(document.getElementById('scene') as HTMLCanvasElement, labels, (id) => open(id), (id) => { const sh = sheets[id]; if (sh && location.hash === '#' + id) showSheet(sh); });
   if (!api) root.classList.add('no-gl');
 
   // Volunteer card: kitchen, Saturday, role, then a few fields. Confirmed on the spot.
@@ -180,14 +180,14 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
 
   const sheets: Partial<Record<StationId, HTMLElement>> = { about: document.getElementById('story')!, contact: document.getElementById('board')! };
   function open(id: StationId) {
-    idx = ORDER.indexOf(id); syncDots();
-    if (!sheets[id]?.classList.contains('on')) closeSheets(); root.classList.remove('open');
+    idx = ORDER.indexOf(id); syncDots(); root.classList.add('focus');
+    closeSheets(); root.classList.remove('open');
     api?.focus(id);
     clearTimeout(openTimer);
     const sheet = sheets[id];
     if (sheet) {
       if (id === 'about') showChapter(0);
-      grow(id as 'about' | 'contact', sheet);
+      if (!api) showSheet(sheet);
     } else {
       if (id !== 'volunteer') body.innerHTML = CARDS[id]();
       else if (vol.step !== 'done' || !body.querySelector('.done')) { if (vol.step === 'done') vol.step = 'pick'; volunteerCard(); }
@@ -195,36 +195,14 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
     }
     history.replaceState(null, '', '#' + id);
   }
-  // The full-screen board grows out of the real board in the world, and shrinks back into it.
-  const EASE = 'cubic-bezier(.2, .8, .2, 1)';
-  function morph(id: 'about' | 'contact', sheet: HTMLElement) {
-    const panel = sheet.firstElementChild as HTMLElement, to = panel.getBoundingClientRect(), from = api!.rect(id);
-    return [{ transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width}, ${from.height / to.height})`, borderRadius: '40px' }, { transform: 'none', borderRadius: '18px' }];
-  }
-  let sheetGen = 0;
-  function grow(id: 'about' | 'contact', sheet: HTMLElement) {
-    sheetGen++; sheet.getAnimations({ subtree: true }).forEach((a) => a.cancel());
-    root.classList.add('sheet'); sheet.classList.add('on'); sheet.setAttribute('aria-hidden', 'false');
-    if (!api || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const panel = sheet.firstElementChild as HTMLElement;
-    panel.animate(morph(id, sheet), { duration: 750, easing: EASE });
-    [...panel.children].forEach((c) => (c as HTMLElement).animate([{ opacity: 0 }, { opacity: 0, offset: .45 }, { opacity: 1 }], { duration: 750 }));
-  }
+  // Boards: the camera flies into the real board in the world; the page fades in only once it arrives.
+  function showSheet(sheet: HTMLElement) { root.classList.add('sheet'); sheet.classList.add('on'); sheet.setAttribute('aria-hidden', 'false'); }
   function closeSheets() {
-    const gen = ++sheetGen;
-    for (const [id, el] of Object.entries(sheets) as [StationId, HTMLElement][]) {
-      if (!el.classList.contains('on')) continue;
-      const done = () => { if (gen !== sheetGen) return; el.classList.remove('on'); el.setAttribute('aria-hidden', 'true'); };
-      if (api && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        const panel = el.firstElementChild as HTMLElement;
-        [...panel.children].forEach((c) => (c as HTMLElement).animate([{ opacity: 1 }, { opacity: 0, offset: .4 }, { opacity: 0 }], { duration: 550 }));
-        panel.animate([...morph(id as 'about' | 'contact', el)].reverse(), { duration: 550, easing: 'cubic-bezier(.5, 0, .7, .4)' }).onfinish = done;
-      } else done();
-    }
+    for (const el of Object.values(sheets)) { el!.classList.remove('on'); el!.setAttribute('aria-hidden', 'true'); }
     root.classList.remove('sheet');
   }
   function close() {
-    clearTimeout(openTimer); closeSheets();
+    clearTimeout(openTimer); closeSheets(); root.classList.remove('focus');
     root.classList.remove('open'); pop.setAttribute('aria-hidden', 'true');
     api?.focus(mobile() ? ORDER[idx] : null, true);
     history.replaceState(null, '', location.pathname);
@@ -248,13 +226,13 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
     heart: '<path d="M70 96S20 66 20 40c0-14 10-22 22-22 12 0 20 8 28 18 8-10 16-18 28-18 12 0 22 8 22 22 0 26-50 56-50 56z"/>',
   };
   const CH = [
-    { t: 'It started with two friends.', b: 'Japjot Sethi and Devinder Kumar believed no neighbor should go to bed hungry. So they started cooking.', sk: SK.friends, img: ['team.webp'] },
-    { t: 'A hot meal is more than food.', b: '“A fresh, hot, and nutritious meal is not just satiating, but more importantly, enabling and liberating.”', sk: SK.bowl, img: ['smile.webp'] },
-    { t: 'Every Saturday, the kitchen wakes up.', b: 'We cook at 7. We pack at 9:30. By 11, meals are on their way.', sk: SK.clock, img: ['kitchen.webp', 'boxes.jpg'] },
-    { t: 'Two kitchens. One family.', b: 'San Jose and San Ramon, and more than 400 volunteers who show up with open hearts.', sk: SK.houses, img: ['serving.jpg'] },
-    { t: '300+ meals, every single week.', b: 'Delivered by hand, still warm, with a smile and a name.', sk: SK.truck, img: ['handoff.jpg'] },
-    { t: 'Warmth for winter.', b: 'When it gets cold, we pair a hot meal with a warm blanket. At Thanksgiving, everyone gets a seat at the table.', sk: SK.blanket, img: ['blanket.webp', 'thanksgiving.webp'] },
-    { t: 'And now, you.', b: 'Every meal starts with someone who decided to care. That can be you this Saturday.', sk: SK.heart, img: [], cta: true },
+    { t: 'It started with <em>two friends.</em>', b: 'Japjot Sethi and Devinder Kumar believed no neighbor should go to bed hungry. So they started cooking.', sk: SK.friends, img: ['team.webp'] },
+    { t: 'A hot meal is <em>more than food.</em>', b: '“A fresh, hot, and nutritious meal is not just satiating, but more importantly, enabling and liberating.”', sk: SK.bowl, img: ['smile.webp'] },
+    { t: 'Every Saturday, <em>the kitchen wakes up.</em>', b: 'We cook at 7. We pack at 9:30. By 11, meals are on their way.', sk: SK.clock, img: ['kitchen.webp', 'boxes.jpg'] },
+    { t: 'Two kitchens. <em>One family.</em>', b: 'San Jose and San Ramon, and more than 400 volunteers who show up with open hearts.', sk: SK.houses, img: ['serving.jpg'] },
+    { t: '300+ meals, <em>every single week.</em>', b: 'Delivered by hand, still warm, with a smile and a name.', sk: SK.truck, img: ['handoff.jpg'] },
+    { t: 'Warmth <em>for winter.</em>', b: 'When it gets cold, we pair a hot meal with a warm blanket. At Thanksgiving, everyone gets a seat at the table.', sk: SK.blanket, img: ['blanket.webp', 'thanksgiving.webp'] },
+    { t: 'And now, <em>you.</em>', b: 'Every meal starts with someone who decided to care. That can be you this Saturday.', sk: SK.heart, img: [], cta: true },
   ];
   const chapters = document.getElementById('chapters')!, sdots = document.getElementById('s-dots')!;
   chapters.innerHTML = CH.map((c, i) => `
@@ -291,7 +269,8 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   // Phones: swipe or use the arrows to walk around the truck.
   const dots = document.getElementById('dots')!;
   dots.innerHTML = ORDER.map(() => '<i></i>').join('');
-  function syncDots() { [...dots.children].forEach((d, i) => d.classList.toggle('on', i === idx)); }
+  const NAMES: Record<StationId, string> = { volunteer: 'Volunteer', donate: 'Donate', about: 'Our story', resources: 'Get a meal', contact: 'Contact' };
+  function syncDots() { [...dots.children].forEach((d, i) => d.classList.toggle('on', i === idx)); document.getElementById('count')!.textContent = String(idx + 1).padStart(2, '0'); document.getElementById('cname')!.textContent = NAMES[ORDER[idx]]; }
   function step(d: number) { idx = (idx + d + ORDER.length) % ORDER.length; syncDots(); api?.focus(ORDER[idx], true); }
   document.getElementById('prev')!.onclick = () => step(-1);
   document.getElementById('next')!.onclick = () => step(1);
@@ -314,20 +293,21 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   .world-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: pan-y; }
   .hud { position: absolute; z-index: 4; top: 16px; left: 16px; right: 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; pointer-events: none; }
   .hud > * { pointer-events: auto; }
-  .hud-brand { display: flex; align-items: center; gap: 10px; padding: 6px 16px 6px 8px; border-radius: 999px; background: rgb(255 255 255 / .85); backdrop-filter: blur(12px); box-shadow: 0 6px 20px rgb(30 40 30 / .12); text-decoration: none; color: var(--green); font-weight: 650; letter-spacing: -.01em; }
+  .hud-brand { display: flex; align-items: center; gap: 10px; padding: 6px 16px 6px 8px; border-radius: 999px; background: linear-gradient(135deg, rgb(255 255 255 / .55), rgb(255 255 255 / .28)); backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4); border: 1px solid rgb(255 255 255 / .6); box-shadow: inset 0 1px 0 rgb(255 255 255 / .8), inset 0 -8px 16px rgb(255 255 255 / .12), 0 8px 24px rgb(20 60 100 / .16); text-decoration: none; color: #16231c; font-weight: 600; letter-spacing: -.01em; }
   .hud-brand img { width: 34px; height: 34px; object-fit: cover; border-radius: 50%; background: #fff; }
-  .hud-nav { display: flex; gap: 4px; padding: 5px; border-radius: 999px; background: rgb(255 255 255 / .85); backdrop-filter: blur(12px); box-shadow: 0 6px 20px rgb(30 40 30 / .12); }
+  .hud-nav { display: flex; gap: 4px; padding: 5px; border-radius: 999px; background: linear-gradient(135deg, rgb(255 255 255 / .55), rgb(255 255 255 / .28)); backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4); border: 1px solid rgb(255 255 255 / .6); box-shadow: inset 0 1px 0 rgb(255 255 255 / .8), inset 0 -8px 16px rgb(255 255 255 / .12), 0 8px 24px rgb(20 60 100 / .16); }
   .hud-nav button { border: 0; background: none; padding: .55rem 1rem; border-radius: 999px; font: inherit; font-weight: 550; color: var(--ink); cursor: pointer; }
-  .hud-nav button:hover { background: var(--tint); }
+  .hud-nav button:hover { background: rgb(255 255 255 / .5); }
   .hud-nav .hud-give { background: var(--btn); color: #fff; box-shadow: var(--btn-shadow); }
-  .intro { position: absolute; z-index: 2; left: clamp(16px, 4vw, 48px); bottom: clamp(16px, 5vh, 48px); max-width: 400px; padding: 22px 24px; border-radius: 24px; background: rgb(255 255 255 / .82); backdrop-filter: blur(14px); box-shadow: 0 16px 40px rgb(30 40 30 / .14); pointer-events: none; transition: opacity .4s, transform .4s; }
+  .intro { position: absolute; z-index: 2; left: clamp(16px, 4vw, 48px); bottom: clamp(16px, 5vh, 48px); max-width: 440px; padding: 24px 26px; border-radius: 28px; background: linear-gradient(135deg, rgb(255 255 255 / .55), rgb(255 255 255 / .28)); backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4); border: 1px solid rgb(255 255 255 / .6); box-shadow: inset 0 1px 0 rgb(255 255 255 / .8), inset 0 -8px 16px rgb(255 255 255 / .12), 0 8px 24px rgb(20 60 100 / .16); pointer-events: none; transition: opacity .4s, transform .4s; }
+  .intro h1 em { font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-weight: 400; letter-spacing: -.01em; }
   .intro h1 { font-size: clamp(1.7rem, 2.8vw, 2.4rem); margin: .35em 0 .25em; }
   .intro p { margin: 0; color: var(--muted); }
   .hint-mobile { display: none; }
-  .world.open .intro, .world.moved .intro { opacity: 0; transform: translateY(12px); }
+  .world.open .intro, .world.moved .intro, .world.sheet .intro, .world.focus .intro { opacity: 0; transform: translateY(12px); }
 
   .labels { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
-  .labels button { position: absolute; left: 0; top: 0; pointer-events: auto; display: flex; align-items: center; gap: 8px; padding: .5rem .9rem; border: 0; border-radius: 999px; background: rgb(255 255 255 / .92); backdrop-filter: blur(10px); box-shadow: 0 6px 18px rgb(30 40 30 / .16); font: inherit; font-weight: 600; font-size: .92rem; color: var(--green); cursor: pointer; transition: opacity .3s, box-shadow .2s; will-change: transform; }
+  .labels button { position: absolute; left: 0; top: 0; pointer-events: auto; display: flex; align-items: center; gap: 8px; padding: .5rem .9rem; border-radius: 999px; background: linear-gradient(135deg, rgb(255 255 255 / .55), rgb(255 255 255 / .28)); backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4); border: 1px solid rgb(255 255 255 / .6); box-shadow: inset 0 1px 0 rgb(255 255 255 / .8), inset 0 -8px 16px rgb(255 255 255 / .12), 0 8px 24px rgb(20 60 100 / .16); font: inherit; font-weight: 550; font-size: .92rem; color: #16231c; cursor: pointer; transition: opacity .3s, box-shadow .2s; will-change: transform; }
   .labels button i { width: 8px; height: 8px; border-radius: 50%; background: var(--green-2); box-shadow: 0 0 0 4px rgb(47 107 74 / .18); animation: pulse 2s ease-in-out infinite; }
   .labels button[data-station="volunteer"], .labels button[data-station="donate"] { color: #b4500f; }
   .labels button[data-station="volunteer"] i, .labels button[data-station="donate"] i { background: var(--orange); box-shadow: 0 0 0 4px rgb(232 104 28 / .2); }
@@ -336,11 +316,18 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   .world.open .labels { opacity: 0; pointer-events: none; }
   @keyframes pulse { 50% { box-shadow: 0 0 0 7px transparent; } }
 
-  .swiper, .quick { display: none; }
+  .quick { display: none; }
+  .swiper { position: absolute; z-index: 3; left: 50%; bottom: 26px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; transition: opacity .3s; }
+  .swiper button { width: 46px; height: 46px; border-radius: 50%; font-size: 1.4rem; color: #16231c; cursor: pointer; background: linear-gradient(135deg, rgb(255 255 255 / .55), rgb(255 255 255 / .25)); backdrop-filter: blur(16px); border: 1px solid rgb(255 255 255 / .6); box-shadow: inset 0 1px 0 rgb(255 255 255 / .8), 0 8px 20px rgb(20 60 100 / .15); }
+  .swiper .count { font: 500 .8rem ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; color: rgb(10 30 50 / .7); min-width: 170px; text-align: center; }
+  .swiper .count i { font-family: 'Instrument Serif', Georgia, serif; font-size: 1.05rem; letter-spacing: 0; color: #16231c; }
+  .swiper #dots { display: none; }
+  .world.open .swiper, .world.sheet .swiper { opacity: 0; pointer-events: none; }
 
-  .pop { position: absolute; z-index: 5; top: 50%; right: clamp(16px, 4vw, 56px); width: min(420px, calc(100% - 32px)); max-height: calc(100% - 40px); overflow: auto; padding: 28px; background: #fff; border-radius: 24px; box-shadow: 0 24px 70px rgb(30 40 30 / .22); opacity: 0; transform: translate(24px, -50%) scale(.98); pointer-events: none; transition: opacity .3s, transform .4s cubic-bezier(.2, .8, .2, 1); }
+  .pop { position: absolute; z-index: 5; top: 50%; right: clamp(16px, 4vw, 56px); width: min(420px, calc(100% - 32px)); max-height: calc(100% - 40px); overflow: auto; padding: 30px; border-radius: 28px; background: linear-gradient(160deg, rgb(255 255 255 / .82), rgb(246 248 250 / .7)); backdrop-filter: blur(24px) saturate(1.4); -webkit-backdrop-filter: blur(24px) saturate(1.4); border: 1px solid rgb(255 255 255 / .7); box-shadow: inset 0 1px 0 #fff, 0 30px 80px rgb(20 50 80 / .25); opacity: 0; transform: translate(24px, -50%) scale(.98); pointer-events: none; transition: opacity .3s, transform .4s cubic-bezier(.2, .8, .2, 1); }
   .world.open .pop { opacity: 1; transform: translate(0, -50%); pointer-events: auto; }
   .pop-close { position: absolute; top: 14px; right: 14px; width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--tint); color: var(--green); font-size: 1.3rem; cursor: pointer; }
+  .pop :global(h2 em) { font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-weight: 400; }
   .pop :global(h2) { font-size: 1.6rem; margin: .1em 0 .3em; padding-right: 36px; }
   .pop :global(.kicker) { margin: 0; color: var(--orange); font-weight: 600; font-size: .9rem; }
   .pop :global(.muted) { color: var(--muted); margin: 0 0 18px; }
@@ -400,7 +387,8 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
     .hud-brand span { font-size: .95rem; }
     .intro { left: 16px; right: 16px; top: 72px; bottom: auto; max-width: none; padding: 16px 18px; }
     .intro h1 { font-size: 1.6rem; }
-    .swiper { display: flex; position: absolute; z-index: 3; left: 0; right: 0; bottom: 88px; justify-content: center; align-items: center; gap: 14px; transition: opacity .3s; }
+    .swiper { bottom: 88px; }
+    .swiper .count { min-width: 120px; }
     .swiper button { width: 40px; height: 40px; border: 0; border-radius: 50%; background: rgb(255 255 255 / .9); color: var(--green); font-size: 1.5rem; }
     #dots { display: flex; gap: 6px; }
     #dots :global(i) { width: 7px; height: 7px; border-radius: 50%; background: rgb(31 77 52 / .25); transition: width .2s; }
@@ -416,24 +404,25 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
 
   .world.sheet .intro, .world.sheet .labels, .world.sheet .hud, .world.sheet .swiper, .world.sheet .quick { opacity: 0; pointer-events: none; }
   .hud, .swiper, .quick { transition: opacity .35s; }
-  .pop :global(.meals) { margin: 10px 0 2px; text-align: center; font: 600 1.35rem/1.2 Caveat, cursive; color: var(--green-2); }
+  .pop :global(.meals) { margin: 10px 0 2px; text-align: center; font: italic 400 1.4rem/1.2 'Instrument Serif', Georgia, serif; color: var(--green-2); }
   .pop :global(.meals b) { color: var(--orange); font-size: 1.6rem; }
   .sheet-close { position: absolute; z-index: 3; top: 18px; right: 18px; width: 42px; height: 42px; border: 0; border-radius: 50%; background: rgb(255 255 255 / .92); color: var(--green); font-size: 1.5rem; cursor: pointer; box-shadow: 0 6px 18px rgb(0 0 0 / .2); }
 
   /* Our story: chalkboard */
-  .story, .board { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; padding: 2.5vh 2.5vw; visibility: hidden; pointer-events: none; }
-  .story.on, .board.on { visibility: visible; }
-  .chalkboard, .cork { pointer-events: auto; transform-origin: 0 0; will-change: transform; }
+  .story, .board { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; padding: 3vh 3vw; visibility: hidden; opacity: 0; pointer-events: none; transition: opacity .45s, visibility 0s .45s; }
+  .story.on, .board.on { visibility: visible; opacity: 1; transition: opacity .45s; }
+  .story.on .chalkboard, .board.on .cork { pointer-events: auto; }
   .chalkboard { position: relative; width: 100%; height: 100%; border-radius: 18px; border: clamp(10px, 1.6vw, 18px) solid #b07a4a; box-shadow: inset 0 0 0 3px #8a5e3c, 0 30px 80px rgb(0 0 0 / .45); background: radial-gradient(ellipse at 30% 20%, rgb(255 255 255 / .07), transparent 55%), radial-gradient(ellipse at 80% 90%, rgb(255 255 255 / .05), transparent 50%), #24382d; overflow: hidden; }
   .chalkboard::before { content: ''; position: absolute; inset: 0; opacity: .35; pointer-events: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .18 0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E"); }
   .chapters { position: absolute; inset: 0; }
   .chapters :global(.chapter) { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1.1fr; align-items: center; gap: 48px; padding: clamp(28px, 5vw, 64px) clamp(28px, 5vw, 72px) 90px; opacity: 0; transform: translateX(40px); transition: opacity .5s, transform .6s cubic-bezier(.2, .8, .2, 1); pointer-events: none; }
   .chapters :global(.chapter.past) { transform: translateX(-40px); }
   .chapters :global(.chapter.on) { opacity: 1; transform: none; pointer-events: auto; }
-  .chapters :global(.chalk) { align-self: center; color: #f4f1e8; font-family: Caveat, cursive; text-shadow: 0 0 1px rgb(255 255 255 / .5); }
-  .chapters :global(.chalk small) { font-size: 1.3rem; color: var(--gold); opacity: .9; }
-  .chapters :global(.chalk h2) { color: #fffdf4; font-family: Caveat, cursive; font-weight: 700; font-size: clamp(2.4rem, 5vw, 4.2rem); line-height: 1; letter-spacing: 0; margin: .15em 0 .3em; }
-  .chapters :global(.chalk p) { font-size: clamp(1.4rem, 2.2vw, 1.9rem); line-height: 1.25; max-width: 24ch; margin: 0; color: rgb(244 241 232 / .9); }
+  .chapters :global(.chalk) { align-self: center; color: #f4f1e8; text-shadow: 0 0 1px rgb(255 255 255 / .35); }
+  .chapters :global(.chalk small) { font: 500 .85rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; color: var(--gold); opacity: .9; }
+  .chapters :global(.chalk h2) { color: #fffdf4; font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: clamp(2.8rem, 5.6vw, 5rem); line-height: .98; letter-spacing: -.01em; margin: .25em 0 .35em; }
+  .chapters :global(.chalk h2 em) { font-style: italic; color: #f6d9a8; }
+  .chapters :global(.chalk p) { font-family: Kalam, cursive; font-weight: 300; font-size: clamp(1.15rem, 1.7vw, 1.45rem); line-height: 1.45; max-width: 30ch; margin: 0; color: rgb(244 241 232 / .88); }
   .chapters :global(.cta) { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; font-family: Inter, sans-serif; }
   .chapters :global(.cta .btn) { border: 0; font: inherit; font-weight: 600; cursor: pointer; }
   .chapters :global(.sketch) { display: block; margin-top: 28px; width: clamp(100px, 12vw, 150px); fill: none; stroke: #f4f1e8; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; opacity: .85; filter: url(#chalky); }
@@ -460,19 +449,19 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   .pinned :global(.pin) { position: absolute; top: 8px; left: 50%; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ff9a6a, #d2501a); box-shadow: 0 3px 4px rgb(0 0 0 / .35); }
   .pinned .title { grid-column: span 2; background: transparent; box-shadow: none; padding-top: 6px; cursor: default; color: #3b2412; }
   .pinned .title .pin { display: none; }
-  .pinned .title h2 { font-family: Caveat, cursive; font-size: clamp(2.6rem, 5vw, 3.8rem); color: #2a1a0c; margin: 0; letter-spacing: 0; }
+  .pinned .title h2 { font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-size: clamp(2.6rem, 5vw, 3.8rem); color: #2a1a0c; margin: 0; letter-spacing: 0; }
   .pinned .title p { margin: 0; font-size: 1.05rem; max-width: 40ch; }
   .pinned small { color: var(--muted); }
   .pinned b { font-size: 1.15rem; color: var(--green); }
   .pinned span { color: var(--muted); }
-  .pinned .card b { font-size: 1rem; word-break: break-all; }
+  .pinned .card b { font-size: .9rem; overflow-wrap: anywhere; }
   .pinned .flyer.green { background: #e2efd9; } .pinned .flyer.peach { background: #fde4cf; } .pinned .note.yellow { background: #fff3a8; }
-  .pinned .note b, .pinned .letter b { font-family: Caveat, cursive; font-size: 1.7rem; color: #2a3a2f; }
+  .pinned .note b, .pinned .letter b { font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-size: 1.7rem; color: #2a3a2f; }
   .pinned .polaroid { padding: 12px 12px 14px; }
   .pinned .polaroid img { width: 100%; aspect-ratio: 1; object-fit: cover; }
-  .pinned .polaroid span { font-family: Caveat, cursive; font-size: 1.5rem; color: var(--ink); text-align: center; }
+  .pinned .polaroid span { font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-size: 1.5rem; color: var(--ink); text-align: center; }
   .pinned .letter { grid-column: span 2; cursor: default; background: #fffdf6 repeating-linear-gradient(transparent 0 27px, rgb(120 150 200 / .25) 27px 28px); }
-  .pinned .letter textarea { font: 1.4rem/28px Caveat, cursive; border: 0; background: transparent; resize: none; outline: none; color: var(--ink); }
+  .pinned .letter textarea { font: 300 1.15rem/28px Kalam, cursive; border: 0; background: transparent; resize: none; outline: none; color: var(--ink); }
   .pinned .letter .btn { justify-self: start; border: 0; font: inherit; font-weight: 600; cursor: pointer; }
   @media (max-width: 760px) {
     .chalkboard { height: 100%; }
