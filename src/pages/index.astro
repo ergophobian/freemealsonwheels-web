@@ -5,6 +5,11 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
 <Base title="Home" immersive>
   <section class="world" id="world" data-stripe={STRIPE_LINK}>
     <canvas class="world-canvas" id="scene" aria-hidden="true"></canvas>
+    <div class="loader" id="loader" aria-live="polite">
+      <img src={`${import.meta.env.BASE_URL.replace(/\/?$/, '/')}img/logo-heart.png`} alt="" width="120" height="106" />
+      <p>Setting up the truck…</p>
+      <i class="bar"><b id="load-bar"></b></i>
+    </div>
     <header class="hud">
       <a class="hud-brand" href={import.meta.env.BASE_URL}><img src={`${import.meta.env.BASE_URL.replace(/\/?$/, '/')}img/logo-heart.png`} alt="" width="38" height="34" /><span>Free Meals on Wheels</span></a>
       <nav class="hud-nav">
@@ -86,7 +91,12 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   const fmt = (d: string, o: Intl.DateTimeFormatOptions) => new Date(d + 'T12:00').toLocaleDateString('en-US', o);
   let idx = -1, openTimer = 0;
 
-  const api = mountTruck(document.getElementById('scene') as HTMLCanvasElement, labels, (id) => open(id), (id) => { const sh = sheets[id]; if (sh && location.hash === '#' + id) showSheet(sh); });
+  const loader = document.getElementById('loader')!, loadBar = document.getElementById('load-bar')!;
+  const reveal = () => { loader.classList.add('gone'); root.classList.add('ready'); };
+  setTimeout(reveal, 7000); // never keep people waiting on a slow connection
+  const api = mountTruck(document.getElementById('scene') as HTMLCanvasElement, labels, (id) => open(id), (id) => { const sh = sheets[id]; if (sh && location.hash === '#' + id) showSheet(sh); },
+    (p, done) => { loadBar.style.width = `${Math.round(15 + p * 85)}%`; if (done) reveal(); });
+  if (!api) reveal();
   if (!api) root.classList.add('no-gl');
 
   // Volunteer card: kitchen, Saturday, role, then a few fields. Confirmed on the spot.
@@ -677,5 +687,14 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   .pop :global(.reason) { display: flex !important; gap: 8px; align-items: center; padding: .45rem .7rem; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; cursor: pointer; }
   .pop :global(.reason:has(input:checked)) { border-color: var(--green-2); }
   .pop :global(textarea) { font: inherit; padding: .6rem .8rem; border: 1.5px solid var(--line); border-radius: 12px; resize: vertical; }
+
+  .loader { position: absolute; inset: 0; z-index: 30; display: grid; place-content: center; justify-items: center; gap: 14px; background: radial-gradient(900px 500px at 50% 40%, #fffaf2, #f2ead9); transition: opacity .7s ease, visibility 0s .7s; }
+  .loader.gone { opacity: 0; visibility: hidden; }
+  .loader img { width: 120px; height: auto; animation: beat 1.4s ease-in-out infinite; }
+  .loader p { margin: 0; font: italic 400 1.4rem 'Instrument Serif', Georgia, serif; color: var(--green); }
+  .loader .bar { width: 180px; height: 4px; border-radius: 4px; background: rgb(31 77 52 / .12); overflow: hidden; }
+  .loader .bar b { display: block; width: 15%; height: 100%; background: var(--green-2); transition: width .4s ease; }
+  @keyframes beat { 0%, 100% { transform: scale(1); } 15% { transform: scale(1.08); } 30% { transform: scale(1); } 45% { transform: scale(1.05); } }
+  .world:not(.ready) .labels, .world:not(.ready) .intro, .world:not(.ready) .swiper { opacity: 0; }
   @media (prefers-reduced-motion: reduce) { .pop, .labels button i { transition: none; animation: none; } }
 </style>

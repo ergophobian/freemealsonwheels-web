@@ -122,6 +122,7 @@ export function mountTruck(
   labels: Partial<Record<StationId, HTMLElement>>,
   onSelect: (id: StationId) => void,
   onArrive: (id: StationId) => void = () => {},
+  onReady: (progress: number, done: boolean) => void = () => {},
 ): TruckApi | null {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let renderer: THREE.WebGLRenderer;
@@ -139,6 +140,20 @@ export function mountTruck(
   renderer.toneMapping = THREE.NeutralToneMapping; renderer.toneMappingExposure = 1.12;
 
   const scene = new THREE.Scene();
+  // Startup: count the big pieces (street, truck, people, food) and reveal the world only when all are in,
+  // with shaders compiled, so nothing pops in on screen.
+  const parts = { city: false, truck: false, people: false, food: false };
+  let revealed = false;
+  const partDone = (k: keyof typeof parts) => {
+    parts[k] = true;
+    const n = Object.values(parts).filter(Boolean).length;
+    onReady(n / 4, false);
+    if (n === 4 && !revealed) {
+      revealed = true;
+      const finish = () => { onReady(1, true); };
+      (renderer as THREE.WebGLRenderer & { compileAsync?: (s: THREE.Object3D, c: THREE.Camera) => Promise<unknown> }).compileAsync?.(scene, camera).then(finish, finish) ?? finish();
+    }
+  };
   scene.background = canvasTex((c, w, h) => {
     const g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#3F92E6'); g.addColorStop(.55, '#8CC4F0'); g.addColorStop(1, '#DCEBF2');
     c.fillStyle = g; c.fillRect(0, 0, w, h);
@@ -172,6 +187,7 @@ export function mountTruck(
   const gl = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   gl.load(`${BASE}models/city/city.glb`, (g) => {
     if (!alive) return;
+    queueMicrotask(() => partDone('city'));
     // The kit stores engine blend masks in vertex colors; they are not meant to be seen.
     g.scene.traverse((c) => { const m = c as THREE.Mesh; if (m.isMesh) for (const mat of [m.material].flat() as THREE.MeshStandardMaterial[]) { mat.vertexColors = false; mat.metalnessMap = null; mat.metalness = /glass/i.test(mat.name) ? .3 : 0; mat.envMapIntensity = .6;  if (/Brick/.test(mat.name)) mat.color.set('#FFB59A'); if (/Trim$/.test(mat.name)) mat.color.set('#FFF1DC'); mat.needsUpdate = true; } });
     const part = (name: string) => g.scene.getObjectByName(name)!;
@@ -474,7 +490,7 @@ export function mountTruck(
   let heartGlowMat: THREE.Mesh | null = null;
   const ledBulbs: THREE.Mesh[] = []; let signFace: THREE.Mesh | null = null;
   // ——— The logo as a sculpture: the heart drawn as a single tube, with a fork and spoon crossing at its point.
-  const statue = new THREE.Group(); statue.position.set(11.5, .14, 7); statue.rotation.y = -.35; statue.scale.setScalar(1.45); scene.add(statue);
+  const statue = new THREE.Group(); statue.position.set(2.2, .14, 7.3); statue.rotation.y = 0; statue.scale.setScalar(1.45); scene.add(statue);
   statue.add(mesh(rbox(1.6, .5, 1.1, .08), std('#E9E2D6', { roughness: .8, roughnessMap: grime }), 0, .25, 0));
   statue.add(mesh(rbox(1.75, .08, 1.25, .03), std('#D6CCBC'), 0, .54, 0));
   const plaque = logoCanvas(512, 128, (c, w, h) => { c.fillStyle = '#2E3B33'; c.fillRect(0, 0, w, h); c.fillStyle = '#E9D9B4'; c.font = '600 44px Inter, sans-serif'; c.textAlign = 'center'; c.fillText('Free Meals on Wheels', w / 2, 62); c.font = 'italic 30px Georgia, serif'; c.fillText('Bringing smiles, one meal at a time', w / 2, 104); });
@@ -596,6 +612,7 @@ export function mountTruck(
   let cast: Awaited<ReturnType<typeof loadCast>> | null = null, friend: Person | null = null;
   const castReady = loadCast(`${BASE}models/people`, KINDS).then((c) => {
     if (!alive) return;
+    queueMicrotask(() => partDone('people'));
     cast = c;
     const crewKinds: Kind[] = ['m-casual_2', 'w-casual', 'm-casual_hoodie', 'w-adventurer', 'm-beach'].filter((k) => KINDS.includes(k as Kind)) as Kind[];
     const starts = [0, 2, 3, 1, 6];
@@ -609,6 +626,7 @@ export function mountTruck(
   }).catch(() => {});
   loadFood().then(async (food) => {
     if (!alive) return;
+    queueMicrotask(() => partDone('food'));
     foodFn = food;
     const F = (id: FoodId, size: number, x: number, y: number, z: number, ry = 0) => place(food(id, size), truck, x, y, z, ry);
     for (let i = 0; i < 4; i++) F('styrofoam-dinner', .26, -.2 + i * .3, WB + .06 + (i % 2) * .09, Z + .18, (rnd() - .5) * .3);
@@ -650,7 +668,7 @@ export function mountTruck(
       entries: [new THREE.Vector3(-21, .14, 2.1), new THREE.Vector3(21, .14, 2.1), new THREE.Vector3(-19, .14, 13), new THREE.Vector3(19, .14, 14)],
       exits: [new THREE.Vector3(-22, .14, 2.1), new THREE.Vector3(22, .14, 2.1), new THREE.Vector3(-20, .14, 13), new THREE.Vector3(20, .14, 14)],
       obstacles: [
-        ...truckObstacles, { x: 11.5, z: 7, r: 2.1 }, { x: 3.2, z: 3.1, r: .55 }, { x: 5.6, z: 4.4, r: 1 }, { x: -3.4, z: 6.6, r: 1.2 },
+        ...truckObstacles, { x: 2.2, z: 7.3, r: 2.1 }, { x: 3.2, z: 3.1, r: .55 }, { x: 5.6, z: 4.4, r: 1 }, { x: -3.4, z: 6.6, r: 1.2 },
         { x: -6.2, z: 3.9, r: 1.25 }, { x: -6.4, z: 11.4, r: 1.25 }, { x: -6.2, z: 4.4, r: 1.25 }, { x: -11.5, z: 12, r: 1.25 }, { x: 11, z: 7.4, r: 1.25 },
         ...[-17, -13, 12, 16].map((x) => ({ x, z: 3.4, r: 1.4 })), ...[-14, -11, 8.5, 12].map((x) => ({ x, z: 2.4, r: .25 })),
         { x: -14, z: 9, r: 2.6 }, { x: 14, z: 11, r: 2.6 }, { x: -6, z: 15, r: 2.6 }, { x: 8, z: 16, r: 2.6 }, { x: -8, z: 2.4, r: .25 }, { x: 5.6, z: 2.4, r: .25 },
@@ -680,7 +698,7 @@ export function mountTruck(
     });
     // Sort bulbs around the sign so the chase runs in a loop.
     ledBulbs.sort((a, b) => Math.atan2(a.position.y - 4.3, a.position.x + .5) - Math.atan2(b.position.y - 4.3, b.position.x + .5));
-    truck.add(g.scene);
+    truck.add(g.scene); partDone('truck');
   });
   for (const o of [...scene.children]) if ((o as THREE.Group).isGroup && o !== truck && o !== city && o !== giving && o !== picnic && o !== board && o !== bulletin && o !== statue && o !== fountain) bake(o);
   bake(board); bake(bulletin); bake(picnic);
@@ -864,7 +882,7 @@ export function mountTruck(
         slow = sampled = 0;
       }
     }
-    const k = reduce ? 1 : 1 - Math.exp(-dt * 2.4);
+    const k = reduce ? 1 : revealed ? 1 - Math.exp(-dt * 2.4) : 0;
     controls.enabled = !focused && !narrow && !flying;
     if (flying) {
       camera.position.lerp(v.set(...goal.pos), k);
