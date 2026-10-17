@@ -26,14 +26,14 @@ export class Crowd {
       meal: () => THREE.Object3D; onServe: () => void; onOrder: () => void; make: (mobility: Mobility) => Person;
     },
   ) {
-    for (let i = 0; i < 8; i++) this.spawn(i < 5 ? 'queue' : i < 7 ? 'sit' : 'pass');
+    for (let i = 0; i < 17; i++) this.spawn(i < 4 ? 'queue' : i < 11 ? 'sit' : 'pass', true);
   }
   limit(n: number) { this.opts.max = n; }
   private slotPos(i: number) { return this.opts.window.clone().addScaledVector(this.opts.queueDir, i * .95); }
   private queue() { return this.npcs.filter((n) => n.state === 'queue' || n.state === 'enter' || n.state === 'order').sort((a, b) => a.slot - b.slot); }
   private faceWindow(p: THREE.Vector3) { return Math.atan2(this.opts.window.x - p.x, (this.opts.window.z - .8) - p.z); }
 
-  private spawn(start: State = 'enter') {
+  private spawn(start: State = 'enter', mid = false) {
     const mobility: Mobility = Math.random() < .12 ? 'cane' : 'walk';
     const f = this.opts.make(mobility);
     this.scene.add(f.obj);
@@ -46,7 +46,10 @@ export class Crowd {
     if (start === 'pass') {
       // A passer-by strolling across the plaza.
       const a = pick(this.opts.entries), b = pick(this.opts.exits.filter((e) => Math.sign(e.x) !== Math.sign(a.x))) ?? pick(this.opts.exits);
-      f.obj.position.copy(a); n.path = [new THREE.Vector3(rand(-6, 6), Y, rand(this.opts.minZ + 4, this.opts.minZ + 12)), b.clone()]; n.state = 'leave'; f.set('walk');
+      const via = new THREE.Vector3(rand(-8, 8), Y, rand(this.opts.minZ + 3, this.opts.minZ + 10));
+      // On first load, passers-by are already mid-stroll in the plaza rather than off-screen.
+      if (mid) { f.obj.position.set(rand(-9, 9), Y, rand(this.opts.minZ + 2.5, this.opts.minZ + 9)); n.path = [b.clone()]; } else { f.obj.position.copy(a); n.path = [via, b.clone()]; }
+      n.state = 'leave'; f.set('walk');
     } else if (n.state !== 'sit') {
       n.slot = this.queue().length;
       const target = this.slotPos(n.slot);
@@ -62,7 +65,7 @@ export class Crowd {
     const q = this.queue().length, passing = this.npcs.filter((n) => n.state === 'leave' && !n.seat).length;
     if (this.spawnIn <= 0) {
       if (q < 3 || (q < 6 && Math.random() < .5)) this.spawn('enter');
-      else if (passing < this.opts.max - 6) this.spawn('pass');
+      else if (passing < this.opts.max - 8) this.spawn('pass');
       this.spawnIn = rand(1.6, 3.4);
     }
 
@@ -125,7 +128,7 @@ export class Crowd {
   private depart(n: Npc) {
     this.serving = null;
     for (const m of this.queue()) if (m !== n) { m.slot = Math.max(0, m.slot - 1); m.path = [this.slotPos(m.slot)]; if (m.state !== 'enter') m.state = 'queue'; }
-    const seat = n.f.rolling ? undefined : Math.random() < .55 ? this.opts.seats.find((s) => !s.taken) : undefined;
+    const seat = n.f.rolling ? undefined : Math.random() < .75 ? this.opts.seats.find((s) => !s.taken) : undefined;
     if (seat) {
       seat.taken = true; n.seat = seat; n.state = 'leave';
       const back = new THREE.Vector3(-Math.sin(seat.face) * .7, 0, -Math.cos(seat.face) * .7);
