@@ -8,6 +8,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { loadFood, type FoodId } from './world/assets';
 import { makeChair } from './world/figure';
 import { loadCast, type Person, type Kind } from './world/people';
@@ -17,14 +18,14 @@ export type StationId = 'volunteer' | 'donate' | 'about' | 'resources' | 'contac
 type View = { pos: [number, number, number]; look: [number, number, number]; fov?: number };
 
 const C = {
-  green: '#2E6649', greenDark: '#1F4D34', orange: '#DD7436', cream: '#F7F1E6', gold: '#D9BC7E',
+  green: '#13703F', greenDark: '#0E4F2D', orange: '#F07A2E', cream: '#F7F1E6', gold: '#D9BC7E',
   paving: '#ECE6DC', wood: '#A9784F', ink: '#2A2F2C', tire: '#2A2A2A', glass: '#AFCBD3', steel: '#C9CCCF',
 };
 
 const OVERVIEW: View = { pos: [4, 6.8, 20], look: [.2, 2, 0] };
 const OVERVIEW_NARROW: View = { pos: [1.5, 9, 29], look: [.2, 2.2, 1] };
 const ANCHORS: Record<StationId, [number, number, number]> = {
-  volunteer: [-.7, 3.7, 1.3], donate: [3.2, 1.85, 3.1], about: [5.8, 2.9, 5.4], resources: [-6, 3.2, 4.6], contact: [9.4, 3.05, 5.2],
+  volunteer: [1.75, 2.35, 1.4], donate: [3.2, 1.85, 3.1], about: [5.8, 2.9, 5.4], resources: [-6, 3.2, 4.6], contact: [9.4, 3.05, 5.2],
 };
 
 const std = (color: string, extra: THREE.MeshStandardMaterialParameters = {}) => new THREE.MeshStandardMaterial({ color, roughness: .7, metalness: 0, ...extra });
@@ -78,6 +79,41 @@ function tree(parent: THREE.Object3D, x: number, z: number, s: number) {
   }
 }
 
+// Compressed models store attributes as packed integers; merging needs plain floats.
+function floatAttrs(g: THREE.BufferGeometry) {
+  for (const k of Object.keys(g.attributes)) {
+    const a = g.attributes[k] as THREE.BufferAttribute;
+    if (a.array instanceof Float32Array && !a.normalized && !(a as unknown as THREE.InterleavedBufferAttribute).isInterleavedBufferAttribute) continue;
+    const out = new Float32Array(a.count * a.itemSize);
+    for (let i = 0; i < a.count; i++) for (let j = 0; j < a.itemSize; j++) out[i * a.itemSize + j] = a.getComponent(i, j);
+    g.setAttribute(k, new THREE.BufferAttribute(out, a.itemSize));
+  }
+  return g;
+}
+
+// Merge a subtree's static meshes into one mesh per look (same material settings), in the root's local space.
+function bake(root: THREE.Object3D, keep: (o: THREE.Object3D) => boolean = () => false) {
+  root.updateMatrixWorld(true);
+  const inv = root.matrixWorld.clone().invert(), groups = new Map<string, { mat: THREE.Material; geos: THREE.BufferGeometry[]; shadow: boolean }>();
+  const found: THREE.Mesh[] = [];
+  const walk = (o: THREE.Object3D) => { if (o !== root && keep(o)) return; const m = o as THREE.Mesh; if (m.isMesh && !(m as THREE.SkinnedMesh).isSkinnedMesh && !Array.isArray(m.material)) found.push(m); o.children.forEach(walk); };
+  walk(root);
+  for (const m of found) {
+    const mat = m.material as THREE.MeshStandardMaterial;
+    const key = [mat.type, mat.color?.getHexString(), mat.roughness, mat.metalness, mat.map?.uuid, mat.normalMap?.uuid, mat.roughnessMap?.uuid, mat.transparent, mat.opacity, mat.side, mat.emissive?.getHexString(), mat.emissiveIntensity, (mat as THREE.MeshPhysicalMaterial).clearcoat, mat.flatShading].join('|');
+    const g = floatAttrs(m.geometry.clone()).applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld));
+    for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+    if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+    const geo = floatAttrs(g.index ? g.toNonIndexed() : g);
+    const e = groups.get(key) ?? { mat, geos: [], shadow: false }; e.geos.push(geo); e.shadow ||= m.castShadow; groups.set(key, e);
+    m.removeFromParent();
+  }
+  for (const e of groups.values()) {
+    const merged = mergeGeometries(e.geos, false); if (!merged) continue;
+    const mm = new THREE.Mesh(merged, e.mat); mm.castShadow = e.shadow; mm.receiveShadow = true; root.add(mm);
+  }
+}
+
 export interface TruckApi { focus(id: StationId | null, peek?: boolean): void; give(amount: number): void; dispose(): void }
 
 export function mountTruck(
@@ -94,24 +130,24 @@ export function mountTruck(
   let tier = modest ? 1 : 2;
   try { renderer = new THREE.WebGLRenderer({ canvas, antialias: tier > 1, powerPreference: 'high-performance' }); } catch { return null; }
   const applyTier = () => {
-    renderer.setPixelRatio(Math.min(devicePixelRatio, [1, 1.25, 1.75][tier]));
+    renderer.setPixelRatio(Math.min(devicePixelRatio, [.75, 1, 1.35][tier]));
     renderer.shadowMap.enabled = tier > 0;
-    renderer.shadowMap.type = tier > 1 ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap; renderer.shadowMap.autoUpdate = false;
   };
   applyTier();
-  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+  renderer.toneMapping = THREE.NeutralToneMapping; renderer.toneMappingExposure = 1.12;
 
   const scene = new THREE.Scene();
   scene.background = canvasTex((c, w, h) => {
-    const g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#5E9BD6'); g.addColorStop(.55, '#9CC6E8'); g.addColorStop(1, '#E4E6E2');
+    const g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#3F92E6'); g.addColorStop(.55, '#8CC4F0'); g.addColorStop(1, '#DCEBF2');
     c.fillStyle = g; c.fillRect(0, 0, w, h);
   }, 4, 256);
-  scene.fog = new THREE.Fog('#D9E0E3', 45, 140);
+  scene.fog = new THREE.Fog('#CFE3EE', 60, 160);
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(), .04).texture;
-  scene.add(new THREE.HemisphereLight('#E4F1FF', '#C9B9A2', 1.0));
-  const sun = new THREE.DirectionalLight('#FFF1DE', 2.6); sun.position.set(-7, 13, 9); sun.castShadow = true;
-  sun.shadow.mapSize.setScalar(tier > 1 ? 2048 : 1024); sun.shadow.radius = 5; sun.shadow.bias = -.0006; sun.shadow.normalBias = .05;
+  scene.add(new THREE.HemisphereLight('#DCEEFF', '#D8C4A4', 1.25));
+  const sun = new THREE.DirectionalLight('#FFE7C4', 3.1); sun.position.set(-7, 13, 9); sun.castShadow = true;
+  sun.shadow.mapSize.setScalar(1024); sun.shadow.radius = 5; sun.shadow.bias = -.0006; sun.shadow.normalBias = .05;
   Object.assign(sun.shadow.camera, { left: -15, right: 15, top: 12, bottom: -12, near: 1, far: 45 });
   scene.add(sun);
 
@@ -136,7 +172,7 @@ export function mountTruck(
   gl.load('/models/city/city.glb', (g) => {
     if (!alive) return;
     // The kit stores engine blend masks in vertex colors; they are not meant to be seen.
-    g.scene.traverse((c) => { const m = c as THREE.Mesh; if (m.isMesh) for (const mat of [m.material].flat() as THREE.MeshStandardMaterial[]) { mat.vertexColors = false; mat.metalnessMap = null; mat.metalness = /glass/i.test(mat.name) ? .3 : 0; mat.envMapIntensity = .6; if (/InteriorFloor/.test(mat.name)) mat.color.set('#B8AC9A'); mat.needsUpdate = true; } });
+    g.scene.traverse((c) => { const m = c as THREE.Mesh; if (m.isMesh) for (const mat of [m.material].flat() as THREE.MeshStandardMaterial[]) { mat.vertexColors = false; mat.metalnessMap = null; mat.metalness = /glass/i.test(mat.name) ? .3 : 0; mat.envMapIntensity = .6; if (/InteriorFloor/.test(mat.name)) mat.color.set('#E3CFB3'); if (/Brick/.test(mat.name)) mat.color.set('#FFB59A'); if (/Trim$/.test(mat.name)) mat.color.set('#FFF1DC'); mat.needsUpdate = true; } });
     const part = (name: string) => g.scene.getObjectByName(name)!;
     const put = (name: string, x: number, z: number, ry = 0, shadow = false) => {
       const o = part(name).clone(); o.position.set(x, 0, z); o.rotation.y = ry; city.add(o);
@@ -146,7 +182,15 @@ export function mountTruck(
     // Road behind the truck, running left to right, with sidewalks on both sides.
     for (let x = -42; x <= 42; x += 6) put('Street_4Lane', x, -6.1);
     // The plaza in front: stone floor tiles.
-    for (let x = -18; x <= 18; x += 4) for (let z = 5; z <= 17; z += 4) put('Floor_4x4', x, z);
+    {
+      let floorMat: THREE.MeshStandardMaterial | null = null;
+      part('Floor_4x4').traverse((c) => { const m = c as THREE.Mesh; if (m.isMesh && !floorMat) floorMat = (m.material as THREE.MeshStandardMaterial).clone(); });
+      if (floorMat) {
+        const fm = floorMat as THREE.MeshStandardMaterial;
+        for (const t of [fm.map, fm.normalMap, fm.roughnessMap, fm.aoMap]) if (t) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(10, 4); t.needsUpdate = true; }
+        const plaza = new THREE.Mesh(new THREE.PlaneGeometry(40, 16), fm); plaza.rotation.x = -Math.PI / 2; plaza.position.set(0, .005, 11); plaza.receiveShadow = true; city.add(plaza);
+      }
+    }
     // Buildings across the street and framing the plaza.
     const row: [string, number][] = [['Building_Medium_2_001', -40], ['Building_Small_1', -26], ['Building_Large_2', -12], ['Building_Medium_2_001', 6], ['Building_Small_1', 20], ['Building_Large_2', 34]];
     for (const [n, x] of row) put(n, x, -15.6);
@@ -155,6 +199,27 @@ export function mountTruck(
     for (const x of [-12, -3, 3, 10]) put('Prop_Bollard', x, 2.4, 0, true);
     put('Prop_ManholeCover', -6, -4); put('Prop_Drain', 5, 2.2); put('Prop_ManholeCover', 8, -9);
     for (const [x, z] of [[-14, 9], [14, 11], [-6, 15], [8, 16]]) put('Prop_Planter_Single', x, z, 0, true);
+    // Bake every static piece into one mesh per material: hundreds of draw calls become about a dozen.
+    city.updateMatrixWorld(true);
+    const groups = new Map<THREE.Material, { geos: THREE.BufferGeometry[]; shadow: boolean }>();
+    const statics: THREE.Mesh[] = [];
+    city.traverse((c) => { const m = c as THREE.Mesh; if (m.isMesh && !Array.isArray(m.material)) statics.push(m); });
+    for (const m of statics) {
+      const gm = floatAttrs(m.geometry.clone()).applyMatrix4(m.matrixWorld);
+      for (const k of Object.keys(gm.attributes)) if (!['position', 'normal', 'uv'].includes(k)) gm.deleteAttribute(k);
+      if (!gm.attributes.uv) gm.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(gm.attributes.position.count * 2), 2));
+      if (!gm.attributes.normal) gm.computeVertexNormals();
+      const geo = floatAttrs(gm.index ? gm.toNonIndexed() : gm);
+      const g = groups.get(m.material as THREE.Material) ?? { geos: [], shadow: false };
+      g.geos.push(geo); g.shadow ||= m.castShadow; groups.set(m.material as THREE.Material, g);
+      m.removeFromParent();
+    }
+    while (city.children.length) city.remove(city.children[0]);
+    city.position.set(0, 0, 0); city.updateMatrixWorld(true);
+    for (const [mat, g] of groups) {
+      const merged = mergeGeometries(g.geos, false); if (!merged) continue;
+      const mm = new THREE.Mesh(merged, mat); mm.receiveShadow = true; mm.castShadow = g.shadow; mm.matrixAutoUpdate = false; city.add(mm);
+    }
     
   });
 
@@ -210,22 +275,42 @@ export function mountTruck(
   }, 520, 380);
   truck.add(mesh(rbox(.86, .66, .04, .02), std(C.wood), X0 + .62, 2.2, Z + .07));
   truck.add(mesh(new THREE.PlaneGeometry(.78, .58), std('#ffffff', { map: menuTex }), X0 + .62, 2.2, Z + .095));
-  // Branding on the lower panel, both sides, and a roof sign.
-  const brandTex = canvasTex((c) => {
-    c.fillStyle = C.cream; heart(c, 92, 52, 120);
-    c.font = '600 88px Inter, system-ui, sans-serif'; c.fillText('Free Meals on Wheels', 190, 140);
-    c.fillStyle = C.gold; c.font = 'italic 400 46px Georgia, serif'; c.fillText('Fresh, hot meals, free for everyone', 194, 205);
-  }, 1300, 240);
-  const brand = new THREE.Mesh(new THREE.PlaneGeometry(2.8, .52), std('#ffffff', { map: brandTex, transparent: true, roughness: .6 }));
-  brand.position.set(-.7, 1.12, Z + .055); truck.add(brand);
-  const backBrand = brand.clone(); backBrand.rotation.y = Math.PI; backBrand.position.z = -Z - .055; truck.add(backBrand);
-  const roofSign = new THREE.Group(); roofSign.position.set(-.7, TOP + .62, 0); truck.add(roofSign);
-  roofSign.add(mesh(rbox(2.6, .66, .14, .06), cream));
-  const roofTex = canvasTex((c) => { c.fillStyle = C.orange; heart(c, 110, 44, 140); c.fillStyle = C.greenDark; c.font = '650 118px Inter, system-ui, sans-serif'; c.fillText('Free meals', 215, 165); }, 900, 250);
-  const roofFace = new THREE.Mesh(new THREE.PlaneGeometry(2.4, .6), std('#ffffff', { map: roofTex, transparent: true })); roofFace.position.z = .075; roofSign.add(roofFace);
-  for (const x of [-1, 1]) roofSign.add(mesh(new THREE.CylinderGeometry(.03, .03, .4, 8), std(C.ink), x, -.5, 0));
-  truck.add(mesh(rbox(.7, .32, .8, .08), std('#DCD8CF', { metalness: .4, roughness: .4 }), 1.6, TOP + .3, -.3));
-  truck.add(mesh(new THREE.CylinderGeometry(.1, .1, .45, 16), chrome, -2.9, TOP + .3, -.4));
+  // Branding: two-tone livery (cream upper band, orange pinstripe), a big emblem and the full name, and a lit roof banner.
+  const emblem = (c: CanvasRenderingContext2D, x: number, y: number, r: number, fill: string, ring: string) => {
+    c.fillStyle = ring; c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
+    c.fillStyle = fill; c.beginPath(); c.arc(x, y, r * .86, 0, Math.PI * 2); c.fill();
+    c.fillStyle = ring; heart(c, x, y - r * .42, r * .9);
+    c.strokeStyle = fill; c.lineWidth = r * .06; c.beginPath(); c.moveTo(x - r * .5, y + r * .62); c.lineTo(x + r * .5, y + r * .62); c.stroke();
+  };
+  for (const z of [Z + .06, -Z - .06]) { truck.add(mesh(new THREE.BoxGeometry(L + .02, .44, .02), cream, cx, TOP - .24, z)); truck.add(mesh(new THREE.BoxGeometry(L + .03, .05, .03), orange, cx, TOP - .49, z)); }
+  for (const x of [X0 - .06, X1 + .06]) truck.add(mesh(new THREE.BoxGeometry(.02, .44, Z * 2 + .14), cream, x, TOP - .24, 0));
+  const brandTex = canvasTex((c, w, h) => {
+    emblem(c, 150, h / 2, 118, C.greenDark, '#F6EBD3');
+    c.fillStyle = '#FFF7E8'; c.font = 'italic 400 128px "Instrument Serif", Georgia, serif'; c.fillText('Free Meals', 310, 150);
+    c.font = '600 92px Inter, system-ui, sans-serif'; c.fillText('on Wheels', 316, 250);
+    c.fillStyle = '#FFD9A8'; c.font = '500 40px Inter, system-ui, sans-serif'; c.fillText('Fresh, hot meals · free for everyone · since 2020', 320, 315);
+  }, 1500, 340);
+  const brand = new THREE.Mesh(new THREE.PlaneGeometry(3.4, .77), std('#ffffff', { map: brandTex, transparent: true, roughness: .55 }));
+  brand.position.set(-.55, 1.08, Z + .056); truck.add(brand);
+  const backBrand = brand.clone(); backBrand.rotation.y = Math.PI; backBrand.position.z = -Z - .056; truck.add(backBrand);
+  const cabTex = canvasTex((c, w, h) => { emblem(c, w / 2, h / 2, w * .44, C.greenDark, '#F6EBD3'); }, 256, 256);
+  for (const z of [Z + .056, -Z - .056]) { const e = new THREE.Mesh(new THREE.PlaneGeometry(.62, .62), std('#ffffff', { map: cabTex, transparent: true })); e.position.set(3.35, 1.25, z * 1.02); if (z < 0) e.rotation.y = Math.PI; truck.add(e); }
+  // Roof banner: wide, two-sided, framed, with the full name and emblem, softly lit.
+  const roofSign = new THREE.Group(); roofSign.position.set(-.5, TOP + .78, 0); truck.add(roofSign);
+  roofSign.add(mesh(rbox(4.6, .98, .16, .08), std(C.greenDark, { roughness: .4, metalness: .2 })));
+  const roofTex = canvasTex((c, w, h) => {
+    c.fillStyle = '#FFF8EC'; c.fillRect(0, 0, w, h);
+    c.strokeStyle = C.orange; c.lineWidth = 10; c.strokeRect(22, 22, w - 44, h - 44);
+    emblem(c, 170, h / 2, 120, C.greenDark, '#F6EBD3');
+    c.fillStyle = C.greenDark; c.font = 'italic 400 134px "Instrument Serif", Georgia, serif'; c.fillText('Free Meals on Wheels', 330, 196);
+    c.fillStyle = C.orange; c.font = '600 46px Inter, system-ui, sans-serif'; c.fillText('Neighbors feeding neighbors', 336, 272);
+  }, 1800, 380);
+  for (const sgn of [1, -1]) { const f = new THREE.Mesh(new THREE.PlaneGeometry(4.4, .86), std('#ffffff', { map: roofTex, emissive: '#FFFFFF', emissiveMap: roofTex, emissiveIntensity: .25 })); f.position.z = .085 * sgn; if (sgn < 0) f.rotation.y = Math.PI; roofSign.add(f); }
+  for (const x of [-1.8, 0, 1.8]) roofSign.add(mesh(new THREE.CylinderGeometry(.035, .035, .5, 8), std(C.ink), x, -.7, 0));
+  truck.add(mesh(rbox(.7, .32, .8, .08), std('#DCD8CF', { metalness: .4, roughness: .4 }), 1.9, TOP + .3, -.6));
+  truck.add(mesh(new THREE.CylinderGeometry(.1, .1, .45, 16), chrome, -3.2, TOP + .3, -.6));
+  // A dark chassis skirt closes the gap under the body.
+  truck.add(mesh(new THREE.BoxGeometry(L - .6, .3, Z * 2 - .3), std('#2A2D2B', { roughness: .9 }), cx + .2, .32, 0));
   // Rear door with a step.
   truck.add(mesh(rbox(.05, 1.9, .9, .02), std('#285C42', { roughness: .4 }), X0 - .03, FLOOR + 1.05, 0));
   truck.add(mesh(new THREE.BoxGeometry(.04, .3, .04), chrome, X0 - .07, FLOOR + 1.0, .3));
@@ -244,7 +329,7 @@ export function mountTruck(
   // Wheels.
   for (const [x, z] of [[-2.3, Z - .12], [-2.3, -Z + .12], [CX0 + .75, Z - .12], [CX0 + .75, -Z + .12]]) {
     truck.add(mesh(new THREE.TorusGeometry(.56, .06, 8, 28, Math.PI), std(C.greenDark), x, .48, z > 0 ? Z + .1 : -Z - .1));
-    const w = mesh(new THREE.CylinderGeometry(.46, .46, .34, 36), std(C.tire, { roughness: .9 }), x, .46, z); w.rotation.x = Math.PI / 2; truck.add(w);
+    const w = mesh(new THREE.CylinderGeometry(.46, .46, .34, 36), std(C.tire, { roughness: .9 }), x, .46, z); w.rotation.x = Math.PI / 2; w.receiveShadow = false; truck.add(w);
     const hub = mesh(new THREE.CylinderGeometry(.22, .22, .36, 24), chrome, x, .46, z); hub.rotation.x = Math.PI / 2; truck.add(hub);
   }
   // Truck as obstacles for walkers.
@@ -278,7 +363,7 @@ export function mountTruck(
 
   // ——— Picnic tables.
   const woodM = std(C.wood, { roughness: .75 });
-  const umbTex = canvasTex((c, w, h) => { for (let i = 0; i < 8; i++) { c.fillStyle = i % 2 ? '#F4EEE3' : C.green; c.beginPath(); c.moveTo(w / 2, h / 2); c.arc(w / 2, h / 2, w / 2, i * Math.PI / 4, (i + 1) * Math.PI / 4); c.fill(); } }, 256, 256);
+  const umbTex = canvasTex((c, w, h) => { for (let i = 0; i < 12; i++) { c.fillStyle = i % 2 ? '#FFF6E6' : '#13703F'; c.fillRect(i * w / 12, 0, w / 12 + 1, h); } }, 512, 32);
   const seats: Seat[] = [];
   const table = (x: number, z: number, rot: number, umbrella: boolean, reserve = false) => {
     const t = new THREE.Group(); t.position.set(x, .14, z); t.rotation.y = rot; scene.add(t);
@@ -287,7 +372,9 @@ export function mountTruck(
     for (const bx of [-.72, .72]) for (const s of [-1, 1]) { const leg = mesh(new THREE.BoxGeometry(.06, .82, .06), woodM, bx, .38, s * .3); leg.rotation.x = s * .55; t.add(leg); }
     if (umbrella) {
       t.add(mesh(new THREE.CylinderGeometry(.025, .025, 2.3, 8), chrome, 0, 1.15, 0));
-      t.add(mesh(new THREE.ConeGeometry(1.45, .42, 16, 1, true), std('#ffffff', { map: umbTex, side: THREE.DoubleSide, roughness: .85 }), 0, 2.35, 0));
+      t.add(mesh(new THREE.ConeGeometry(1.45, .5, 48, 4, true), std('#ffffff', { map: umbTex, side: THREE.DoubleSide, roughness: .85 }), 0, 2.35, 0));
+      t.add(mesh(new THREE.CylinderGeometry(1.45, 1.45, .14, 48, 1, true), std('#ffffff', { map: umbTex, side: THREE.DoubleSide, roughness: .85 }), 0, 2.04, 0));
+      t.add(mesh(new THREE.SphereGeometry(.05, 12, 8), std(C.cream), 0, 2.62, 0));
     }
     t.updateMatrixWorld(true);
     if (!reserve) for (const sx of [-.45, .45]) for (const sz of [-.68, .68]) seats.push({ pos: t.localToWorld(new THREE.Vector3(sx, -.14, sz)), face: rot + (sz > 0 ? Math.PI : 0), taken: false });
@@ -410,7 +497,10 @@ export function mountTruck(
     // Your seat: a warm tray, and a friend across the table.
     for (const [id, sz, x, z] of [['plate-dinner', .34, .45, .22], ['bowl-soup', .2, .4, .2], ['loaf-round', .13, .62, .12], ['apple', .07, .25, .35], ['mug', .1, .7, .34], ['utensil-spoon', .16, .2, .18]] as [FoodId, number, number, number][]) place(food(id, sz), picnic, x, .8, z, rnd() * .4);
     for (const [id, sz, x, z] of [['plate-dinner', .34, .45, -.25], ['salad', .18, .45, -.25], ['cup-tea', .09, .2, -.3]] as [FoodId, number, number, number][]) place(food(id, sz), picnic, x, .8, z);
-    for (const s of seats) place(food((['salad', 'sandwich', 'bowl-broth', 'pie', 'rice-ball'] as FoodId[])[Math.floor(rnd() * 5)], .16), scene, s.pos.x - Math.sin(s.face) * .35, .94, s.pos.z - Math.cos(s.face) * .35);
+    const tableFood = new THREE.Group(); scene.add(tableFood);
+    for (const s of seats) place(food((['salad', 'sandwich', 'bowl-broth', 'pie', 'rice-ball'] as FoodId[])[Math.floor(rnd() * 5)], .16), tableFood, s.pos.x - Math.sin(s.face) * .35, .94, s.pos.z - Math.cos(s.face) * .35);
+    const isPerson = (o: THREE.Object3D) => crew.some((c) => c.p.obj === o) || o === friend?.obj;
+    bake(truck, isPerson); bake(picnic, isPerson); bake(tableFood);
     if (!cast) await castReady;
     crowd = new Crowd(scene, {
       window: new THREE.Vector3(-.9, .14, Z + .95), queueDir: new THREE.Vector3(-.9, 0, .44), seats, minZ: Z + .75,
@@ -429,6 +519,11 @@ export function mountTruck(
       make: (mobility) => cast!.make(undefined, { mobility, height: 1.6 + Math.random() * .22, chair: () => { const c = makeChair(); c.scale.setScalar(1.05); return c; } }),
     });
   }).catch(() => {});
+
+  // ——— Bake static detail into few draw calls (the steam, lights, jar coins and people stay separate).
+  bake(truck);
+  for (const o of [...scene.children]) if ((o as THREE.Group).isGroup && o !== truck && o !== city && o !== giving && o !== picnic && o !== board && o !== bulletin) bake(o);
+  bake(board); bake(bulletin); bake(picnic);
 
   // ——— Picking.
   const targets: Record<StationId, THREE.Object3D[]> = { volunteer: [truck], donate: [giving], about: [board], resources: [picnic], contact: [bulletin] };
@@ -514,7 +609,7 @@ export function mountTruck(
     }
   }
 
-  let last = 0, slow = 0, sampled = 0;
+  let last = 0, slow = 0, sampled = 0, frameNo = 0;
   function frame(t: number) {
     const raw = t - last, dt = Math.min(.05, raw); last = t;
     // Adaptive quality: if frames average over ~28 ms for a couple of seconds, drop a tier.
@@ -564,7 +659,6 @@ export function mountTruck(
       }
     }
     friend?.update(dt);
-    roofSign.rotation.y = Math.sin(t * .5) * .015;
     bulbs.forEach((b, i) => ((b.material as THREE.MeshStandardMaterial).emissiveIntensity = 1.1 + Math.sin(t * 2 + i) * .2));
     steam.forEach((s, i) => {
       const age = (t * .28 + i / steam.length) % 1;
@@ -591,17 +685,21 @@ export function mountTruck(
       if (id === 'volunteer') continue;
       const s = id === hover ? 1.04 : 1; list.forEach((o) => o.scale.lerp(v.set(s, s, s), .2));
     }
+    // Shadows refresh at half rate: people move slowly enough that nobody notices, and it halves the shadow cost.
+    if ((frameNo++ & 1) === 0) renderer.shadowMap.needsUpdate = true;
     renderer.render(scene, camera);
     placeLabels(w, h);
   }
 
   let raf = 0, visible = true;
   const start = performance.now();
-  const tick = () => { if (!visible || !alive) return; frame((performance.now() - start) / 1000); raf = requestAnimationFrame(tick); };
+  const prof = { js: 0, n: 0 }; (window as unknown as { __prof: unknown }).__prof = prof;
+  const tick = () => { if (!visible || !alive) return; const t0 = performance.now(); frame((t0 - start) / 1000); prof.js += performance.now() - t0; prof.n++; raf = requestAnimationFrame(tick); };
   const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; cancelAnimationFrame(raf); if (visible) tick(); });
   io.observe(canvas);
   tick();
 
+  (window as unknown as { __r: unknown }).__r = renderer;
   return {
     focus(id, peek = false) {
       focused = id; peeking = peek; arrivedFor = null; goal = id ? station(id, peek) : overview(); flying = true;
