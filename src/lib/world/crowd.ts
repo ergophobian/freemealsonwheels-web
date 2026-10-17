@@ -108,7 +108,7 @@ export class Crowd {
         }
         else {
           // Steer around tables, signs and each other instead of walking through them.
-          const dir = d.normalize(), steer = this.steer.copy(dir);
+          const dir = d.normalize(), steer = this.steer.copy(dir); let blocked = false;
           const finalStep = n.path.length === 1 && dist < 1.4;
           for (const ob of this.opts.obstacles) {
             const ox = o.position.x - ob.x, oz = o.position.z - ob.z, od = Math.hypot(ox, oz), gap = od - ob.r;
@@ -121,11 +121,13 @@ export class Crowd {
           for (const m of this.npcs) {
             if (m === n || m.state === 'sit') continue;
             const mx = o.position.x - m.a.obj.position.x, mz = o.position.z - m.a.obj.position.z, md = Math.hypot(mx, mz);
-            if (md < .75 && md > 1e-4) { steer.x += (mx / md) * (.75 - md) * 3; steer.z += (mz / md) * (.75 - md) * 3; }
+            if (md < .95 && md > 1e-4) { steer.x += (mx / md) * (.95 - md) * 5; steer.z += (mz / md) * (.95 - md) * 5; }
+            // Someone right ahead: wait a beat rather than walk into them.
+            if (md < .7 && (-mx * dir.x - mz * dir.z) / md > .6) blocked = true;
           }
           steer.y = 0; steer.normalize();
           if (dist < n.best - .15) { n.best = dist; n.stuck = 0; }
-          o.position.addScaledVector(steer, Math.min(dist, n.speed * dt));
+          o.position.addScaledVector(steer, Math.min(dist, n.speed * dt) * (blocked ? .15 : 1));
           o.position.z = Math.max(1.85, o.position.z);
           const yaw = Math.atan2(steer.x, steer.z), dy = Math.atan2(Math.sin(yaw - o.rotation.y), Math.cos(yaw - o.rotation.y));
           o.rotation.y += dy * Math.min(1, dt * 8);
