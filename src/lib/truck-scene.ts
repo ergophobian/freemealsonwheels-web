@@ -67,7 +67,7 @@ function tree(scene: THREE.Object3D, x: number, z: number, s: number, kind: 'rou
   return t;
 }
 
-export interface TruckApi { focus(id: StationId | null, peek?: boolean): void; give(amount: number): void; dispose(): void }
+export interface TruckApi { focus(id: StationId | null, peek?: boolean): void; rect(id: 'about' | 'contact'): DOMRect; give(amount: number): void; dispose(): void }
 
 export function mountTruck(
   canvas: HTMLCanvasElement,
@@ -140,7 +140,10 @@ export function mountTruck(
   const truck = new THREE.Group(); truck.scale.setScalar(S); scene.add(truck);
   const green = std(C.green, { roughness: .35, metalness: .15 }), orange = std(C.orange, { roughness: .45 }), cream = std(C.cream, { roughness: .6 });
   const chrome = std('#E6E3DC', { metalness: .8, roughness: .25 });
-  truck.add(mesh(rbox(4.6, 2.3, 1.7, .22), green, -.1, 1.85, 0));
+  // The body is built around a real serving window, so the crew stands inside it.
+  for (const [w, h, x, y] of [[4.6, .62, -.1, 1.01], [4.6, .68, -.1, 2.66], [.85, 1.02, -1.975, 1.82], [1.65, 1.02, 1.375, 1.82]] as const)
+    truck.add(mesh(rbox(w, h, 1.7, .18), green, x, y, 0));
+  truck.add(mesh(new THREE.BoxGeometry(2.12, 1.02, .06), green, -.5, 1.82, -.82));
   truck.add(mesh(rbox(4.64, .26, 1.74, .1), orange, -.1, .95, 0));
   truck.add(mesh(rbox(4.5, .14, 1.6, .06), cream, -.1, 3.04, 0));
   truck.add(mesh(rbox(1.3, 1.7, 1.66, .26), green, 2.75, 1.55, 0));
@@ -169,9 +172,10 @@ export function mountTruck(
   const winX = -.5;
   // The window sits a little low so neighbors can see over the counter.
   const win = new THREE.Group(); win.position.y = -.18; truck.add(win);
-  const interior = mesh(new THREE.PlaneGeometry(2.1, 1), std('#F3E3C6'), winX, 2.0, .852); win.add(interior);
-  for (const y of [2.36]) win.add(mesh(new THREE.BoxGeometry(1.9, .03, .12), std(C.wood), winX, y, .9));
-  for (let k = 0; k < 6; k++) win.add(mesh(new THREE.CylinderGeometry(.06, .06, .12, 12), std(['#E8681C', '#2F6B4A', '#E2C27A'][k % 3]), winX - .8 + k * .32, 2.43, .9));
+  const interior = mesh(new THREE.PlaneGeometry(2.1, 1.05), std('#F3E3C6'), winX, 2.0, -.6); win.add(interior);
+  win.add(mesh(new THREE.BoxGeometry(2.1, .04, 1.6), std('#D9C9AC'), winX, 1.47, 0));
+  for (const y of [2.3]) win.add(mesh(new THREE.BoxGeometry(1.9, .03, .2), std(C.wood), winX, y, -.48));
+  for (let k = 0; k < 6; k++) win.add(mesh(new THREE.CylinderGeometry(.06, .06, .12, 12), std(['#E8681C', '#2F6B4A', '#E2C27A'][k % 3]), winX - .8 + k * .32, 2.37, -.48));
   for (const [w, h, x, y] of [[2.3, .1, winX, 2.55], [.1, 1.1, winX - 1.1, 2.0], [.1, 1.1, winX + 1.1, 2.0]] as const)
     win.add(mesh(rbox(w, h, .1, .04), orange, x, y, .87));
   win.add(mesh(rbox(2.4, .08, .5, .03), std(C.wood, { roughness: .6 }), winX, 1.48, 1.02));
@@ -400,14 +404,14 @@ export function mountTruck(
     if (!alive) return;
     assets = A;
     // Volunteers inside the truck.
-    server = new Actor('male-c', A, HEIGHT / S); place(server.obj, win, winX - .45, .66, .9); server.play('idle', 0);
-    cook = new Actor('female-b', A, HEIGHT / S); place(cook.obj, win, winX + .55, .66, .8, -.5); cook.play('idle', 0);
+    server = new Actor('male-c', A, HEIGHT / S); place(server.obj, win, winX - .45, .66, .25); server.play('idle', 0);
+    cook = new Actor('female-b', A, HEIGHT / S); place(cook.obj, win, winX + .5, .66, -.15, -.6); cook.play('idle', 0);
     helpers.push({ a: cook, next: 1, pool: ['interact-left', 'interact-right', 'pick-up', 'idle', 'emote-yes'] });
     // Food on the counter and shelves.
     const F = (id: FoodId, size: number, x: number, y: number, z: number, ry = 0) => place(A.food(id, size), win, x, y, z, ry);
     F('styrofoam-dinner', .26, winX + .35, 1.53, 1.08, .2); F('styrofoam-dinner', .26, winX + .62, 1.53, 1.1, -.1); F('styrofoam-dinner', .26, winX + .48, 1.62, 1.09, .05);
-    F('pot-stew', .3, winX + .75, 1.52, .95); F('loaf-round', .18, winX + .1, 1.52, 1.12); F('apple', .07, winX + .3, 1.52, 1.18); F('orange', .07, winX + .38, 1.52, 1.12);
-    for (let i = 0; i < 5; i++) F((['pumpkin-basic', 'cabbage', 'carrot', 'tomato', 'corn'] as FoodId[])[i], .14, winX - .8 + i * .38, 2.38, .9, rnd() * 3);
+    F('pot-stew', .3, winX + .78, 1.52, .55); F('loaf-round', .18, winX + .1, 1.52, 1.12); F('apple', .07, winX + .3, 1.52, 1.18); F('orange', .07, winX + .38, 1.52, 1.12);
+    for (let i = 0; i < 5; i++) F((['pumpkin-basic', 'cabbage', 'carrot', 'tomato', 'corn'] as FoodId[])[i], .14, winX - .8 + i * .38, 2.32, -.48, rnd() * 3);
     // Your seat: a warm tray, and a friend across the table.
     const tray: [FoodId, number, number, number][] = [['plate-dinner', .34, .45, .22], ['bowl-soup', .2, .4, .2], ['loaf-round', .13, .62, .12], ['apple', .07, .25, .35], ['mug', .1, .7, .34], ['utensil-spoon', .16, .2, .18]];
     for (const [id, sz, x, z] of tray) place(A.food(id, sz), picnic, x, .83, z, rnd() * .4);
@@ -420,6 +424,12 @@ export function mountTruck(
       window: new THREE.Vector3(winX * S - .2, .14, 2.4), queueDir: new THREE.Vector3(-.88, 0, .48), seats,
       entries: [new THREE.Vector3(-16, .14, 7.5), new THREE.Vector3(16, .14, 7), new THREE.Vector3(-16, .14, 3), new THREE.Vector3(16, .14, 9)],
       exits: [new THREE.Vector3(-17, .14, 6), new THREE.Vector3(17, .14, 8), new THREE.Vector3(-17, .14, 9), new THREE.Vector3(17, .14, 4)],
+      obstacles: [
+        { x: 2.5, z: 2.7, r: .55 }, { x: 5.2, z: 2.9, r: .65 }, { x: 4.5, z: 3.4, r: .45 }, { x: 4, z: 3.9, r: .4 }, { x: 7, z: 3.8, r: 1.05 },
+        { x: -5.4, z: 4.8, r: 1.25 }, { x: -8.6, z: 7.4, r: 1.25 }, { x: 9.6, z: 7.2, r: 1.25 },
+        { x: -2.6, z: 7.4, r: .9 }, { x: 3, z: 7.6, r: .9 }, { x: 8.8, z: 2.4, r: .7 }, { x: -8.2, z: 3.2, r: .7 }, { x: -8.4, z: 1.9, r: .6 },
+        { x: -9, z: 1.6, r: .25 }, { x: 10, z: 1.6, r: .25 }, { x: -6.5, z: 2, r: .25 }, { x: 7, z: 2.2, r: .25 },
+      ],
       max: tier > 1 ? 9 : 6, height: HEIGHT, exclude: ['male-c', 'female-b', 'male-e', 'female-d', 'male-a'],
       meal: () => A.food('styrofoam-dinner', .3),
       onOrder: () => server?.play('emote-yes', .25),
@@ -543,7 +553,7 @@ export function mountTruck(
 
     // First person: you are the volunteer at the window.
     const inTruck = focused === 'volunteer' && camera.position.distanceTo(v.set(...VIEWS.volunteer.pos)) < .6;
-    interior.visible = !inTruck; if (server) server.obj.visible = !inTruck; if (cook) cook.obj.visible = !inTruck;
+    if (server) server.obj.visible = !inTruck; if (cook) cook.obj.visible = !inTruck;
     hands.visible = inTruck;
     if (inTruck) {
       hands.position.copy(camera.position); hands.quaternion.copy(camera.quaternion);
@@ -615,7 +625,20 @@ export function mountTruck(
   tick();
 
   return {
+    rect(id) {
+      // Where the real board sits on screen, so the full-screen board can grow out of it.
+      const [o, w, h, y, z] = id === 'about' ? [board, .95, .7, 1.45, .056] : [bulletin, 1.75, 1.05, 1.75, .05];
+      const r = canvas.getBoundingClientRect(); let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+        v.copy(o.localToWorld(v2.set(sx * w / 2, y + sy * h / 2, z))).project(camera);
+        const px = r.left + (v.x * .5 + .5) * r.width, py = r.top + (-v.y * .5 + .5) * r.height;
+        x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py);
+      }
+      return new DOMRect(x0, y0, x1 - x0, y1 - y0);
+    },
     focus(id, peek = false) {
+      const stay = id === 'about' || id === 'contact';
+      if (stay) { focused = id; peeking = false; goal = { pos: camera.position.toArray() as View['pos'], look: controls.target.toArray() as View['look'] }; flying = true; return; }
       focused = id; peeking = peek; goal = id ? station(id, peek) : overview(); flying = true;
       fovGoal = (id && !peek && goal.fov) || baseFov();
       if (reduce) { camera.fov = fovGoal; camera.updateProjectionMatrix(); frame(8); }

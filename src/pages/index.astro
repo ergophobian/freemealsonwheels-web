@@ -181,13 +181,13 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   const sheets: Partial<Record<StationId, HTMLElement>> = { about: document.getElementById('story')!, contact: document.getElementById('board')! };
   function open(id: StationId) {
     idx = ORDER.indexOf(id); syncDots();
-    closeSheets(); root.classList.remove('open');
+    if (!sheets[id]?.classList.contains('on')) closeSheets(); root.classList.remove('open');
     api?.focus(id);
     clearTimeout(openTimer);
     const sheet = sheets[id];
     if (sheet) {
       if (id === 'about') showChapter(0);
-      openTimer = window.setTimeout(() => { root.classList.add('sheet'); sheet.classList.add('on'); sheet.setAttribute('aria-hidden', 'false'); }, api ? 1100 : 0);
+      grow(id as 'about' | 'contact', sheet);
     } else {
       if (id !== 'volunteer') body.innerHTML = CARDS[id]();
       else if (vol.step !== 'done' || !body.querySelector('.done')) { if (vol.step === 'done') vol.step = 'pick'; volunteerCard(); }
@@ -195,7 +195,34 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
     }
     history.replaceState(null, '', '#' + id);
   }
-  function closeSheets() { for (const el of Object.values(sheets)) { el!.classList.remove('on'); el!.setAttribute('aria-hidden', 'true'); } root.classList.remove('sheet'); }
+  // The full-screen board grows out of the real board in the world, and shrinks back into it.
+  const EASE = 'cubic-bezier(.2, .8, .2, 1)';
+  function morph(id: 'about' | 'contact', sheet: HTMLElement) {
+    const panel = sheet.firstElementChild as HTMLElement, to = panel.getBoundingClientRect(), from = api!.rect(id);
+    return [{ transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width}, ${from.height / to.height})`, borderRadius: '40px' }, { transform: 'none', borderRadius: '18px' }];
+  }
+  let sheetGen = 0;
+  function grow(id: 'about' | 'contact', sheet: HTMLElement) {
+    sheetGen++; sheet.getAnimations({ subtree: true }).forEach((a) => a.cancel());
+    root.classList.add('sheet'); sheet.classList.add('on'); sheet.setAttribute('aria-hidden', 'false');
+    if (!api || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const panel = sheet.firstElementChild as HTMLElement;
+    panel.animate(morph(id, sheet), { duration: 750, easing: EASE });
+    [...panel.children].forEach((c) => (c as HTMLElement).animate([{ opacity: 0 }, { opacity: 0, offset: .45 }, { opacity: 1 }], { duration: 750 }));
+  }
+  function closeSheets() {
+    const gen = ++sheetGen;
+    for (const [id, el] of Object.entries(sheets) as [StationId, HTMLElement][]) {
+      if (!el.classList.contains('on')) continue;
+      const done = () => { if (gen !== sheetGen) return; el.classList.remove('on'); el.setAttribute('aria-hidden', 'true'); };
+      if (api && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        const panel = el.firstElementChild as HTMLElement;
+        [...panel.children].forEach((c) => (c as HTMLElement).animate([{ opacity: 1 }, { opacity: 0, offset: .4 }, { opacity: 0 }], { duration: 550 }));
+        panel.animate([...morph(id as 'about' | 'contact', el)].reverse(), { duration: 550, easing: 'cubic-bezier(.5, 0, .7, .4)' }).onfinish = done;
+      } else done();
+    }
+    root.classList.remove('sheet');
+  }
   function close() {
     clearTimeout(openTimer); closeSheets();
     root.classList.remove('open'); pop.setAttribute('aria-hidden', 'true');
@@ -236,8 +263,8 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
         <small>${i + 1} / ${CH.length}</small>
         <h2>${c.t}</h2><p>${c.b}</p>
         ${c.cta ? '<div class="cta"><button class="btn" data-goto="volunteer">Volunteer this Saturday</button><button class="btn ghost" data-goto="donate">Give a meal</button></div>' : ''}
+        <svg class="sketch" viewBox="0 0 140 110" aria-hidden="true"><g>${c.sk}</g></svg>
       </div>
-      <svg class="sketch" viewBox="0 0 140 110" aria-hidden="true"><g>${c.sk}</g></svg>
       <div class="photos">${c.img.map((src, k) => `<figure style="--r:${(k ? 4 : -3) + (i % 2 ? 2 : -1)}deg"><i class="tape"></i><img src="/img/${src}" alt="" loading="lazy" /></figure>`).join('')}</div>
     </article>`).join('');
   chapters.querySelectorAll<HTMLElement>('[data-goto]').forEach((b) => (b.onclick = () => open(b.dataset.goto as StationId)));
@@ -394,13 +421,13 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   .sheet-close { position: absolute; z-index: 3; top: 18px; right: 18px; width: 42px; height: 42px; border: 0; border-radius: 50%; background: rgb(255 255 255 / .92); color: var(--green); font-size: 1.5rem; cursor: pointer; box-shadow: 0 6px 18px rgb(0 0 0 / .2); }
 
   /* Our story: chalkboard */
-  .story, .board { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; padding: 2.5vh 2.5vw; opacity: 0; pointer-events: none; transition: opacity .5s; }
-  .story.on, .board.on { opacity: 1; pointer-events: auto; }
-  .chalkboard { position: relative; width: 100%; height: 100%; border-radius: 18px; border: clamp(10px, 1.6vw, 18px) solid #8a5a34; box-shadow: inset 0 0 0 3px #6b4223, 0 30px 80px rgb(0 0 0 / .45); background: radial-gradient(ellipse at 30% 20%, rgb(255 255 255 / .07), transparent 55%), radial-gradient(ellipse at 80% 90%, rgb(255 255 255 / .05), transparent 50%), #24382d; overflow: hidden; transform: scale(.82); transition: transform .7s cubic-bezier(.2, .8, .2, 1); }
-  .story.on .chalkboard { transform: none; }
+  .story, .board { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; padding: 2.5vh 2.5vw; visibility: hidden; pointer-events: none; }
+  .story.on, .board.on { visibility: visible; }
+  .chalkboard, .cork { pointer-events: auto; transform-origin: 0 0; will-change: transform; }
+  .chalkboard { position: relative; width: 100%; height: 100%; border-radius: 18px; border: clamp(10px, 1.6vw, 18px) solid #b07a4a; box-shadow: inset 0 0 0 3px #8a5e3c, 0 30px 80px rgb(0 0 0 / .45); background: radial-gradient(ellipse at 30% 20%, rgb(255 255 255 / .07), transparent 55%), radial-gradient(ellipse at 80% 90%, rgb(255 255 255 / .05), transparent 50%), #24382d; overflow: hidden; }
   .chalkboard::before { content: ''; position: absolute; inset: 0; opacity: .35; pointer-events: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .18 0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E"); }
   .chapters { position: absolute; inset: 0; }
-  .chapters :global(.chapter) { position: absolute; inset: 0; display: grid; grid-template-columns: 1.05fr 1fr; grid-template-rows: 1fr auto; gap: 12px 40px; padding: clamp(28px, 5vw, 64px) clamp(28px, 5vw, 72px) 90px; opacity: 0; transform: translateX(40px); transition: opacity .5s, transform .6s cubic-bezier(.2, .8, .2, 1); pointer-events: none; }
+  .chapters :global(.chapter) { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1.1fr; align-items: center; gap: 48px; padding: clamp(28px, 5vw, 64px) clamp(28px, 5vw, 72px) 90px; opacity: 0; transform: translateX(40px); transition: opacity .5s, transform .6s cubic-bezier(.2, .8, .2, 1); pointer-events: none; }
   .chapters :global(.chapter.past) { transform: translateX(-40px); }
   .chapters :global(.chapter.on) { opacity: 1; transform: none; pointer-events: auto; }
   .chapters :global(.chalk) { align-self: center; color: #f4f1e8; font-family: Caveat, cursive; text-shadow: 0 0 1px rgb(255 255 255 / .5); }
@@ -409,11 +436,11 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   .chapters :global(.chalk p) { font-size: clamp(1.4rem, 2.2vw, 1.9rem); line-height: 1.25; max-width: 24ch; margin: 0; color: rgb(244 241 232 / .9); }
   .chapters :global(.cta) { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; font-family: Inter, sans-serif; }
   .chapters :global(.cta .btn) { border: 0; font: inherit; font-weight: 600; cursor: pointer; }
-  .chapters :global(.sketch) { grid-column: 1; grid-row: 2; width: clamp(110px, 14vw, 170px); fill: none; stroke: #f4f1e8; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; opacity: .85; filter: url(#chalky); }
+  .chapters :global(.sketch) { display: block; margin-top: 28px; width: clamp(100px, 12vw, 150px); fill: none; stroke: #f4f1e8; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; opacity: .85; filter: url(#chalky); }
   .chapters :global(.chapter.on .sketch path), .chapters :global(.chapter.on .sketch circle) { stroke-dasharray: 600; stroke-dashoffset: 600; animation: draw 2.2s .2s ease forwards; }
   @keyframes draw { to { stroke-dashoffset: 0; } }
-  .chapters :global(.photos) { grid-column: 2; grid-row: 1 / span 2; position: relative; display: grid; place-items: center; }
-  .chapters :global(figure) { position: relative; margin: 0; padding: 12px 12px 40px; background: #fffdf7; box-shadow: 0 14px 30px rgb(0 0 0 / .35); transform: rotate(var(--r)); width: min(380px, 80%); }
+  .chapters :global(.photos) { position: relative; display: grid; place-items: center; height: 100%; }
+  .chapters :global(figure) { position: relative; margin: 0; padding: 12px 12px 40px; background: #fffdf7; box-shadow: 0 14px 30px rgb(0 0 0 / .35); transform: rotate(var(--r)); width: min(500px, 88%); }
   .chapters :global(figure + figure) { position: absolute; right: 0; bottom: 4%; width: min(250px, 55%); }
   .chapters :global(figure img) { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; filter: saturate(.92) contrast(1.02); }
   :global(.tape) { position: absolute; z-index: 2; top: -14px; left: 50%; width: 110px; height: 30px; transform: translateX(-50%) rotate(-3deg); background: rgb(246 233 196 / .78); box-shadow: 0 2px 4px rgb(0 0 0 / .12); clip-path: polygon(3% 0, 97% 4%, 100% 50%, 96% 100%, 2% 96%, 0 50%); }
@@ -425,8 +452,7 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   #s-dots :global(i.on) { width: 24px; border-radius: 4px; background: #f4f1e8; }
 
   /* Contact: bulletin board */
-  .cork { position: relative; width: 100%; height: 100%; overflow: auto; border-radius: 16px; border: clamp(10px, 1.6vw, 18px) solid #9a6b40; box-shadow: inset 0 0 30px rgb(80 40 10 / .35), 0 30px 80px rgb(0 0 0 / .45); background-color: #c99c62; background-image: radial-gradient(rgb(120 70 30 / .35) 1px, transparent 1.4px), radial-gradient(rgb(255 230 190 / .3) 1px, transparent 1.4px); background-size: 7px 7px, 11px 11px; background-position: 0 0, 3px 4px; transform: scale(.82); transition: transform .7s cubic-bezier(.2, .8, .2, 1); }
-  .board.on .cork { transform: none; }
+  .cork { position: relative; width: 100%; height: 100%; overflow: auto; border-radius: 16px; border: clamp(10px, 1.6vw, 18px) solid #9a6b40; box-shadow: inset 0 0 30px rgb(80 40 10 / .35), 0 30px 80px rgb(0 0 0 / .45); background-color: #c99c62; background-image: radial-gradient(rgb(120 70 30 / .35) 1px, transparent 1.4px), radial-gradient(rgb(255 230 190 / .3) 1px, transparent 1.4px); background-size: 7px 7px, 11px 11px; background-position: 0 0, 3px 4px; }
   .pinned { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 28px; padding: clamp(28px, 4vw, 56px); align-items: start; }
   .pinned > * { position: relative; display: grid; gap: 6px; padding: 26px 22px 22px; border: 0; text-align: left; font: inherit; color: var(--ink); text-decoration: none; background: #fffdf6; box-shadow: 0 10px 22px rgb(60 30 10 / .28); transition: transform .2s; cursor: pointer; }
   .pinned > *:nth-child(3n + 1) { transform: rotate(-1.6deg); } .pinned > *:nth-child(3n + 2) { transform: rotate(1.2deg); } .pinned > *:nth-child(3n) { transform: rotate(-.6deg); }
@@ -450,9 +476,9 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   .pinned .letter .btn { justify-self: start; border: 0; font: inherit; font-weight: 600; cursor: pointer; }
   @media (max-width: 760px) {
     .chalkboard { height: 100%; }
-    .chapters :global(.chapter) { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; padding: 60px 22px 84px; gap: 10px; }
-    .chapters :global(.photos) { grid-column: 1; grid-row: 3; align-self: start; }
-    .chapters :global(.sketch) { grid-row: 2; width: 90px; }
+    .chapters :global(.chapter) { grid-template-columns: 1fr; grid-template-rows: auto 1fr; align-items: start; padding: 60px 22px 84px; gap: 18px; }
+    .chapters :global(.photos) { height: auto; }
+    .chapters :global(.sketch) { width: 80px; margin-top: 14px; }
     .pinned { grid-template-columns: 1fr; padding: 60px 20px 28px; }
     .pinned .title, .pinned .letter { grid-column: auto; }
   }
