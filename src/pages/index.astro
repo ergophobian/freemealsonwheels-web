@@ -9,13 +9,14 @@ const programs = [
 ---
 <Base title="Home">
   <section class="hero">
-    <img class="hero-img" src="/img/kitchen.webp" alt="Volunteers serving hot meals in the Free Meals on Wheels kitchen" />
+    <canvas class="hero-canvas" id="painted" aria-hidden="true"></canvas>
     <div class="wrap hero-inner">
+      <span class="eyebrow">San Jose and San Ramon · every Saturday</span>
       <h1>Dignity starts with a full belly.</h1>
-      <p>Every Saturday, our volunteers cook, pack and deliver fresh, hot meals to neighbors across San Jose and San Ramon.</p>
+      <p>Our volunteers cook, pack and deliver fresh, hot meals to neighbors who need them. Come cook with us, or send a meal from wherever you are.</p>
       <div class="actions">
         <a href="/volunteer" class="btn">Volunteer this Saturday</a>
-        <a href="/donate" class="btn light">Donate a meal</a>
+        <a href="/donate" class="btn ghost">Donate a meal</a>
       </div>
     </div>
   </section>
@@ -41,10 +42,11 @@ const programs = [
         </ol>
         <a href="/volunteer" class="btn">See open spots</a>
       </div>
-      <figure class="photo-stack">
-        <img src="/img/smile.webp" alt="A smiling neighbor receiving a meal" />
-        <img src="/img/boxes.jpg" alt="Volunteers packing boxes" />
-      </figure>
+      <a class="saturday card" href="/volunteer">
+        <p class="sat-head"><b id="sat-date">This Saturday</b><span>San Jose kitchen</span></p>
+        <ul id="sat-roles"></ul>
+        <span class="sat-cta">Book a spot →</span>
+      </a>
     </div>
   </section>
 
@@ -85,17 +87,50 @@ const programs = [
   </section>
 </Base>
 
-<style>
-  .hero { position: relative; min-height: min(88vh, 760px); display: grid; align-items: end; color: #fff; overflow: hidden; }
-  .hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  .hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgb(15 38 25 / .15) 20%, rgb(15 38 25 / .88) 100%); }
-  .hero-inner { position: relative; z-index: 1; padding: 120px 0 72px; }
-  .hero h1 { color: #fff; max-width: 14ch; font-size: clamp(2.6rem, 7vw, 5rem); }
-  .hero p { font-size: 1.2rem; max-width: 52ch; color: rgb(255 255 255 / .88); }
-  .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
-  .btn.light { background: rgb(255 255 255 / .16); backdrop-filter: blur(12px); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .4); }
+<script>
+  import { mountPaintedScene } from '../lib/painted-scene';
+  import { ROLES, upcomingSaturdays, spotsLeft } from '../lib/store';
+  mountPaintedScene(document.getElementById('painted') as HTMLCanvasElement);
+  const date = upcomingSaturdays()[0];
+  document.getElementById('sat-date')!.textContent = new Date(date + 'T12:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  document.getElementById('sat-roles')!.innerHTML = ROLES.map((r) => {
+    const left = spotsLeft('san_jose', date, r.id);
+    return `<li><span><b>${r.name}</b><small>${r.time}</small></span><em class="${left ? (left <= 2 ? 'low' : '') : 'full'}">${left ? left + ' left' : 'Waitlist'}</em></li>`;
+  }).join('');
+</script>
 
-  .impact { position: relative; z-index: 2; margin-top: -40px; display: grid; grid-template-columns: repeat(4, 1fr); background: var(--surface); backdrop-filter: blur(20px) saturate(1.3); border: 1px solid var(--glass-line); border-radius: var(--radius); box-shadow: var(--shadow); }
+<style>
+  .hero { position: relative; min-height: min(92vh, 820px); display: grid; align-items: center; overflow: hidden; background: #f6efe2; }
+  .hero-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .hero::before { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(90deg, rgb(246 239 226 / .92) 0%, rgb(246 239 226 / .7) 32%, transparent 58%); }
+  @media (max-width: 900px) { .hero::before { display: none; } }
+  .hero-inner { position: relative; z-index: 2; padding: 96px 0 120px; pointer-events: none; }
+  .hero-inner > * { pointer-events: auto; }
+  .hero h1 { max-width: 11ch; font-size: clamp(2.8rem, 7vw, 5.4rem); }
+  .hero p { font-size: 1.15rem; max-width: 40ch; color: var(--ink); }
+  .hero .eyebrow { background: rgb(255 255 255 / .7); backdrop-filter: blur(8px); }
+  .hero .btn.ghost { background: rgb(255 255 255 / .7); backdrop-filter: blur(10px); }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+  @media (max-width: 900px) {
+    .hero { align-items: end; min-height: 760px; }
+    .hero-inner { padding: 0 0 80px; }
+    .hero-inner::before { content: ''; position: absolute; inset: -40px -16px 0; z-index: -1; background: linear-gradient(180deg, transparent, rgb(246 239 226 / .92) 30%); }
+  }
+
+  .saturday { display: block; text-decoration: none; padding: 26px; }
+  .sat-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0 0 14px; flex-wrap: wrap; }
+  .sat-head b { font-size: 1.2rem; color: var(--green); }
+  .sat-head span { color: var(--muted); font-size: .9rem; }
+  .saturday ul { list-style: none; padding: 0; margin: 0 0 18px; }
+  .saturday :global(li) { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); }
+  .saturday :global(li span) { display: grid; }
+  .saturday :global(small) { color: var(--muted); }
+  .saturday :global(em) { font-style: normal; font-size: .85rem; font-weight: 600; padding: .3rem .75rem; border-radius: 99px; background: rgb(47 107 74 / .12); color: var(--green-2); }
+  .saturday :global(em.low) { background: rgb(232 104 28 / .14); color: #b4500f; }
+  .saturday :global(em.full) { background: var(--tint); color: var(--muted); }
+  .sat-cta { color: var(--orange); font-weight: 600; }
+
+  .impact { position: relative; z-index: 2; margin-top: -56px; display: grid; grid-template-columns: repeat(4, 1fr); background: var(--surface); backdrop-filter: blur(20px) saturate(1.3); border: 1px solid var(--glass-line); border-radius: var(--radius); box-shadow: var(--shadow); }
   .impact div { padding: 26px 20px; text-align: center; }
   .impact div + div { border-left: 1px solid var(--line); }
   .impact strong { display: block; font-size: 2.2rem; font-weight: 700; letter-spacing: -.03em; color: var(--green); }
@@ -107,10 +142,6 @@ const programs = [
   .shifts { list-style: none; padding: 0; margin: 24px 0 28px; display: grid; gap: 8px; }
   .shifts li { display: flex; gap: 16px; padding: 12px 16px; border-radius: 14px; background: var(--tint); }
   .shifts b { color: var(--green); min-width: 76px; }
-  .photo-stack { position: relative; margin: 0; aspect-ratio: 1 / 1; }
-  .photo-stack img { position: absolute; border-radius: 24px; object-fit: cover; box-shadow: var(--shadow); }
-  .photo-stack img:first-child { inset: 0 18% 22% 0; width: 82%; height: 78%; }
-  .photo-stack img:last-child { inset: 40% 0 0 34%; width: 66%; height: 60%; border: 6px solid var(--bg); }
 
   .quote { background: var(--green); color: #fff; padding: clamp(64px, 10vw, 120px) 0; text-align: center; }
   .quote .mark { display: block; font-size: 5rem; line-height: .6; color: var(--gold); margin-bottom: 12px; }
