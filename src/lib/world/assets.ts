@@ -1,6 +1,7 @@
 // CC0 food models from Kenney's Food Kit (kenney.nl), loaded once and cloned.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
 export const FOODS = ['bowl-soup', 'bowl-broth', 'plate-dinner', 'salad', 'loaf-round', 'apple', 'orange', 'mug', 'cup-tea', 'pot-stew', 'sandwich', 'styrofoam-dinner', 'utensil-spoon', 'pie', 'pumpkin-basic', 'carrot', 'cabbage', 'tomato', 'corn', 'rice-ball', 'plate', 'bowl', 'cutting-board', 'frying-pan', 'pan', 'knife-block', 'pot', 'pot-lid', 'cooking-spoon', 'whisk', 'cup', 'plate-deep', 'bottle-oil', 'shaker-salt', 'shaker-pepper', 'rollingPin', 'bread'] as const;
 export type FoodId = typeof FOODS[number];
@@ -8,7 +9,7 @@ export type FoodId = typeof FOODS[number];
 const loader = new GLTFLoader();
 const load = (url: string) => new Promise<THREE.Group>((res, rej) => loader.load(url, (g) => res(g.scene), undefined, rej));
 
-export async function loadFood(base = '/models/food') {
+export async function loadFood(base = `${BASE}models/food`) {
   const scenes = await Promise.all(FOODS.map((f) => load(`${base}/${f}.glb`)));
   for (const s of scenes) s.traverse((c) => { const m = c as THREE.Mesh; if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
   const box = new THREE.Box3(), size = new THREE.Vector3();

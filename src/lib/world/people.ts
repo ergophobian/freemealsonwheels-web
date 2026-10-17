@@ -50,11 +50,14 @@ export class Person {
   private chair?: THREE.Object3D;
   private cane?: THREE.Object3D;
   private t = Math.random() * 10;
+  private model: THREE.Group;
+  private wasSeated = false;
+  private height = 1.72;
   constructor(model: THREE.Group, clips: THREE.AnimationClip[], o: PersonOpts) {
-    const h = o.height ?? 1.72;
+    const h = o.height ?? 1.72; this.height = h;
     const b = new THREE.Box3().setFromObject(model);
     model.scale.multiplyScalar(h / Math.max(.1, b.max.y - b.min.y));
-    this.obj.add(model);
+    this.obj.add(model); this.model = model;
     // Recolor skin and hair so the cast covers many skin tones without extra downloads.
     const skin = new THREE.Color(SKINS[o.skin ?? Math.floor(Math.random() * SKINS.length)]), hair = new THREE.Color(HAIR[Math.floor(Math.random() * HAIR.length)]);
     model.traverse((c) => {
@@ -67,7 +70,7 @@ export class Person {
       });
       m.material = Array.isArray(m.material) ? mats : mats[0];
     });
-    for (const n of ['UpperLeg.L', 'UpperLeg.R', 'LowerLeg.L', 'LowerLeg.R', 'Hips', 'Wrist.R', 'Wrist.L', 'Chest', 'UpperArm.L', 'UpperArm.R', 'LowerArm.L', 'LowerArm.R', 'Head']) this.bones[n] = model.getObjectByName(n) ?? undefined;
+    for (const n of ['UpperLeg.L', 'UpperLeg.R', 'LowerLeg.L', 'LowerLeg.R', 'Hips', 'Wrist.R', 'Wrist.L', 'Chest', 'UpperArm.L', 'UpperArm.R', 'LowerArm.L', 'LowerArm.R', 'Head']) this.bones[n] = model.getObjectByName(n) ?? model.getObjectByName(n.replace('.', '')) ?? undefined; // GLTFLoader strips '.' from node names
     this.hand = new THREE.Object3D();
     (this.bones['Wrist.R'] ?? model).add(this.hand);
     this.hand.scale.setScalar(1 / model.scale.x);
@@ -82,7 +85,7 @@ export class Person {
       }
     }
     const mobility = o.mobility ?? 'walk';
-    if (mobility === 'chair' && o.chair) { this.chair = o.chair(); this.obj.add(this.chair); model.position.y = .02; this.pose = 'chair'; }
+    if (mobility === 'chair' && o.chair) { this.chair = o.chair(); this.obj.add(this.chair); model.position.set(0, .05, -.06); this.pose = 'chair'; }
     if (mobility === 'cane') {
       this.cane = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, .9, 8), new THREE.MeshStandardMaterial({ color: '#3A2E26', roughness: .4 }));
       this.cane.castShadow = true; (this.bones['Wrist.L'] ?? model).add(this.cane); this.cane.scale.setScalar(1 / model.scale.x); this.speed = .55;
@@ -111,19 +114,14 @@ export class Person {
   update(dt: number) {
     this.t += dt;
     this.mixer.update(dt);
-    // Procedural layers on top of the clip.
-    const B = this.bones, seated = this.pose === 'sit' || this.chair;
-    if (seated) {
-      for (const s of ['L', 'R']) {
-        B[`UpperLeg.${s}`]?.rotation.set(-1.45, 0, s === 'L' ? .06 : -.06);
-        B[`LowerLeg.${s}`]?.rotation.set(1.5, 0, 0);
-      }
-      if (B.Hips) B.Hips.position.y *= .62;
-      if (this.chair && this.pose === 'chair-roll') for (const s of ['L', 'R']) { const u = B[`UpperArm.${s}`]; if (u) u.rotation.x += -.5 + Math.sin(this.t * 3) * .45; }
-      if (this.pose === 'sit') { for (const s of ['L', 'R']) { const u = B[`UpperArm.${s}`], l = B[`LowerArm.${s}`]; if (u) u.rotation.x -= .5; if (l) l.rotation.x -= .9; } }
-      if (this.chair) this.chair.children.forEach((c) => { if (c.userData.wheel && this.pose === 'chair-roll') c.rotation.x += dt * 4; });
+    // Seated people sit behind benches and tables: tuck the legs away and lower the body to seat height.
+    const seated = this.pose === 'sit';
+    if (seated !== this.wasSeated) {
+      this.wasSeated = seated;
+      this.model.traverse((c) => { if ((c as THREE.Mesh).isMesh && /Legs|Feet/i.test(c.name)) c.visible = !seated; });
+      this.model.position.y = seated ? -this.height * .27 : 0;
     }
-    if (this.cane && B['UpperArm.L']) B['UpperArm.L'].rotation.x -= .25;
-    if (this.cane) this.cane.rotation.set(0, 0, 0);
   }
 }
+const V1 = new THREE.Vector3(), V2 = new THREE.Vector3(), V3 = new THREE.Vector3(), V4 = new THREE.Vector3();
+const Q1 = new THREE.Quaternion(), Q2 = new THREE.Quaternion(), Q3 = new THREE.Quaternion(), Q4 = new THREE.Quaternion();

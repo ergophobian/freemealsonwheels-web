@@ -34,7 +34,7 @@ export class Crowd {
   private faceWindow(p: THREE.Vector3) { return Math.atan2(this.opts.window.x - p.x, (this.opts.window.z - .8) - p.z); }
 
   private spawn(start: State = 'enter') {
-    const r = Math.random(), mobility: Mobility = r < .14 ? 'chair' : r < .26 ? 'cane' : 'walk';
+    const mobility: Mobility = Math.random() < .12 ? 'cane' : 'walk';
     const f = this.opts.make(mobility);
     this.scene.add(f.obj);
     const n: Npc = { f, state: start, path: [], vel: new THREE.Vector3(), timer: 0, slot: 0, served: false, best: Infinity, stuck: 0 };
@@ -58,7 +58,13 @@ export class Crowd {
 
   update(dt: number) {
     this.spawnIn -= dt;
-    if (this.spawnIn <= 0 && this.npcs.length < this.opts.max) { this.spawn(this.queue().length < 6 ? 'enter' : 'pass'); this.spawnIn = rand(1.5, 3.5); }
+    // Keep the line stocked (3 to 6 people), and fill the rest of the street with passers-by.
+    const q = this.queue().length, passing = this.npcs.filter((n) => n.state === 'leave' && !n.seat).length;
+    if (this.spawnIn <= 0) {
+      if (q < 3 || (q < 6 && Math.random() < .5)) this.spawn('enter');
+      else if (passing < this.opts.max - 6) this.spawn('pass');
+      this.spawnIn = rand(1.6, 3.4);
+    }
 
     for (const n of this.npcs) {
       const o = n.f.obj;

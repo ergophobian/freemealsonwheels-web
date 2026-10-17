@@ -1,13 +1,15 @@
 ---
+import Feedback from '../components/Feedback.astro';
 interface Props { title: string; description?: string; immersive?: boolean }
 const { title, immersive = false, description = 'Free Meals on Wheels cooks and delivers free, fresh meals to neighbors in need across the Bay Area.' } = Astro.props;
+const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 const nav = [
-  ['/about', 'About'],
-  ['/programs', 'Programs'],
-  ['/volunteer', 'Volunteer'],
-  ['/resources', 'Resources'],
-  ['/contact', 'Contact'],
+  [`${B}about`, 'About'],
+  [`${B}programs`, 'Programs'],
+  [`${B}volunteer`, 'Volunteer'],
+  [`${B}resources`, 'Resources'],
+  [`${B}contact`, 'Contact'],
 ];
 ---
 <!doctype html>
@@ -17,7 +19,7 @@ const nav = [
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{title === 'Home' ? 'Free Meals on Wheels' : `${title} · Free Meals on Wheels`}</title>
   <meta name="description" content={description} />
-  <link rel="icon" href="/logo.png" />
+  <link rel="icon" href={`${B}logo.png`} />
   <script is:inline>if (new URLSearchParams(location.search).has('embed')) document.documentElement.classList.add('embed');</script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Kalam:wght@300;400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -25,25 +27,26 @@ const nav = [
 <body class:list={[{ immersive }]}>
   {!immersive && <header class="site-header">
     <div class="wrap bar">
-      <a href="/" class="brand"><img src="/logo.png" alt="" width="36" height="36" /> Free Meals on Wheels</a>
+      <a href={`${B}`} class="brand"><img src={`${B}logo.png`} alt="" width="36" height="36" /> Free Meals on Wheels</a>
       <input type="checkbox" id="menu" class="menu-toggle" aria-label="Open menu" />
       <label for="menu" class="menu-btn" aria-hidden="true"><span></span></label>
       <nav>
-        {nav.map(([href, label]) => <a href={href} aria-current={path === href ? 'page' : undefined}>{label}</a>)}
-        <a href="/donate" class="btn btn-sm">Donate</a>
+        {nav.map(([href, label]) => <a href={href} aria-current={path.replace(/\/$/, '') === href.replace(/\/$/, '') ? 'page' : undefined}>{label}</a>)}
+        <a href={`${B}donate`} class="btn btn-sm">Donate</a>
       </nav>
     </div>
   </header>}
   <main><slot /></main>
+  <Feedback />
   {!immersive && <footer class="site-footer">
     <div class="wrap footer-grid">
       <div>
-        <img src="/img/logo-banner.png" alt="Free Meals on Wheels" width="220" style="margin-bottom:12px" />
+        <img src={`${B}img/logo-banner.png`} alt="Free Meals on Wheels" width="220" style="margin-bottom:12px" />
         <p class="muted">Bringing smiles, one meal at a time. A 501(c)(3) nonprofit with kitchens in San Jose and San Ramon.</p>
       </div>
       <div>
         <h4>Get involved</h4>
-        <a href="/donate">Donate</a><a href="/volunteer">Volunteer</a><a href="/programs">Programs</a>
+        <a href={`${B}donate`}>Donate</a><a href={`${B}volunteer`}>Volunteer</a><a href={`${B}programs`}>Programs</a>
       </div>
       <div>
         <h4>Say hello</h4>

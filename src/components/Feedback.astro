@@ -1,0 +1,82 @@
+---
+// Review comments: click "Comment", click anywhere on the page, type a note, send.
+// Notes go to the Free Meals on Wheels Firebase database under /siteFeedback (write-only rule),
+// and fall back to a prefilled GitHub issue if the database refuses the write.
+---
+<div class="fb" id="fb">
+  <button class="fb-toggle" id="fb-toggle" type="button"><span>✎</span> Comment</button>
+  <p class="fb-hint" id="fb-hint">Click anywhere to pin a comment. Esc to cancel.</p>
+  <form class="fb-note" id="fb-note" hidden>
+    <textarea name="text" rows="3" required placeholder="What would you change here?"></textarea>
+    <input name="name" placeholder="Your name (optional)" />
+    <div class="fb-row"><button type="button" id="fb-cancel">Cancel</button><button class="fb-send">Send</button></div>
+  </form>
+  <p class="fb-toast" id="fb-toast" role="status"></p>
+</div>
+
+<script>
+  const DB = 'https://freemealsonwheels-12aae-default-rtdb.firebaseio.com/siteFeedback.json';
+  const REPO = 'ergophobian/freemealsonwheels-web';
+  const root = document.getElementById('fb')!, toggle = document.getElementById('fb-toggle')!, note = document.getElementById('fb-note') as HTMLFormElement;
+  const toast = document.getElementById('fb-toast')!;
+  let armed = false, spot: { x: number; y: number; target: string } | null = null, pin: HTMLElement | null = null;
+  const describe = (el: Element | null) => {
+    const bits: string[] = [];
+    for (let e = el; e && e !== document.body && bits.length < 4; e = e.parentElement) {
+      const t = (e as HTMLElement).innerText?.trim().split('\n')[0]?.slice(0, 40);
+      bits.push(e.id ? `#${e.id}` : e.classList[0] ? `.${e.classList[0]}` : e.tagName.toLowerCase());
+      if (t && bits.length === 1) bits.push(`"${t}"`);
+    }
+    return bits.join(' < ');
+  };
+  const say = (m: string) => { toast.textContent = m; toast.classList.add('on'); setTimeout(() => toast.classList.remove('on'), 3500); };
+  const arm = (on: boolean) => { armed = on; root.classList.toggle('armed', on); document.documentElement.classList.toggle('fb-armed', on); };
+  const reset = () => { note.hidden = true; note.reset(); pin?.remove(); pin = null; spot = null; arm(false); };
+  toggle.addEventListener('click', () => (armed ? reset() : arm(true)));
+  document.getElementById('fb-cancel')!.addEventListener('click', reset);
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && (armed || !note.hidden)) reset(); });
+  // Capture phase so the click doesn't also open things in the 3D world.
+  addEventListener('click', (e) => {
+    if (!armed || root.contains(e.target as Node)) return;
+    e.preventDefault(); e.stopPropagation();
+    spot = { x: e.clientX / innerWidth, y: e.clientY / innerHeight, target: describe(e.target as Element) };
+    pin = document.createElement('i'); pin.className = 'fb-pin'; pin.style.left = e.clientX + 'px'; pin.style.top = e.clientY + 'px'; document.body.append(pin);
+    note.style.left = Math.min(innerWidth - 300, e.clientX + 14) + 'px'; note.style.top = Math.min(innerHeight - 190, e.clientY + 14) + 'px';
+    note.hidden = false; (note.elements.namedItem('text') as HTMLTextAreaElement).focus(); arm(false);
+  }, true);
+  for (const t of ['pointerdown', 'pointerup']) addEventListener(t, (e) => { if (armed && !root.contains(e.target as Node)) e.stopPropagation(); }, true);
+  note.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = new FormData(note);
+    const entry = { text: String(f.get('text')).slice(0, 2000), name: String(f.get('name') || '').slice(0, 80), view: location.hash || '#home', page: location.pathname, at: spot, screen: `${innerWidth}x${innerHeight}`, ua: navigator.userAgent.slice(0, 160), createdAt: new Date().toISOString() };
+    try {
+      const r = await fetch(DB, { method: 'POST', body: JSON.stringify(entry) });
+      if (!r.ok) throw new Error(String(r.status));
+      say('Thanks! Your comment was sent.');
+    } catch {
+      const body = `${entry.text}\n\n— ${entry.name || 'anonymous'}\nView: ${entry.view} · Spot: ${spot ? `${Math.round(spot.x * 100)}% × ${Math.round(spot.y * 100)}%` : ''} · ${spot?.target ?? ''}\nScreen: ${entry.screen}`;
+      open(`https://github.com/${REPO}/issues/new?title=${encodeURIComponent('Feedback: ' + entry.text.slice(0, 60))}&body=${encodeURIComponent(body)}`, '_blank');
+      say('Opening GitHub to send your comment.');
+    }
+    reset();
+  });
+</script>
+
+<style>
+  .fb { position: fixed; z-index: 50; right: 18px; bottom: 22px; display: grid; justify-items: end; font: 500 14px Inter, system-ui, sans-serif; }
+  .fb-toggle { display: flex; align-items: center; gap: 8px; padding: .55rem 1rem; border: 1px solid rgb(255 255 255 / .6); border-radius: 999px; color: #fff; background: rgb(20 40 30 / .78); backdrop-filter: blur(12px); box-shadow: 0 8px 22px rgb(0 0 0 / .2); cursor: pointer; font: inherit; }
+  .fb.armed .fb-toggle { background: #e8681c; }
+  .fb-hint { display: none; margin: 8px 0 0; padding: .4rem .8rem; border-radius: 10px; background: rgb(20 40 30 / .85); color: #fff; white-space: nowrap; }
+  .fb.armed .fb-hint { display: block; }
+  :global(html.fb-armed), :global(html.fb-armed *) { cursor: crosshair !important; }
+  .fb-note[hidden] { display: none; }
+  .fb-note { position: fixed; width: 280px; display: grid; gap: 8px; padding: 12px; border-radius: 16px; background: #fffdf8; box-shadow: 0 18px 50px rgb(0 0 0 / .28); }
+  .fb-note textarea, .fb-note input { font: inherit; padding: .55rem .7rem; border: 1.5px solid #e4ddd0; border-radius: 10px; resize: vertical; }
+  .fb-row { display: flex; justify-content: flex-end; gap: 8px; }
+  .fb-row button { font: inherit; padding: .45rem .9rem; border-radius: 999px; border: 1px solid #e4ddd0; background: #fff; cursor: pointer; }
+  .fb-row .fb-send { background: #1f4d34; border-color: #1f4d34; color: #fff; }
+  :global(.fb-pin) { position: fixed; z-index: 49; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; background: #e8681c; box-shadow: 0 0 0 4px rgb(232 104 28 / .3); pointer-events: none; }
+  .fb-toast { position: fixed; left: 50%; bottom: 140px; transform: translateX(-50%); margin: 0; padding: .6rem 1rem; border-radius: 12px; background: #1f4d34; color: #fff; opacity: 0; pointer-events: none; transition: opacity .3s; white-space: nowrap; }
+  .fb-toast.on { opacity: 1; }
+  @media (max-width: 760px) { .fb { bottom: 150px; right: 12px; } }
+</style>
