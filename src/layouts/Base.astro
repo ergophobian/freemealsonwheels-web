@@ -1,6 +1,6 @@
 ---
-interface Props { title: string; description?: string }
-const { title, description = 'Free Meals on Wheels cooks and delivers free, fresh meals to neighbors in need across the Bay Area.' } = Astro.props;
+interface Props { title: string; description?: string; immersive?: boolean }
+const { title, immersive = false, description = 'Free Meals on Wheels cooks and delivers free, fresh meals to neighbors in need across the Bay Area.' } = Astro.props;
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 const nav = [
   ['/about', 'About'],
@@ -22,8 +22,8 @@ const nav = [
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </head>
-<body>
-  <header class="site-header">
+<body class:list={[{ immersive }]}>
+  {!immersive && <header class="site-header">
     <div class="wrap bar">
       <a href="/" class="brand"><img src="/logo.png" alt="" width="36" height="36" /> Free Meals on Wheels</a>
       <input type="checkbox" id="menu" class="menu-toggle" aria-label="Open menu" />
@@ -33,9 +33,9 @@ const nav = [
         <a href="/donate" class="btn btn-sm">Donate</a>
       </nav>
     </div>
-  </header>
+  </header>}
   <main><slot /></main>
-  <footer class="site-footer">
+  {!immersive && <footer class="site-footer">
     <div class="wrap footer-grid">
       <div>
         <img src="/img/logo-banner.png" alt="Free Meals on Wheels" width="220" style="margin-bottom:12px" />
@@ -53,7 +53,7 @@ const nav = [
       </div>
     </div>
     <p class="wrap muted small">© {new Date().getFullYear()} Free Meals on Wheels. Every dollar goes to meals.</p>
-  </footer>
+  </footer>}
 </body>
 </html>
 
