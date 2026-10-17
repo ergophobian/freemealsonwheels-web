@@ -25,13 +25,14 @@ const C = {
 };
 
 const ANCHORS: Record<StationId, [number, number, number]> = {
-  volunteer: [1.75, 2.35, 1.4], donate: [3.2, 1.85, 3.1], about: [4.6, 2.9, 6.2], resources: [-6, 3.2, 4.6], contact: [7.9, 3.05, 5.9],
+  volunteer: [1.75, 2.35, 1.4], donate: [3.2, 1.85, 3.1], about: [5.6, 2.9, 4.4], resources: [-6.2, 3.2, 3.9], contact: [8.4, 3.05, 3.4],
 };
 
 const std = (color: string, extra: THREE.MeshStandardMaterialParameters = {}) => new THREE.MeshStandardMaterial({ color, roughness: .7, metalness: 0, ...extra });
 function mesh(geo: THREE.BufferGeometry, m: THREE.Material | THREE.Material[], x = 0, y = 0, z = 0) {
   const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true; return o;
 }
+const keep = <T extends THREE.Object3D>(o: T) => { o.userData.keep = true; return o; };
 const rot = <T extends THREE.Object3D>(o: T, x: number, y = 0, z = 0) => { o.rotation.set(x, y, z); return o; };
 const rbox = (w: number, h: number, d: number, r = .05) => new RoundedBoxGeometry(w, h, d, 3, Math.min(r, w / 2.01, h / 2.01, d / 2.01));
 function canvasTex(draw: (c: CanvasRenderingContext2D, w: number, h: number) => void, w = 1024, h = 256, repeat?: [number, number]) {
@@ -249,7 +250,7 @@ export function mountTruck(
   truck.add(mesh(rbox(L, TOP - .5, .1, .04), green, cx, (TOP + .5) / 2, -Z));
   for (const x of [X0, X1]) truck.add(mesh(rbox(.1, TOP - .5, Z * 2, .04), green, x, (TOP + .5) / 2, 0));
   truck.add(mesh(rbox(L + .2, .16, Z * 2 + .2, .07), cream, cx, TOP + .06, 0));
-  truck.add(mesh(new THREE.BoxGeometry(L - .1, .06, Z * 2 - .1), tread, cx, FLOOR - .03, 0));
+  truck.add(keep(mesh(new THREE.BoxGeometry(L - .1, .06, Z * 2 - .1), tread, cx, FLOOR - .03, 0)));
   truck.add(mesh(rbox(L + .08, .26, Z * 2 + .08, .08), orange, cx, .62, 0));
   truck.add(mesh(rbox(L + .04, .05, Z * 2 + .04, .02), chrome, cx, .47, 0));
   // Interior liner, lights and kit.
@@ -268,8 +269,8 @@ export function mountTruck(
   // Serving window: frame, outside ledge, roll-up shutter, awning, menu.
   for (const [w, h, x, y] of [[W1 - W0 + .16, .08, (W0 + W1) / 2, WT], [W1 - W0 + .16, .08, (W0 + W1) / 2, WB], [.08, WT - WB, W0, (WB + WT) / 2], [.08, WT - WB, W1, (WB + WT) / 2]] as const)
     truck.add(mesh(rbox(w, h, .14, .03), chrome, x, y, Z + .02));
-  truck.add(mesh(new THREE.BoxGeometry(W1 - W0 + .3, .06, .42), oak, (W0 + W1) / 2, WB + .02, Z + .2));
-  for (const x of [W0 + .3, W1 - .3]) { const br = mesh(new THREE.BoxGeometry(.04, .3, .3), chrome, x, WB - .14, Z + .16); br.rotation.x = -.6; truck.add(br); }
+  truck.add(keep(mesh(new THREE.BoxGeometry(W1 - W0 + .3, .06, .42), oak, (W0 + W1) / 2, WB + .02, Z + .2)));
+  for (const x of [W0 + .3, W1 - .3]) { const br = mesh(new THREE.BoxGeometry(.04, .3, .3), chrome, x, WB - .14, Z + .16); br.rotation.x = -.6; truck.add(keep(br)); }
   truck.add(rot(mesh(new THREE.CylinderGeometry(.09, .09, W1 - W0 + .1, 20), shutterM, (W0 + W1) / 2, WT + .12, Z + .08), 0, 0, Math.PI / 2));
   const stripeTex = canvasTex((c, w, h) => { for (let i = 0; i < 12; i++) { c.fillStyle = i % 2 ? '#F4EEE3' : C.orange; c.fillRect(i * w / 12, 0, w / 12, h); } }, 512, 64);
   const awning = mesh(new THREE.BoxGeometry(W1 - W0 + .5, .03, 1.1), std('#ffffff', { map: stripeTex, roughness: .85 }), (W0 + W1) / 2, WT + .3, Z + .58); awning.rotation.x = .28; truck.add(awning);
@@ -280,8 +281,8 @@ export function mountTruck(
     c.fillStyle = C.cream; c.font = '400 34px Inter, sans-serif';
     ['Rajma chawal', 'Veggie pasta', 'Fresh fruit', 'Masala chai'].forEach((s, i) => { c.fillText(s, 34, 142 + i * 54); c.fillText('Free', w - 104, 142 + i * 54); });
   }, 520, 380);
-  truck.add(mesh(rbox(.86, .66, .04, .02), std(C.wood), X0 + .62, 2.2, Z + .07));
-  truck.add(mesh(new THREE.PlaneGeometry(.78, .58), std('#ffffff', { map: menuTex }), X0 + .62, 2.2, Z + .095));
+  truck.add(keep(mesh(rbox(.86, .66, .04, .02), std(C.wood), X0 + .62, 2.2, Z + .07)));
+  truck.add(keep(mesh(new THREE.PlaneGeometry(.78, .58), std('#ffffff', { map: menuTex }), X0 + .62, 2.2, Z + .095)));
   // The real logo art (pastel heart with fork and spoon), redrawn onto every branded surface once it loads.
   const logoImg = new Image(); logoImg.src = `${BASE}img/logo-heart.png`;
   const logoTextures: { tex: THREE.CanvasTexture; draw: () => void }[] = [];
@@ -359,7 +360,7 @@ export function mountTruck(
   const truckObstacles = Array.from({ length: 9 }, (_, i) => ({ x: X0 + .3 + i * ((CX1 - X0 - .6) / 8), z: 0, r: 1.35 }));
 
   // ——— Our story: a chalkboard easel.
-  const board = new THREE.Group(); board.position.set(4.6, .14, 6.2); board.rotation.y = -.35; scene.add(board);
+  const board = new THREE.Group(); board.position.set(5.6, .14, 4.4); board.rotation.y = -.4; scene.add(board);
   // The board face is drawn to match chapter one of the story exactly, so zooming in never swaps one board for another.
   const chalkSpeckle = (c: CanvasRenderingContext2D, w: number, h: number) => {
     c.save(); c.globalCompositeOperation = 'destination-out';
@@ -399,7 +400,7 @@ export function mountTruck(
   board.add(mesh(new THREE.PlaneGeometry(BOARD.w, BOARD.h), new THREE.MeshBasicMaterial({ map: boardTex, toneMapped: false }), 0, BOARD.y, BOARD.z));
 
   // ——— Contact: a community bulletin board under a little roof.
-  const bulletin = new THREE.Group(); bulletin.position.set(7.9, .14, 5.9); bulletin.rotation.y = -.5; scene.add(bulletin);
+  const bulletin = new THREE.Group(); bulletin.position.set(8.4, .14, 3.4); bulletin.rotation.y = -.6; scene.add(bulletin);
   for (const x of [-.95, .95]) bulletin.add(mesh(new THREE.BoxGeometry(.1, 2.7, .1), std(C.wood), x, 1.35, 0));
   bulletin.add(mesh(rbox(1.9, 1.16, .1, .03), std('#8A5E3C'), 0, 1.82, 0));
   const PIN = { w: 1.76, h: 1.06, y: 1.82, z: .055 };
@@ -448,8 +449,8 @@ export function mountTruck(
     if (!reserve) for (const sx of [-.45, .45]) for (const sz of [-.68, .68]) seats.push({ pos: t.localToWorld(new THREE.Vector3(sx, -.14, sz)), face: rot + (sz > 0 ? Math.PI : 0), taken: false });
     return t;
   };
-  const picnic = table(-6, 4.6, .25, true, true);
-  table(-9.8, 8.2, -.3, true); table(-11.5, 12, .15, false); table(15, 12.5, .4, true);
+  const picnic = table(-6.2, 3.9, .2, true, true);
+  table(-9.4, 6.6, -.3, true); table(-11.5, 12, .15, false); table(11, 7.4, .4, true);
 
   // ——— Planters, lamps, trees, string lights.
   const flowerCols = ['#E9A86A', '#E38C8C', '#F0D27A', '#FFFFFF', '#B9A0D8'];
@@ -479,7 +480,7 @@ export function mountTruck(
   }
 
   // ——— The logo as a sculpture: the heart drawn as a single tube, with a fork and spoon crossing at its point.
-  const statue = new THREE.Group(); statue.position.set(-4.6, .14, 9.6); statue.rotation.y = .3; statue.scale.setScalar(1.7); scene.add(statue);
+  const statue = new THREE.Group(); statue.position.set(-4.2, .14, 7.4); statue.rotation.y = .35; statue.scale.setScalar(1.35); scene.add(statue);
   statue.add(mesh(rbox(1.6, .5, 1.1, .08), std('#E9E2D6', { roughness: .8, roughnessMap: grime }), 0, .25, 0));
   statue.add(mesh(rbox(1.75, .08, 1.25, .03), std('#D6CCBC'), 0, .54, 0));
   const plaque = logoCanvas(512, 128, (c, w, h) => { c.fillStyle = '#2E3B33'; c.fillRect(0, 0, w, h); c.fillStyle = '#E9D9B4'; c.font = '600 44px Inter, sans-serif'; c.textAlign = 'center'; c.fillText('Free Meals on Wheels', w / 2, 62); c.font = 'italic 30px Georgia, serif'; c.fillText('Bringing smiles, one meal at a time', w / 2, 104); });
@@ -644,8 +645,8 @@ export function mountTruck(
       entries: [new THREE.Vector3(-21, .14, 2.1), new THREE.Vector3(21, .14, 2.1), new THREE.Vector3(-19, .14, 13), new THREE.Vector3(19, .14, 14)],
       exits: [new THREE.Vector3(-22, .14, 2.1), new THREE.Vector3(22, .14, 2.1), new THREE.Vector3(-20, .14, 13), new THREE.Vector3(20, .14, 14)],
       obstacles: [
-        ...truckObstacles, { x: -4.6, z: 9.6, r: 1.8 }, { x: 3.2, z: 3.1, r: .55 }, { x: 4.6, z: 6.2, r: 1 }, { x: 7.9, z: 5.9, r: 1.2 },
-        { x: -6, z: 4.6, r: 1.25 }, { x: -9.8, z: 8.2, r: 1.25 }, { x: -11.5, z: 12, r: 1.25 }, { x: 15, z: 12.5, r: 1.25 },
+        ...truckObstacles, { x: -4.2, z: 7.4, r: 1.5 }, { x: 3.2, z: 3.1, r: .55 }, { x: 5.6, z: 4.4, r: 1 }, { x: 8.4, z: 3.4, r: 1.2 },
+        { x: -6.2, z: 3.9, r: 1.25 }, { x: -9.4, z: 6.6, r: 1.25 }, { x: -11.5, z: 12, r: 1.25 }, { x: 11, z: 7.4, r: 1.25 },
         ...[-15, -9, 7, 13].map((x) => ({ x, z: 3.4, r: 1.4 })), ...[-14, -11, 8.5, 12].map((x) => ({ x, z: 2.4, r: .25 })),
         { x: -14, z: 9, r: 2.6 }, { x: 14, z: 11, r: 2.6 }, { x: -6, z: 15, r: 2.6 }, { x: 8, z: 16, r: 2.6 }, { x: 1, z: 12, r: .9 }, { x: -8, z: 2.4, r: .25 }, { x: 5.6, z: 2.4, r: .25 },
       ],
@@ -658,7 +659,14 @@ export function mountTruck(
   }).catch(() => {});
 
   // ——— Bake static detail into few draw calls (the steam, lights, jar coins and people stay separate).
+  // The exterior is a Blender model (public/models/truck.glb); drop the placeholder shell built above.
+  for (const c of [...truck.children]) if ((c as THREE.Mesh).isMesh && !c.userData.keep) c.removeFromParent();
   bake(truck);
+  new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load(`${BASE}models/truck.glb`, (g) => {
+    if (!alive) return;
+    g.scene.traverse((c) => { const m = c as THREE.Mesh; if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; const mat = m.material as THREE.MeshStandardMaterial; if (/Bulb|Lamp/.test(mat.name)) mat.emissiveIntensity = 1.4; if (/Logo/.test(mat.name)) { mat.transparent = true; mat.alphaTest = .05; } } });
+    truck.add(g.scene);
+  });
   for (const o of [...scene.children]) if ((o as THREE.Group).isGroup && o !== truck && o !== city && o !== giving && o !== picnic && o !== board && o !== bulletin && o !== statue) bake(o);
   bake(board); bake(bulletin); bake(picnic);
 
@@ -732,7 +740,7 @@ export function mountTruck(
   const birds = Array.from({ length: 9 }, (_, i) => { const b = new THREE.Line(birdGeo.clone(), new THREE.LineBasicMaterial({ color: '#2A3138' })); scene.add(b); return { b, r: 14 + (i % 3) * 3, h: 16 + (i % 4), ph: i * .7 }; });
   const exhaust = Array.from({ length: 8 }, () => { const m = new THREE.Mesh(new THREE.SphereGeometry(.09, 10, 8), new THREE.MeshStandardMaterial({ color: '#d7d7d7', transparent: true, depthWrite: false })); scene.add(m); return m; });
   const markers: THREE.Mesh[] = [];
-  for (const [x, z] of [[X0 + .05, Z + .07], [X1 + 1.5, Z + .07], [X0 + .05, -Z - .07]] as const) { const m = mesh(new THREE.SphereGeometry(.06, 10, 8), new THREE.MeshStandardMaterial({ color: '#FFB347', emissive: '#FF9A1F', emissiveIntensity: 1 }), x, .95, z); truck.add(m); markers.push(m); }
+  for (const [x, z] of [[X0 + .05, Z + .07], [X1 + 1.5, Z + .07], [X0 + .05, -Z - .07]] as const) { const m = mesh(new THREE.SphereGeometry(.06, 10, 8), new THREE.MeshStandardMaterial({ color: '#FFB347', emissive: '#FF9A1F', emissiveIntensity: 1 }), x, .95, z); truck.add(keep(m)); markers.push(m); }
 
   // ——— Picking.
   const targets: Record<StationId, THREE.Object3D[]> = { volunteer: [truck], donate: [giving], about: [board], resources: [picnic], contact: [bulletin] };
@@ -765,9 +773,9 @@ export function mountTruck(
   const baseFov = () => (narrow ? 40 : 30);
   // The opening view fits the whole scene (tables on the left to the community board on the right) for any screen shape.
   const overview = (): View => {
-    const half = narrow ? 7 : 10, look: View['look'] = [narrow ? .6 : .6, 1.9, 3];
-    const t = Math.tan(THREE.MathUtils.degToRad(baseFov() / 2)), dist = Math.max(half / (t * camera.aspect), 8.5 / t) * 1.02;
-    const dir = new THREE.Vector3(.1, .24, 1).normalize().multiplyScalar(dist);
+    const half = narrow ? 6.5 : 8.6, look: View['look'] = [narrow ? .4 : 1, 1.8, 3.2];
+    const t = Math.tan(THREE.MathUtils.degToRad(baseFov() / 2)), dist = Math.max(half / (t * camera.aspect), 5.5 / t) * 1.02;
+    const dir = new THREE.Vector3(.32, .3, 1).normalize().multiplyScalar(dist);
     return { pos: [look[0] + dir.x, look[1] + dir.y, look[2] + dir.z], look };
   };
   const station = (id: StationId, peek = false): View => {
