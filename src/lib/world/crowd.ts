@@ -2,11 +2,11 @@
 // wait, where they go after) so the street never visibly loops. Movement is velocity-smoothed and
 // steers around obstacles and other people, so nobody jitters or walks through things.
 import * as THREE from 'three';
-import { Figure, type Mobility } from './figure';
+import type { Person, Mobility } from './people';
 
 export interface Seat { pos: THREE.Vector3; face: number; taken: boolean }
 type State = 'enter' | 'queue' | 'order' | 'leave' | 'sit' | 'gone';
-interface Npc { f: Figure; state: State; path: THREE.Vector3[]; vel: THREE.Vector3; timer: number; slot: number; seat?: Seat; served: boolean; best: number; stuck: number }
+interface Npc { f: Person; state: State; path: THREE.Vector3[]; vel: THREE.Vector3; timer: number; slot: number; seat?: Seat; served: boolean; best: number; stuck: number }
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const pick = <T,>(xs: readonly T[]) => xs[Math.floor(Math.random() * xs.length)];
@@ -23,7 +23,7 @@ export class Crowd {
     private opts: {
       window: THREE.Vector3; queueDir: THREE.Vector3; seats: Seat[]; exits: THREE.Vector3[]; entries: THREE.Vector3[];
       max: number; minZ: number; obstacles: { x: number; z: number; r: number }[];
-      meal: () => THREE.Object3D; onServe: () => void; onOrder: () => void;
+      meal: () => THREE.Object3D; onServe: () => void; onOrder: () => void; make: (mobility: Mobility) => Person;
     },
   ) {
     for (let i = 0; i < 5; i++) this.spawn(i < 3 ? 'queue' : 'sit');
@@ -35,7 +35,7 @@ export class Crowd {
 
   private spawn(start: State = 'enter') {
     const r = Math.random(), mobility: Mobility = r < .14 ? 'chair' : r < .26 ? 'cane' : 'walk';
-    const f = new Figure(rand(1.58, 1.84), { mobility });
+    const f = this.opts.make(mobility);
     this.scene.add(f.obj);
     const n: Npc = { f, state: start, path: [], vel: new THREE.Vector3(), timer: 0, slot: 0, served: false, best: Infinity, stuck: 0 };
     if (start === 'sit') {

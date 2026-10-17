@@ -115,7 +115,7 @@ export class Figure {
   }
 }
 
-function makeChair() {
+export function makeChair() {
   const g = new THREE.Group(), frame = mat('#3A3F45', .4), seat = mat('#2C2F33');
   const s = new THREE.Mesh(new THREE.BoxGeometry(.42, .05, .42), seat); s.position.y = .5; g.add(s);
   const b = new THREE.Mesh(new THREE.BoxGeometry(.42, .42, .04), seat); b.position.set(0, .72, -.2); g.add(b);

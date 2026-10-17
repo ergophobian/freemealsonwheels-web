@@ -1,12 +1,16 @@
 // The whole site is one 3D world: a Free Meals on Wheels food truck on a small plaza floating in a blue sky.
 // People and objects around it are the navigation; clicking one moves the camera there and opens its card.
-// People are architectural-model figures built in code; food is CC0 models by Kenney (kenney.nl).
+// CC0 assets: city by Quaternius (Downtown City MegaKit), people by Quaternius (Ultimate Modular Men/Women),
+// food by Kenney (Food Kit), surface textures from Poly Haven.
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { loadFood, type FoodId } from './world/assets';
-import { Figure } from './world/figure';
+import { makeChair } from './world/figure';
+import { loadCast, type Person, type Kind } from './world/people';
 import { Crowd, type Seat } from './world/crowd';
 
 export type StationId = 'volunteer' | 'donate' | 'about' | 'resources' | 'contact';
@@ -17,10 +21,10 @@ const C = {
   paving: '#ECE6DC', wood: '#A9784F', ink: '#2A2F2C', tire: '#2A2A2A', glass: '#AFCBD3', steel: '#C9CCCF',
 };
 
-const OVERVIEW: View = { pos: [3.5, 7.5, 21], look: [.2, 1.6, 1] };
+const OVERVIEW: View = { pos: [4, 6.8, 20], look: [.2, 2, 0] };
 const OVERVIEW_NARROW: View = { pos: [1.5, 9, 29], look: [.2, 2.2, 1] };
 const ANCHORS: Record<StationId, [number, number, number]> = {
-  volunteer: [-.7, 3.75, 1.3], donate: [3.2, 1.85, 3.1], about: [6.2, 2.9, 2.6], resources: [-6, 3.2, 4.6], contact: [8.6, 3.05, 1.2],
+  volunteer: [-.7, 3.7, 1.3], donate: [3.2, 1.85, 3.1], about: [5.8, 2.9, 5.4], resources: [-6, 3.2, 4.6], contact: [9.4, 3.05, 5.2],
 };
 
 const std = (color: string, extra: THREE.MeshStandardMaterialParameters = {}) => new THREE.MeshStandardMaterial({ color, roughness: .7, metalness: 0, ...extra });
@@ -59,11 +63,19 @@ function puffTexture() {
   }, 256, 256);
 }
 
+// A street tree: tapered trunk, a few limbs, and a canopy of many leaf clumps in varied greens.
 function tree(parent: THREE.Object3D, x: number, z: number, s: number) {
-  const t = new THREE.Group(); t.position.set(x, .14, z); t.scale.setScalar(s); parent.add(t);
-  t.add(mesh(new THREE.CylinderGeometry(.07, .11, 1.8, 10), std('#7A5A3F', { roughness: .9 }), 0, .9, 0));
-  const cols = ['#5F8A5C', '#6F9866', '#557F53'];
-  for (let i = 0; i < 4; i++) t.add(mesh(new THREE.SphereGeometry(.62 - i * .07, 24, 18), std(cols[i % 3], { roughness: .95 }), Math.sin(i * 2.3) * .32, 2.05 + i * .26, Math.cos(i * 2.3) * .28));
+  const t = new THREE.Group(); t.position.set(x, .14, z); t.scale.setScalar(s); t.rotation.y = rnd() * 6; parent.add(t);
+  const bark = std('#6B5442', { roughness: 1 });
+  t.add(mesh(new THREE.CylinderGeometry(.06, .11, 2.2, 10), bark, 0, 1.1, 0));
+  for (let i = 0; i < 3; i++) { const l = mesh(new THREE.CylinderGeometry(.025, .045, .9, 6), bark, 0, 1.9, 0); l.rotation.set(.7, i * 2.1, 0); l.translateY(.35); t.add(l); }
+  const geo = new THREE.IcosahedronGeometry(.32, 1), cols = ['#4F7A47', '#5E8A52', '#6E9A5C', '#476F41', '#7FA766'];
+  for (let i = 0; i < 26; i++) {
+    const a = rnd() * Math.PI * 2, r = rnd() * .85, y = 2.1 + rnd() * 1.3 - r * .3;
+    const c = new THREE.Color(cols[i % 5]).offsetHSL((rnd() - .5) * .03, 0, (rnd() - .5) * .06);
+    const leaf = mesh(geo, std('#ffffff', { color: c, roughness: .95, flatShading: true }), Math.cos(a) * r, y, Math.sin(a) * r);
+    leaf.scale.setScalar(.7 + rnd() * .7); t.add(leaf);
+  }
 }
 
 export interface TruckApi { focus(id: StationId | null, peek?: boolean): void; give(amount: number): void; dispose(): void }
@@ -91,46 +103,70 @@ export function mountTruck(
 
   const scene = new THREE.Scene();
   scene.background = canvasTex((c, w, h) => {
-    const g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#3D8ED8'); g.addColorStop(.6, '#6FB2E4'); g.addColorStop(1, '#A9D4EF');
+    const g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#5E9BD6'); g.addColorStop(.55, '#9CC6E8'); g.addColorStop(1, '#E4E6E2');
     c.fillStyle = g; c.fillRect(0, 0, w, h);
   }, 4, 256);
-  scene.fog = new THREE.Fog('#9CCCEB', 40, 110);
+  scene.fog = new THREE.Fog('#D9E0E3', 45, 140);
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(), .04).texture;
   scene.add(new THREE.HemisphereLight('#E4F1FF', '#C9B9A2', 1.0));
   const sun = new THREE.DirectionalLight('#FFF1DE', 2.6); sun.position.set(-7, 13, 9); sun.castShadow = true;
-  sun.shadow.mapSize.setScalar(tier > 1 ? 2048 : 1024); sun.shadow.radius = 5; sun.shadow.bias = -.0004; sun.shadow.normalBias = .02;
+  sun.shadow.mapSize.setScalar(tier > 1 ? 2048 : 1024); sun.shadow.radius = 5; sun.shadow.bias = -.0006; sun.shadow.normalBias = .05;
   Object.assign(sun.shadow.camera, { left: -15, right: 15, top: 12, bottom: -12, near: 1, far: 45 });
   scene.add(sun);
 
-  // ——— The floating plaza.
-  const pavTex = canvasTex((c, w, h) => {
-    c.fillStyle = C.paving; c.fillRect(0, 0, w, h);
-    c.strokeStyle = 'rgba(140,120,95,.18)'; c.lineWidth = 2;
-    for (let y = 0; y <= h; y += 64) { c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke(); }
-    for (let y = 0; y < h; y += 64) for (let x = (y / 64) % 2 ? 32 : 0; x <= w; x += 64) { c.beginPath(); c.moveTo(x, y); c.lineTo(x, y + 64); c.stroke(); }
-  }, 512, 512, [16, 8]);
-  const edgeM = std('#D9D1C4');
-  scene.add(mesh(new THREE.BoxGeometry(30, .5, 16), [edgeM, edgeM, std('#ffffff', { map: pavTex, roughness: .95 }), std('#5D5A55'), edgeM, edgeM], 0, -.11, 3));
-  const under = mesh(new THREE.CylinderGeometry(1, .2, 1, 40), std('#6C6158', { roughness: 1 }), 0, -2.85, 3); under.scale.set(14.5, 4.6, 7.4); scene.add(under);
-  scene.add(mesh(new THREE.BoxGeometry(30.3, .14, 16.3), std('#87AE74', { roughness: 1 }), 0, -.36, 3));
+  // ——— Textures (Poly Haven, 512px webp) and a fine noise used to break up flat paint.
+  const texLoader = new THREE.TextureLoader();
+  const tex = (name: string, rx: number, ry = rx, color = false) => {
+    const t = texLoader.load(`/tex/${name}.webp`); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.anisotropy = 4;
+    if (color) t.colorSpace = THREE.SRGBColorSpace; return t;
+  };
+  const grime = canvasTex((c, w, h) => {
+    const id = c.createImageData(w, h);
+    for (let i = 0; i < id.data.length; i += 4) { const v = 150 + rnd() * 60 + Math.sin(i * .0007) * 12; id.data[i] = id.data[i + 1] = id.data[i + 2] = v; id.data[i + 3] = 255; }
+    c.putImageData(id, 0, 0);
+    for (let i = 0; i < 40; i++) { c.fillStyle = `rgba(90,90,90,${rnd() * .12})`; c.fillRect(rnd() * w, rnd() * h, 2 + rnd() * 40, 1 + rnd() * 3); }
+  }, 256, 256, [3, 2]);
+  grime.colorSpace = THREE.NoColorSpace;
 
-  // ——— Clouds: big soft puffs drifting around and below the plaza, some close and out of focus.
-  const puffs = [puffTexture(), puffTexture(), puffTexture()];
-  const clouds: { g: THREE.Group; speed: number; x0: number }[] = [];
-  for (const [x, y, z, s] of [[-26, -3, -6, 1.3], [24, -2, -4, 1.4], [-18, -7, 8, 1.1], [20, -8, 10, 1.2], [0, -10, -10, 1.6], [-34, 6, -26, 1.8], [30, 8, -30, 2], [6, 12, -40, 2.2], [-12, -4, 20, .9], [16, 1, 22, 1]] as const) {
-    const g = new THREE.Group(); g.position.set(x, y, z); scene.add(g);
-    for (let i = 0; i < 9; i++) {
-      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffs[i % 3], transparent: true, depthWrite: false, fog: false, opacity: .95 }));
-      const sz = (4 + rnd() * 5) * s; sp.scale.set(sz, sz * .8, 1); sp.position.set((rnd() - .5) * 9 * s, (rnd() - .5) * 2.2 * s, (rnd() - .5) * 3 * s); g.add(sp);
-    }
-    clouds.push({ g, speed: .15 + rnd() * .2, x0: x });
-  }
+  // ——— The city: a real street block. Loaded from one compressed file, pieces cloned into place.
+  const city = new THREE.Group(); city.position.y = .14; scene.add(city);
+  const baseGround = mesh(new THREE.PlaneGeometry(200, 200), std('#B9B4AA', { roughness: 1, roughnessMap: grime }), 0, -.12, 0); baseGround.rotation.x = -Math.PI / 2; baseGround.castShadow = false; scene.add(baseGround);
+  const gl = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+  gl.load('/models/city/city.glb', (g) => {
+    if (!alive) return;
+    // The kit stores engine blend masks in vertex colors; they are not meant to be seen.
+    g.scene.traverse((c) => { const m = c as THREE.Mesh; if (m.isMesh) for (const mat of [m.material].flat() as THREE.MeshStandardMaterial[]) { mat.vertexColors = false; mat.metalnessMap = null; mat.metalness = /glass/i.test(mat.name) ? .3 : 0; mat.envMapIntensity = .6; if (/InteriorFloor/.test(mat.name)) mat.color.set('#B8AC9A'); mat.needsUpdate = true; } });
+    const part = (name: string) => g.scene.getObjectByName(name)!;
+    const put = (name: string, x: number, z: number, ry = 0, shadow = false) => {
+      const o = part(name).clone(); o.position.set(x, 0, z); o.rotation.y = ry; city.add(o);
+      o.traverse((c) => { const m = c as THREE.Mesh; if (m.isMesh) { m.receiveShadow = true; m.castShadow = shadow; } });
+      return o;
+    };
+    // Road behind the truck, running left to right, with sidewalks on both sides.
+    for (let x = -42; x <= 42; x += 6) put('Street_4Lane', x, -6.1);
+    // The plaza in front: stone floor tiles.
+    for (let x = -18; x <= 18; x += 4) for (let z = 5; z <= 17; z += 4) put('Floor_4x4', x, z);
+    // Buildings across the street and framing the plaza.
+    const row: [string, number][] = [['Building_Medium_2_001', -40], ['Building_Small_1', -26], ['Building_Large_2', -12], ['Building_Medium_2_001', 6], ['Building_Small_1', 20], ['Building_Large_2', 34]];
+    for (const [n, x] of row) put(n, x, -15.6);
+    put('Building_Small_1', -22, 10, Math.PI / 2); put('Building_Medium_2_001', 24, 9, -Math.PI / 2);
+    for (const x of [-15, -9, 7, 13]) put('Sidewalk_Planter', x, 3.4, 0, true);
+    for (const x of [-12, -3, 3, 10]) put('Prop_Bollard', x, 2.4, 0, true);
+    put('Prop_ManholeCover', -6, -4); put('Prop_Drain', 5, 2.2); put('Prop_ManholeCover', 8, -9);
+    for (const [x, z] of [[-14, 9], [14, 11], [-6, 15], [8, 16]]) put('Prop_Planter_Single', x, z, 0, true);
+    
+  });
 
   // ——— The truck, built in meters around a real serving window with an interior.
-  const truck = new THREE.Group(); scene.add(truck);
-  const green = std(C.green, { roughness: .32, metalness: .2 }), orange = std(C.orange, { roughness: .45 }), cream = std(C.cream, { roughness: .6 });
-  const chrome = std('#E6E3DC', { metalness: .85, roughness: .22 }), liner = std('#F2ECE2', { roughness: .8, side: THREE.DoubleSide });
+  const truck = new THREE.Group(); truck.position.y = -.06; scene.add(truck);
+  const green = new THREE.MeshPhysicalMaterial({ color: C.green, roughness: .45, roughnessMap: grime, metalness: .15, clearcoat: .7, clearcoatRoughness: .25 });
+  const orange = new THREE.MeshPhysicalMaterial({ color: C.orange, roughness: .5, roughnessMap: grime, clearcoat: .5 }), cream = std(C.cream, { roughness: .6, roughnessMap: grime });
+  const chrome = std('#E6E3DC', { metalness: .85, roughness: .22 });
+  const liner = std('#E9E6E0', { metalness: .55, roughness: .35, normalMap: tex('metal_plate-normal', 3, 1), normalScale: new THREE.Vector2(.25, .25), side: THREE.DoubleSide });
+  const tread = std('#B8B9B6', { metalness: .7, roughness: .45, map: tex('metal_plate-color', 4, 1.5, true), normalMap: tex('metal_plate-normal', 4, 1.5), roughnessMap: tex('metal_plate-rough', 4, 1.5) });
+  const oak = std('#ffffff', { map: tex('oak_wood_planks-color', 2, .5, true), normalMap: tex('oak_wood_planks-normal', 2, .5), roughnessMap: tex('oak_wood_planks-rough', 2, .5) });
+  const shutterM = std('#D8D6D0', { map: tex('painted_metal_shutter-color', 1, 1, true), normalMap: tex('painted_metal_shutter-normal', 1, 1), metalness: .4, roughness: .5 });
   const X0 = -3.6, X1 = 2.6, Z = 1.15, FLOOR = .78, TOP = 3.25, W0 = -2.4, W1 = 1.0, WB = 1.65, WT = 2.75;
   const L = X1 - X0, cx = (X0 + X1) / 2;
   // Shell: lower and upper front panels, pillars either side of the window, back wall, ends, roof, floor.
@@ -141,28 +177,28 @@ export function mountTruck(
   truck.add(mesh(rbox(L, TOP - .5, .1, .04), green, cx, (TOP + .5) / 2, -Z));
   for (const x of [X0, X1]) truck.add(mesh(rbox(.1, TOP - .5, Z * 2, .04), green, x, (TOP + .5) / 2, 0));
   truck.add(mesh(rbox(L + .2, .16, Z * 2 + .2, .07), cream, cx, TOP + .06, 0));
-  truck.add(mesh(new THREE.BoxGeometry(L - .1, .06, Z * 2 - .1), std('#B9B3A8', { roughness: .6 }), cx, FLOOR - .03, 0));
+  truck.add(mesh(new THREE.BoxGeometry(L - .1, .06, Z * 2 - .1), tread, cx, FLOOR - .03, 0));
   truck.add(mesh(rbox(L + .08, .26, Z * 2 + .08, .08), orange, cx, .62, 0));
   truck.add(mesh(rbox(L + .04, .05, Z * 2 + .04, .02), chrome, cx, .47, 0));
   // Interior liner, lights and kit.
   const inner = new THREE.Group(); truck.add(inner);
-  inner.add(mesh(new THREE.PlaneGeometry(L - .14, TOP - FLOOR - .05), liner, cx, (TOP + FLOOR) / 2, -Z + .06));
-  inner.add(rot(mesh(new THREE.PlaneGeometry(L - .14, Z * 2 - .1), liner, cx, TOP - .03, 0), Math.PI / 2));
-  for (const x of [X0 + .06, X1 - .06]) inner.add(rot(mesh(new THREE.PlaneGeometry(Z * 2 - .1, TOP - FLOOR), liner, x, (TOP + FLOOR) / 2, 0), 0, Math.PI / 2));
-  const steel = std(C.steel, { metalness: .6, roughness: .35 });
+  inner.add(mesh(new THREE.PlaneGeometry(L - .2, TOP - FLOOR - .1), liner, cx, (TOP + FLOOR) / 2, -Z + .1));
+  inner.add(rot(mesh(new THREE.PlaneGeometry(L - .14, Z * 2 - .1), liner, cx, TOP - .12, 0), Math.PI / 2));
+  for (const x of [X0 + .1, X1 - .1]) inner.add(rot(mesh(new THREE.PlaneGeometry(Z * 2 - .1, TOP - FLOOR), liner, x, (TOP + FLOOR) / 2, 0), 0, Math.PI / 2));
+  const steel = std(C.steel, { metalness: .65, roughness: .32, roughnessMap: grime, normalMap: tex('metal_plate-normal', 2, 1), normalScale: new THREE.Vector2(.15, .15) });
   inner.add(mesh(rbox(L - .3, .9, .62, .02), steel, cx, FLOOR + .45, -Z + .38));
   inner.add(mesh(rbox(1.2, .06, .56, .02), std('#2B2B2B', { roughness: .4 }), -1.6, FLOOR + .93, -Z + .38));
   inner.add(mesh(rbox(1.4, .5, .7, .04), steel, -1.6, TOP - .4, -Z + .4));
-  for (const y of [2.15, 2.6]) inner.add(mesh(new THREE.BoxGeometry(2.2, .03, .28), std(C.wood), .9, y, -Z + .2));
+  for (const y of [2.15, 2.6]) inner.add(mesh(new THREE.BoxGeometry(2.2, .04, .28), oak, .9, y, -Z + .26));
   inner.add(mesh(rbox(.8, 1.9, .7, .04), std('#E7E4DE', { metalness: .3, roughness: .3 }), X1 - .5, FLOOR + .95, -Z + .42));
   inner.add(mesh(rbox(2.6, .9, .5, .02), steel, (W0 + W1) / 2, FLOOR + .45, Z - .32));
   for (const x of [-2.2, .2]) { const l = new THREE.PointLight('#FFE2B8', 1.1, 5, 2); l.position.set(x, TOP - .25, 0); inner.add(l); inner.add(mesh(new THREE.CylinderGeometry(.18, .18, .03, 20), std('#FFF6E0', { emissive: '#FFE9B8', emissiveIntensity: 1.2 }), x, TOP - .05, 0)); }
   // Serving window: frame, outside ledge, roll-up shutter, awning, menu.
   for (const [w, h, x, y] of [[W1 - W0 + .16, .08, (W0 + W1) / 2, WT], [W1 - W0 + .16, .08, (W0 + W1) / 2, WB], [.08, WT - WB, W0, (WB + WT) / 2], [.08, WT - WB, W1, (WB + WT) / 2]] as const)
     truck.add(mesh(rbox(w, h, .14, .03), chrome, x, y, Z + .02));
-  truck.add(mesh(rbox(W1 - W0 + .3, .06, .42, .02), std(C.wood, { roughness: .55 }), (W0 + W1) / 2, WB + .02, Z + .2));
+  truck.add(mesh(new THREE.BoxGeometry(W1 - W0 + .3, .06, .42), oak, (W0 + W1) / 2, WB + .02, Z + .2));
   for (const x of [W0 + .3, W1 - .3]) { const br = mesh(new THREE.BoxGeometry(.04, .3, .3), chrome, x, WB - .14, Z + .16); br.rotation.x = -.6; truck.add(br); }
-  truck.add(rot(mesh(new THREE.CylinderGeometry(.09, .09, W1 - W0 + .1, 20), std('#D7D3CC', { metalness: .5, roughness: .4 }), (W0 + W1) / 2, WT + .12, Z + .08), 0, 0, Math.PI / 2));
+  truck.add(rot(mesh(new THREE.CylinderGeometry(.09, .09, W1 - W0 + .1, 20), shutterM, (W0 + W1) / 2, WT + .12, Z + .08), 0, 0, Math.PI / 2));
   const stripeTex = canvasTex((c, w, h) => { for (let i = 0; i < 12; i++) { c.fillStyle = i % 2 ? '#F4EEE3' : C.orange; c.fillRect(i * w / 12, 0, w / 12, h); } }, 512, 64);
   const awning = mesh(new THREE.BoxGeometry(W1 - W0 + .5, .03, 1.1), std('#ffffff', { map: stripeTex, roughness: .85 }), (W0 + W1) / 2, WT + .3, Z + .58); awning.rotation.x = .28; truck.add(awning);
   for (const x of [W0 - .1, W1 + .1]) { const rod = mesh(new THREE.CylinderGeometry(.012, .012, 1.15, 6), chrome, x, WT + .15, Z + .55); rod.rotation.x = 1.3; truck.add(rod); }
@@ -207,7 +243,7 @@ export function mountTruck(
   for (const z of [Z + .12, -Z - .12]) truck.add(mesh(rbox(.06, .24, .14, .03), std(C.ink), CX0 + .2, 2.0, z));
   // Wheels.
   for (const [x, z] of [[-2.3, Z - .12], [-2.3, -Z + .12], [CX0 + .75, Z - .12], [CX0 + .75, -Z + .12]]) {
-    truck.add(mesh(new THREE.TorusGeometry(.56, .06, 8, 28, Math.PI), std(C.greenDark), x, .48, z > 0 ? Z + .03 : -Z - .03));
+    truck.add(mesh(new THREE.TorusGeometry(.56, .06, 8, 28, Math.PI), std(C.greenDark), x, .48, z > 0 ? Z + .1 : -Z - .1));
     const w = mesh(new THREE.CylinderGeometry(.46, .46, .34, 36), std(C.tire, { roughness: .9 }), x, .46, z); w.rotation.x = Math.PI / 2; truck.add(w);
     const hub = mesh(new THREE.CylinderGeometry(.22, .22, .36, 24), chrome, x, .46, z); hub.rotation.x = Math.PI / 2; truck.add(hub);
   }
@@ -215,7 +251,7 @@ export function mountTruck(
   const truckObstacles = Array.from({ length: 9 }, (_, i) => ({ x: X0 + .3 + i * ((CX1 - X0 - .6) / 8), z: 0, r: 1.35 }));
 
   // ——— Our story: a chalkboard easel.
-  const board = new THREE.Group(); board.position.set(6.2, .14, 2.6); board.rotation.y = -.5; scene.add(board);
+  const board = new THREE.Group(); board.position.set(5.8, .14, 5.4); board.rotation.y = -.45; scene.add(board);
   const boardTex = canvasTex((c, w, h) => {
     c.fillStyle = '#26382E'; c.fillRect(0, 0, w, h);
     c.fillStyle = '#F4F1E8'; c.font = 'italic 500 92px Georgia, serif'; c.fillText('Our story', 70, 150);
@@ -227,7 +263,7 @@ export function mountTruck(
   board.add(mesh(new THREE.PlaneGeometry(BOARD.w, BOARD.h), std('#ffffff', { map: boardTex, roughness: .95 }), 0, BOARD.y, BOARD.z));
 
   // ——— Contact: a community bulletin board under a little roof.
-  const bulletin = new THREE.Group(); bulletin.position.set(8.6, .14, 1.2); bulletin.rotation.y = -.7; scene.add(bulletin);
+  const bulletin = new THREE.Group(); bulletin.position.set(9.4, .14, 5.2); bulletin.rotation.y = -.6; scene.add(bulletin);
   for (const x of [-.95, .95]) bulletin.add(mesh(new THREE.BoxGeometry(.1, 2.7, .1), std(C.wood), x, 1.35, 0));
   bulletin.add(mesh(rbox(1.9, 1.16, .1, .03), std('#8A5E3C'), 0, 1.82, 0));
   const PIN = { w: 1.76, h: 1.06, y: 1.82, z: .055 };
@@ -258,7 +294,7 @@ export function mountTruck(
     return t;
   };
   const picnic = table(-6, 4.6, .25, true, true);
-  table(-9.5, 7.6, -.3, true); table(-3.4, 8.2, .15, false); table(10.6, 6.6, .4, true);
+  table(-9.8, 8.2, -.3, true); table(-3.2, 9, .15, false); table(12.5, 10, .4, true);
 
   // ——— Planters, lamps, trees, string lights.
   const flowerCols = ['#E9A86A', '#E38C8C', '#F0D27A', '#FFFFFF', '#B9A0D8'];
@@ -268,15 +304,14 @@ export function mountTruck(
     for (let i = 0; i < 5; i++) p.add(mesh(new THREE.SphereGeometry(.17, 16, 12), std('#618B5C', { roughness: .95 }), -w / 2 + .2 + i * (w - .4) / 4, .52, (rnd() - .5) * .15));
     for (let i = 0; i < 10; i++) p.add(mesh(new THREE.SphereGeometry(.035, 8, 6), std(flowerCols[i % 5]), (rnd() - .5) * w * .85, .64 + rnd() * .08, (rnd() - .5) * .3));
   };
-  planter(-1.2, 9.6, 2); planter(4.6, 9.4, 2); planter(12.2, 2.6); planter(-12, 3);
   const lamp = (x: number, z: number) => {
     const l = new THREE.Group(); l.position.set(x, .14, z); scene.add(l);
     l.add(mesh(new THREE.CylinderGeometry(.045, .065, 3.6, 12), std(C.greenDark, { metalness: .4, roughness: .45 }), 0, 1.8, 0));
     l.add(mesh(new THREE.SphereGeometry(.19, 20, 14), std('#FFF6DE', { emissive: '#FFE4A8', emissiveIntensity: .5 }), 0, 3.7, 0));
     l.add(mesh(new THREE.CylinderGeometry(.24, .2, .07, 20), std(C.greenDark), 0, 3.88, 0));
   };
-  lamp(-8, 1.8); lamp(5, 1.9); lamp(13.5, 8); lamp(-13.5, 8.5);
-  tree(scene, -11.5, -1.5, 1.25); tree(scene, 11, -2, 1.35); tree(scene, -13, 5.5, 1); tree(scene, 13.4, 4.6, 1.1); tree(scene, 7.5, 10, 1);
+  lamp(-8, 2.4); lamp(5.6, 2.4); lamp(16, 9); lamp(-16, 9.5);
+  for (const x of [-15, -9, 7, 13]) tree(scene, x, 3.4, 1.35); tree(scene, -16.5, 14, 1.5); tree(scene, 17, 15, 1.4);
   const bulbs: THREE.Mesh[] = [];
   for (const [a, b] of [[new THREE.Vector3(-8, 3.55, 1.8), new THREE.Vector3(-3.6, 3.3, 1.2)], [new THREE.Vector3(4.15, 3.1, 1.2), new THREE.Vector3(5, 3.55, 1.9)]] as const) {
     const mid = a.clone().lerp(b, .5); mid.y -= .4;
@@ -303,7 +338,7 @@ export function mountTruck(
   giving.add(mesh(new THREE.CylinderGeometry(.04, .05, .14, 16), std('#DDEDEA', { roughness: .2 }), -.24, .96, -.1));
   for (let i = 0; i < 5; i++) giving.add(mesh(new THREE.SphereGeometry(.032, 10, 8), std(flowerCols[i]), -.24 + Math.sin(i * 1.3) * .05, 1.1 + (i % 2) * .04, -.1 + Math.cos(i * 1.3) * .04));
   const jar = new THREE.Group(); jar.position.set(-.02, .885, .05); jar.scale.setScalar(1.25); giving.add(jar);
-  jar.add(mesh(new THREE.CylinderGeometry(.14, .13, .34, 40, 1, true), new THREE.MeshPhysicalMaterial({ color: '#ffffff', transmission: .95, roughness: .04, thickness: .08, ior: 1.4, transparent: true, opacity: .4, side: THREE.DoubleSide }), 0, .17, 0));
+  jar.add(mesh(new THREE.CylinderGeometry(.14, .13, .34, 40, 1, true), new THREE.MeshStandardMaterial({ color: '#EAF4F2', roughness: .05, metalness: .1, transparent: true, opacity: .32, side: THREE.DoubleSide, depthWrite: false }), 0, .17, 0));
   jar.add(rot(mesh(new THREE.TorusGeometry(.14, .01, 8, 40), std('#ffffff', { roughness: .1, transparent: true, opacity: .6 }), 0, .34, 0), Math.PI / 2));
   const ribbon = mesh(new THREE.TorusGeometry(.142, .014, 8, 40), std(C.orange), 0, .25, 0); ribbon.rotation.x = Math.PI / 2; jar.add(ribbon);
   const coinGeo = new THREE.CylinderGeometry(.03, .03, .007, 20), coinM = std(C.gold, { metalness: .85, roughness: .25 });
@@ -324,25 +359,47 @@ export function mountTruck(
   const steam = Array.from({ length: 10 }, () => { const s = new THREE.Mesh(new THREE.SphereGeometry(.07, 12, 8), steamM.clone()); scene.add(s); return s; });
   const bowlSteam = Array.from({ length: 6 }, () => { const s = new THREE.Mesh(new THREE.SphereGeometry(.03, 10, 8), steamM.clone()); scene.add(s); return s; });
 
-  // ——— The crew: five volunteers, each with their own rhythm.
-  type CrewPose = 'serve' | 'stir' | 'reach' | 'idle' | 'nod' | 'carry';
-  const crew: { f: Figure; next: number; poses: CrewPose[] }[] = [];
-  const hire = (x: number, z: number, ry: number, poses: CrewPose[], palette: number, skin: number) => {
-    const f = new Figure(1.7, { apron: true, palette, skin }); f.obj.position.set(x, FLOOR, z); f.obj.rotation.y = ry; truck.add(f.obj);
-    crew.push({ f, next: Math.random() * 2, poses }); return f;
+  // ——— The crew: volunteers who move between stations inside the truck (window, stove, prep, fridge, pass).
+  const STATIONS = [
+    { id: 'window', x: -1.35, z: Z - .62, ry: 0, pose: 'serve' as const }, { id: 'window2', x: .2, z: Z - .62, ry: 0, pose: 'reach' as const },
+    { id: 'stove', x: -1.7, z: -Z + .82, ry: Math.PI, pose: 'stir' as const }, { id: 'prep', x: -.55, z: -Z + .82, ry: Math.PI, pose: 'reach' as const },
+    { id: 'prep2', x: .55, z: -Z + .82, ry: Math.PI, pose: 'stir' as const }, { id: 'fridge', x: 1.75, z: -Z + .9, ry: Math.PI * .85, pose: 'reach' as const },
+    { id: 'pass', x: -2.9, z: 0, ry: Math.PI / 2, pose: 'reach' as const },
+  ];
+  type Crew = { p: Person; at: number; path: THREE.Vector3[]; timer: number; home: boolean };
+  const crew: Crew[] = [];
+  const taken = new Set<number>();
+  const sendTo = (c: Crew, i: number) => {
+    taken.delete(c.at); taken.add(i); c.at = i;
+    const st = STATIONS[i], o = c.p.obj.position;
+    // Walk out to the centre aisle, along it, then step into the station.
+    c.path = [new THREE.Vector3(o.x, FLOOR, 0), new THREE.Vector3(st.x, FLOOR, 0), new THREE.Vector3(st.x, FLOOR, st.z)];
+    c.p.set('walk');
   };
-  const server = hire(-.9, Z - .75, 0, ['serve', 'idle', 'reach'], 2, 1);
-  hire(.35, Z - .75, -.25, ['reach', 'idle', 'nod'], 5, 3);
-  hire(-1.7, -Z + .95, Math.PI, ['stir'], 0, 4);
-  hire(-.6, -Z + .95, Math.PI + .3, ['stir', 'reach', 'idle'], 7, 0);
-  hire(-2.95, .1, Math.PI / 2, ['carry', 'reach', 'idle'], 9, 2);
-  let serveFlash = 0;
+  let server: Person | null = null, serveFlash = 0;
 
   // ——— Food, once the small models arrive.
   let crowd: Crowd | null = null;
+  const SIT_Y = .02;
   const place = (o: THREE.Object3D, parent: THREE.Object3D, x: number, y: number, z: number, ry = 0) => { o.position.set(x, y, z); o.rotation.y = ry; parent.add(o); return o; };
   let alive = true;
-  loadFood().then((food) => {
+  // People: lighter devices download fewer characters.
+  const KINDS: Kind[] = tier > 1 ? ['m-casual_2', 'm-casual_hoodie', 'm-farmer', 'm-suit', 'm-worker', 'm-beach', 'w-casual', 'w-formal', 'w-suit', 'w-worker', 'w-adventurer'] : ['m-casual_2', 'm-casual_hoodie', 'm-worker', 'w-casual', 'w-formal', 'w-adventurer'];
+  let cast: Awaited<ReturnType<typeof loadCast>> | null = null, friend: Person | null = null;
+  const castReady = loadCast('/models/people', KINDS).then((c) => {
+    if (!alive) return;
+    cast = c;
+    const crewKinds: Kind[] = ['m-casual_2', 'w-casual', 'm-casual_hoodie', 'w-adventurer', 'm-beach'].filter((k) => KINDS.includes(k as Kind)) as Kind[];
+    const starts = [0, 2, 3, 1, 6];
+    crewKinds.forEach((k, i) => {
+      const p = c.make(k, { height: 1.68, skin: [1, 3, 4, 0, 2][i] });
+      const st = STATIONS[starts[i]]; p.obj.position.set(st.x, FLOOR, st.z); p.obj.rotation.y = st.ry; truck.add(p.obj); p.set(st.pose);
+      const cr: Crew = { p, at: starts[i], path: [], timer: 2 + Math.random() * 5, home: i === 0 }; taken.add(starts[i]); crew.push(cr);
+      if (i === 0) server = p;
+    });
+    friend = c.make('w-formal', { height: 1.64, skin: 2 }); place(friend.obj, picnic, .45, SIT_Y, -.95); friend.set('sit');
+  }).catch(() => {});
+  loadFood().then(async (food) => {
     if (!alive) return;
     const F = (id: FoodId, size: number, x: number, y: number, z: number, ry = 0) => place(food(id, size), truck, x, y, z, ry);
     for (let i = 0; i < 4; i++) F('styrofoam-dinner', .26, -.2 + i * .3, WB + .06 + (i % 2) * .09, Z + .18, (rnd() - .5) * .3);
@@ -354,22 +411,24 @@ export function mountTruck(
     for (const [id, sz, x, z] of [['plate-dinner', .34, .45, .22], ['bowl-soup', .2, .4, .2], ['loaf-round', .13, .62, .12], ['apple', .07, .25, .35], ['mug', .1, .7, .34], ['utensil-spoon', .16, .2, .18]] as [FoodId, number, number, number][]) place(food(id, sz), picnic, x, .8, z, rnd() * .4);
     for (const [id, sz, x, z] of [['plate-dinner', .34, .45, -.25], ['salad', .18, .45, -.25], ['cup-tea', .09, .2, -.3]] as [FoodId, number, number, number][]) place(food(id, sz), picnic, x, .8, z);
     for (const s of seats) place(food((['salad', 'sandwich', 'bowl-broth', 'pie', 'rice-ball'] as FoodId[])[Math.floor(rnd() * 5)], .16), scene, s.pos.x - Math.sin(s.face) * .35, .94, s.pos.z - Math.cos(s.face) * .35);
+    if (!cast) await castReady;
     crowd = new Crowd(scene, {
       window: new THREE.Vector3(-.9, .14, Z + .95), queueDir: new THREE.Vector3(-.9, 0, .44), seats, minZ: Z + .75,
-      entries: [new THREE.Vector3(-8.5, .14, -2.2), new THREE.Vector3(8, .14, -2.2)],
-      exits: [new THREE.Vector3(-8.5, .14, -2.4), new THREE.Vector3(8, .14, -2.4)],
+      entries: [new THREE.Vector3(-21, .14, 2.1), new THREE.Vector3(21, .14, 2.1), new THREE.Vector3(-19, .14, 13), new THREE.Vector3(19, .14, 14)],
+      exits: [new THREE.Vector3(-22, .14, 2.1), new THREE.Vector3(22, .14, 2.1), new THREE.Vector3(-20, .14, 13), new THREE.Vector3(20, .14, 14)],
       obstacles: [
-        ...truckObstacles, { x: 3.2, z: 3.1, r: .55 }, { x: 6.2, z: 2.6, r: .95 }, { x: 8.6, z: 1.2, r: 1.1 },
-        { x: -6, z: 4.6, r: 1.25 }, { x: -9.5, z: 7.6, r: 1.25 }, { x: -3.4, z: 8.2, r: 1.25 }, { x: 10.6, z: 6.6, r: 1.25 },
-        { x: -1.2, z: 9.6, r: 1.1 }, { x: 4.6, z: 9.4, r: 1.1 }, { x: 12.2, z: 2.6, r: .8 }, { x: -12, z: 3, r: .8 }, { x: -8, z: 1.8, r: .25 }, { x: 5, z: 1.9, r: .25 },
+        ...truckObstacles, { x: 3.2, z: 3.1, r: .55 }, { x: 5.8, z: 5.4, r: .95 }, { x: 9.4, z: 5.2, r: 1.1 },
+        { x: -6, z: 4.6, r: 1.25 }, { x: -9.8, z: 8.2, r: 1.25 }, { x: -3.2, z: 9, r: 1.25 }, { x: 12.5, z: 10, r: 1.25 },
+        ...[-15, -9, 7, 13].map((x) => ({ x, z: 3.4, r: .95 })), ...[-12, -3, 3, 10].map((x) => ({ x, z: 2.4, r: .2 })),
+        { x: -14, z: 9, r: .9 }, { x: 14, z: 11, r: .9 }, { x: -6, z: 15, r: .9 }, { x: 8, z: 16, r: .9 }, { x: -8, z: 2.4, r: .25 }, { x: 5.6, z: 2.4, r: .25 },
       ],
       max: tier > 1 ? 10 : 7,
       meal: () => food('styrofoam-dinner', .26),
-      onOrder: () => server.set('nod'),
-      onServe: () => { server.set('reach'); serveFlash = 1.2; },
+      onOrder: () => server?.set('nod'),
+      onServe: () => { server?.set('reach'); serveFlash = 1.2; },
+      make: (mobility) => cast!.make(undefined, { mobility, height: 1.6 + Math.random() * .22, chair: () => { const c = makeChair(); c.scale.setScalar(1.05); return c; } }),
     });
   }).catch(() => {});
-  const friend = new Figure(1.66, { palette: 3, skin: 2 }); place(friend.obj, picnic, .45, 0, -.72); friend.set('sit');
 
   // ——— Picking.
   const targets: Record<StationId, THREE.Object3D[]> = { volunteer: [truck], donate: [giving], about: [board], resources: [picnic], contact: [bulletin] };
@@ -377,7 +436,7 @@ export function mountTruck(
   for (const [id, list] of Object.entries(targets) as [StationId, THREE.Object3D[]][]) list.forEach((o) => o.traverse((c) => owner.set(c, id)));
 
   // ——— Views.
-  const camera = new THREE.PerspectiveCamera(30, 1, .05, 220);
+  const camera = new THREE.PerspectiveCamera(30, 1, .1, 260);
   const W = (o: THREE.Object3D, x: number, y: number, z: number) => { o.updateMatrixWorld(true); return o.localToWorld(new THREE.Vector3(x, y, z)).toArray() as View['pos']; };
   // A board view fits the board to about 94% of the screen, square to its face, so the page can take over seamlessly.
   const fitBoard = (o: THREE.Object3D, b: { w: number; h: number; y: number; z: number }): View => {
@@ -386,7 +445,7 @@ export function mountTruck(
     return { pos: W(o, 0, b.y, b.z + d), look: W(o, 0, b.y, b.z), fov };
   };
   const views = (): Record<StationId, View> => ({
-    volunteer: { pos: W(truck, 1.9, TOP - .45, -.55), look: W(truck, -1.4, 1.5, Z + 1.6), fov: 62 },
+    volunteer: { pos: W(truck, 2.25, TOP - .32, .25), look: W(truck, -1.6, 1.45, .45), fov: 64 },
     donate: { pos: [4.0, 1.68, 4.35], look: [3.2, 1.18, 3.1], fov: 32 },
     about: fitBoard(board, BOARD),
     resources: { pos: W(picnic, .45, 1.3, 1.15), look: W(picnic, .45, 1.05, -.5), fov: 56 },
@@ -484,16 +543,29 @@ export function mountTruck(
 
     // Life.
     crowd?.update(dt);
+    for (const c of crew) c.p.obj.visible = !focused || peeking || c.p.obj.getWorldPosition(v2).distanceTo(camera.position) > 1.1;
     if (crowd) for (const n of crowd.npcs) n.f.obj.visible = !focused || peeking || n.f.obj.position.distanceTo(camera.position) > 2.4;
     for (const c of crew) {
-      c.f.update(dt); c.next -= dt;
-      if (c.f === server && serveFlash > 0) { serveFlash -= dt; continue; }
-      if (c.next <= 0) { c.f.set(c.poses[Math.floor(Math.random() * c.poses.length)]); c.next = 2 + Math.random() * 3.5; }
+      c.p.update(dt);
+      const o = c.p.obj;
+      if (c.path.length) {
+        const tgt = c.path[0], d = v.subVectors(tgt, o.position); d.y = 0; const dist = d.length();
+        if (dist < .04) { c.path.shift(); if (!c.path.length) { const st = STATIONS[c.at]; c.p.set(st.pose); c.timer = 4 + Math.random() * 7; } }
+        else { o.position.addScaledVector(d.normalize(), Math.min(dist, dt * .9)); o.rotation.y += Math.atan2(Math.sin(Math.atan2(d.x, d.z) - o.rotation.y), Math.cos(Math.atan2(d.x, d.z) - o.rotation.y)) * Math.min(1, dt * 8); }
+        continue;
+      }
+      const st = STATIONS[c.at];
+      o.rotation.y += Math.atan2(Math.sin(st.ry - o.rotation.y), Math.cos(st.ry - o.rotation.y)) * Math.min(1, dt * 4);
+      if (c.p === server && serveFlash > 0) { serveFlash -= dt; continue; }
+      c.timer -= dt;
+      if (c.timer <= 0) {
+        if (c.home || Math.random() < .35) { c.p.set(Math.random() < .5 ? st.pose : 'idle'); c.timer = 3 + Math.random() * 5; }
+        else { const free = STATIONS.map((_, i) => i).filter((i) => !taken.has(i) && i !== 0); if (free.length) sendTo(c, free[Math.floor(Math.random() * free.length)]); else c.timer = 3; }
+      }
     }
-    friend.update(dt);
+    friend?.update(dt);
     roofSign.rotation.y = Math.sin(t * .5) * .015;
     bulbs.forEach((b, i) => ((b.material as THREE.MeshStandardMaterial).emissiveIntensity = 1.1 + Math.sin(t * 2 + i) * .2));
-    for (const c of clouds) c.g.position.x = ((c.x0 + t * c.speed + 60) % 120) - 60;
     steam.forEach((s, i) => {
       const age = (t * .28 + i / steam.length) % 1;
       s.position.set(-1.6 + Math.sin(age * 5 + i) * .15, FLOOR + 1.1 + age * 1.1, -Z + .4 + Math.sin(i) * .1);
