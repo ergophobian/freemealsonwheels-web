@@ -1,16 +1,21 @@
-// Live watercolor hero: a low-poly Three.js town drawn through a paint shader.
+// Live watercolor hero: at golden hour, a volunteer hands a warm meal to a neighbor on a bench.
 // Paper, grain and the 12 fps "boil" follow the painted-explainers recipe (youtube-automation).
 import * as THREE from 'three';
 
 const PAL = {
-  paper: '#F6EFE2', ink: '#1F3A2B', green: '#2F6B4A', sage: '#7FA77A', hill: '#A9C58E',
-  orange: '#E07A3C', gold: '#E2C27A', cream: '#FFF6E6', rose: '#D98F7A', sky: '#F3E6CF', road: '#C9B79A',
+  paper: '#F6EFE2', ink: '#1F3A2B', coat: '#2F6B4A', scarf: '#E07A3C', blanket: '#C9826B', shirt: '#6F86A6',
+  skin1: '#C68A62', skin2: '#8E5B3E', wood: '#8A5E3C', street: '#F1E0CA', city: '#D9AFA2', cityFar: '#E9C7B4',
+  cream: '#FFF3DE', trouser: '#3A4652',
 };
 const BOIL_FPS = 12;
 
 function lcg(seed: number) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+const clamp = (x: number, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const ease = (x: number) => { x = clamp(x); return x * x * (3 - 2 * x); };
+const seg = (x: number, a: number, b: number) => ease((x - a) / (b - a));
+const mix2 = (a: number[], b: number[], k: number) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
 
-// Paper base with soft ochre blotches, multiplied grain and a warm vignette.
+// Paper base with soft ochre blotches and multiplied grain.
 function makePaper(w = 1024, h = 1024) {
   const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
   const c = cv.getContext('2d')!, rnd = lcg(11);
@@ -22,14 +27,19 @@ function makePaper(w = 1024, h = 1024) {
     c.fillStyle = g; c.fillRect(x - r, y - r, 2 * r, 2 * r);
   }
   const id = c.getImageData(0, 0, w, h), d = id.data, rg = lcg(5);
-  for (let i = 0; i < d.length; i += 4) {
-    const v = rg() < .55 ? rg() * rg() * 26 : 0;
-    d[i] -= v; d[i + 1] -= v + 1; d[i + 2] -= v + 3;
-  }
+  for (let i = 0; i < d.length; i += 4) { const v = rg() < .55 ? rg() * rg() * 26 : 0; d[i] -= v; d[i + 1] -= v + 1; d[i + 2] -= v + 3; }
   c.putImageData(id, 0, 0);
   const t = new THREE.CanvasTexture(cv);
   t.wrapS = t.wrapT = THREE.MirroredRepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
   return t;
+}
+
+function makeGlow() {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128;
+  const c = cv.getContext('2d')!, g = c.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, 'rgba(255,236,190,1)'); g.addColorStop(.35, 'rgba(255,200,120,.45)'); g.addColorStop(1, 'rgba(255,180,100,0)');
+  c.fillStyle = g; c.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(cv);
 }
 
 const PAINT_FRAG = /* glsl */ `
@@ -43,132 +53,178 @@ const PAINT_FRAG = /* glsl */ `
   float lum(vec3 c) { return dot(c, vec3(.299, .587, .114)); }
   void main() {
     vec2 px = 1. / uRes;
-    // Hand-drawn boil: the whole frame wobbles a little, re-seeded 12 times a second.
-    vec2 uv = vUv + (vec2(fbm(vUv * 9. + uBoil), fbm(vUv * 9. - uBoil + 4.)) - .5) * .006;
-    // Pigment bleed: soft average of neighbors.
+    // Hand-drawn boil, re-seeded 12 times a second.
+    vec2 uv = vUv + (vec2(fbm(vUv * 9. + uBoil), fbm(vUv * 9. - uBoil + 4.)) - .5) * .005;
+    // Pigment bleed.
     vec3 c = texture2D(tScene, uv).rgb * .4;
     c += texture2D(tScene, uv + vec2(px.x * 2., 0)).rgb * .15;
     c += texture2D(tScene, uv - vec2(px.x * 2., 0)).rgb * .15;
     c += texture2D(tScene, uv + vec2(0, px.y * 2.)).rgb * .15;
     c += texture2D(tScene, uv - vec2(0, px.y * 2.)).rgb * .15;
-    // Wet edges: pigment pools where color changes.
+    // Wet edges.
     float l = lum(texture2D(tScene, uv).rgb);
     float gx = lum(texture2D(tScene, uv + vec2(px.x * 1.5, 0)).rgb) - lum(texture2D(tScene, uv - vec2(px.x * 1.5, 0)).rgb);
     float gy = lum(texture2D(tScene, uv + vec2(0, px.y * 1.5)).rgb) - lum(texture2D(tScene, uv - vec2(0, px.y * 1.5)).rgb);
-    float edge = smoothstep(.03, .25, length(vec2(gx, gy)));
-    c = mix(c, c * c * 1.1, edge * .45);
-    // Granulation and uneven wash.
-    float gran = fbm(vUv * uRes / 3.);
-    c *= .95 + .08 * gran;
+    float edge = smoothstep(.03, .22, length(vec2(gx, gy)));
+    c = mix(c, c * c * 1.1, edge * .5);
+    // Granulation, uneven wash, soft gouache steps.
+    c *= .95 + .08 * fbm(vUv * uRes / 3.);
     c = mix(c, c * (.92 + .16 * fbm(vUv * 3. + 7.)), .6);
-    // Transparent washes: lift everything toward paper.
-    c = mix(c, vec3(1.), .22);
-    // Soft posterize toward flat gouache fields.
-    c = mix(c, floor(c * 7. + .5) / 7., .25);
-    // Paper shows through light areas, multiplies everywhere.
+    c = mix(c, floor(c * 10. + .5) / 10., .12);
+    // Paper.
     vec3 paper = texture2D(tPaper, vUv * vec2(uRes.x / uRes.y, 1.) * .9).rgb;
-    c = mix(c, vec3(1.), smoothstep(.82, 1., l) * .5) * paper;
-    // Warm vignette.
-    float v = smoothstep(1.15, .45, length(vUv - .5) * 1.4);
-    c *= mix(vec3(.93, .89, .84), vec3(1.), v);
+    c = mix(c, vec3(1.), .1 + smoothstep(.85, 1., l) * .4) * paper;
+    float v = smoothstep(1.2, .45, length(vUv - .5) * 1.4);
+    c *= mix(vec3(.9, .84, .8), vec3(1.), v);
     gl_FragColor = vec4(c, 1.);
   }`;
 
-const mat = (color: string) => new THREE.MeshLambertMaterial({ color, flatShading: true });
+const SKY_FRAG = /* glsl */ `
+  varying vec2 vUv;
+  void main() {
+    vec3 top = vec3(.96, .86, .8), mid = vec3(.98, .79, .64), low = vec3(1., .87, .6);
+    vec3 c = mix(low, mid, smoothstep(.0, .35, vUv.y));
+    c = mix(c, top, smoothstep(.35, .9, vUv.y));
+    vec2 p = vUv * vec2(2.25, 1.);
+    float d = distance(p, vec2(1.45, .3));
+    c = mix(c, vec3(1., .93, .74), smoothstep(.5, .0, d) * .5);
+    c = mix(c, vec3(1., .96, .82), smoothstep(.13, .12, d));
+    gl_FragColor = vec4(c, 1.);
+  }`;
 
-function house(color: string, roof: string, s = 1) {
-  const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(1.4 * s, 1 * s, 1.2 * s), mat(color)); body.position.y = .5 * s; g.add(body);
-  const top = new THREE.Mesh(new THREE.ConeGeometry(1.1 * s, .8 * s, 4), mat(roof)); top.position.y = 1.4 * s; top.rotation.y = Math.PI / 4; g.add(top);
-  const door = new THREE.Mesh(new THREE.BoxGeometry(.3 * s, .5 * s, .05), mat(PAL.green)); door.position.set(0, .25 * s, .61 * s); g.add(door);
-  return g;
+const mat = (color: string, emissive?: string) =>
+  new THREE.MeshLambertMaterial({ color, flatShading: true, ...(emissive ? { emissive, emissiveIntensity: .6 } : {}) });
+
+function limb(r: number, len: number, color: string) {
+  const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 4, 8), mat(color));
+  m.position.y = -len / 2; return m;
 }
 
-function tree(s = 1) {
-  const g = new THREE.Group();
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.07 * s, .1 * s, .5 * s, 5), mat('#8a6a48')); trunk.position.y = .25 * s; g.add(trunk);
-  const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(.5 * s, 0), mat(Math.random() > .5 ? PAL.green : PAL.sage)); crown.position.y = .85 * s; g.add(crown);
-  return g;
+// A two-bone arm posed in its parent's side plane (x right, y up).
+function arm(sleeve: string, skin: string, l1: number, l2: number) {
+  const shoulder = new THREE.Group(), elbow = new THREE.Group();
+  shoulder.add(limb(.075, l1, sleeve)); elbow.position.y = -l1; shoulder.add(elbow);
+  elbow.add(limb(.065, l2, sleeve));
+  const hand = new THREE.Mesh(new THREE.SphereGeometry(.075, 8, 6), mat(skin)); hand.position.y = -l2 - .05; elbow.add(hand);
+  return { shoulder, elbow, l1, l2: l2 + .05 };
 }
 
-function van() {
-  const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, .8, .8), mat(PAL.cream)); body.position.set(-.15, .55, 0); g.add(body);
-  const cab = new THREE.Mesh(new THREE.BoxGeometry(.6, .6, .78), mat(PAL.cream)); cab.position.set(.85, .45, 0); g.add(cab);
-  const glass = new THREE.Mesh(new THREE.BoxGeometry(.05, .28, .66), mat('#6f9fb0')); glass.position.set(1.15, .58, 0); g.add(glass);
-  const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.52, .14, .82), mat(PAL.orange)); stripe.position.set(-.15, .45, 0); g.add(stripe);
-  const heart = new THREE.Mesh(new THREE.CircleGeometry(.14, 12), new THREE.MeshBasicMaterial({ color: PAL.orange })); heart.position.set(-.2, .72, .41); g.add(heart);
-  for (const [x, z] of [[-.6, .4], [.7, .4], [-.6, -.4], [.7, -.4]]) {
-    const w = new THREE.Mesh(new THREE.CylinderGeometry(.18, .18, .12, 10), mat(PAL.ink)); w.rotation.x = Math.PI / 2; w.position.set(x, .18, z); g.add(w);
-  }
-  return g;
+const tmp = new THREE.Vector3();
+// Point the hand at a world-space (x, y) with a planar two-bone solve.
+function reach(a: ReturnType<typeof arm>, wx: number, wy: number, bend: 1 | -1) {
+  const parent = a.shoulder.parent!;
+  parent.updateMatrixWorld(true);
+  tmp.set(wx, wy, a.shoulder.getWorldPosition(new THREE.Vector3()).z);
+  parent.worldToLocal(tmp);
+  const tx = tmp.x - a.shoulder.position.x, ty = tmp.y - a.shoulder.position.y;
+  const d = clamp(Math.hypot(tx, ty), .05, a.l1 + a.l2 - .001);
+  const a1 = Math.atan2(ty, tx) + bend * Math.acos(clamp((a.l1 * a.l1 + d * d - a.l2 * a.l2) / (2 * a.l1 * d), -1, 1));
+  const ex = Math.cos(a1) * a.l1, ey = Math.sin(a1) * a.l1;
+  a.shoulder.rotation.z = a1 + Math.PI / 2;
+  a.elbow.rotation.z = Math.atan2(ty - ey, tx - ex) - a1;
 }
 
-export function mountPaintedScene(canvas: HTMLCanvasElement) {
+export function mountPaintedScene(canvas: HTMLCanvasElement, progress: () => number = () => 0) {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let renderer: THREE.WebGLRenderer;
-  try { renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false }); } catch { return () => {}; }
+  try { renderer = new THREE.WebGLRenderer({ canvas, antialias: false }); } catch { return () => {}; }
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(PAL.sky);
-  scene.fog = new THREE.Fog(PAL.sky, 30, 70);
-  scene.add(new THREE.HemisphereLight('#fff8ea', '#9ab48a', 2.2));
-  const sunLight = new THREE.DirectionalLight('#ffd9a8', 2.2); sunLight.position.set(-8, 10, 6); scene.add(sunLight);
+  scene.fog = new THREE.Fog('#F6DCC0', 12, 40);
+  scene.add(new THREE.HemisphereLight('#fff4e4', '#d8b4a0', 2.3));
+  const rim = new THREE.DirectionalLight('#ffe2bd', 1.6); rim.position.set(6, 4, -6); scene.add(rim);
+  const key = new THREE.DirectionalLight('#ffe9cf', .9); key.position.set(-4, 5, 6); scene.add(key);
 
-  const sun = new THREE.Mesh(new THREE.CircleGeometry(2.2, 32), new THREE.MeshBasicMaterial({ color: PAL.gold, fog: false }));
-  sun.position.set(10, 7.5, -34); scene.add(sun);
+  const sky = new THREE.Mesh(new THREE.PlaneGeometry(90, 40), new THREE.ShaderMaterial({
+    vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',
+    fragmentShader: SKY_FRAG, depthWrite: false,
+  }));
+  sky.position.set(0, 10, -30); scene.add(sky);
 
-  // Rolling hills.
-  const ground = new THREE.PlaneGeometry(80, 60, 60, 45); ground.rotateX(-Math.PI / 2);
-  const pos = ground.attributes.position;
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i), z = pos.getZ(i), r = Math.hypot(x, z);
-    pos.setY(i, r < 9 ? 0 : (Math.sin(x * .25) * Math.cos(z * .2) + 1) * Math.min(1, (r - 9) / 6) * 1.6);
+  // Distant city in two soft layers, with a few lit windows.
+  const rnd = lcg(7);
+  const windowMat = new THREE.MeshBasicMaterial({ color: '#FFE1A8' });
+  for (const [z, col, n] of [[-34, PAL.cityFar, 30], [-24, PAL.city, 22]] as const) {
+    for (let i = 0; i < n; i++) {
+      const w = 1.4 + rnd() * 2.4, h = 1.5 + rnd() * (z < -30 ? 8 : 5);
+      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, 1), mat(col));
+      b.position.set(-34 + i * (68 / n) + rnd(), h / 2 - .2, z); scene.add(b);
+      if (z > -30) for (let k = 0; k < 3; k++) if (rnd() > .5) {
+        const win = new THREE.Mesh(new THREE.PlaneGeometry(.18, .26), windowMat);
+        win.position.set(b.position.x - w / 3 + rnd() * w * .66, .6 + rnd() * (h - 1), z + .51); scene.add(win);
+      }
+    }
   }
-  ground.computeVertexNormals();
-  scene.add(new THREE.Mesh(ground, mat(PAL.hill)));
-  for (let i = 0; i < 5; i++) {
-    const hill = new THREE.Mesh(new THREE.SphereGeometry(8 + i * 2, 12, 8), mat(i % 2 ? PAL.sage : PAL.green));
-    hill.position.set(-24 + i * 12, -5 + (i % 2), -26 - (i % 3) * 3); hill.scale.y = .55; scene.add(hill);
+
+  // Street, sidewalk, bench, lamp.
+  const street = new THREE.Mesh(new THREE.PlaneGeometry(80, 30), mat(PAL.street)); street.rotation.x = -Math.PI / 2; street.position.z = -5; scene.add(street);
+  const bench = new THREE.Group();
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(1.7, .08, .5), mat(PAL.wood)); seat.position.y = .48; bench.add(seat);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(1.7, .4, .06), mat(PAL.wood)); back.position.set(0, .8, -.24); back.rotation.x = -.12; bench.add(back);
+  for (const x of [-.75, .75]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(.08, .48, .45), mat(PAL.ink)); leg.position.set(x, .24, 0); bench.add(leg); }
+  bench.position.set(1.2, .12, -.1); scene.add(bench);
+  const lamp = new THREE.Group();
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(.05, .07, 3.6, 6), mat(PAL.ink)); pole.position.y = 1.8; lamp.add(pole);
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(.2, 10, 8), new THREE.MeshBasicMaterial({ color: '#FFE6B0' })); bulb.position.y = 3.6; lamp.add(bulb);
+  lamp.position.set(2.7, .12, -.9); scene.add(lamp);
+
+  const glowTex = makeGlow();
+  const glowSprite = (s: number, o: number) => {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false }));
+    sp.scale.setScalar(s); return sp;
+  };
+  const lampGlow = glowSprite(2.2, .7); lampGlow.position.set(2.7, 3.72, -.9); scene.add(lampGlow);
+
+  // The neighbor, seated on the bench and wrapped in a blanket.
+  const neighbor = new THREE.Group(); neighbor.position.set(1.0, .12, 0); scene.add(neighbor);
+  const nUpper = new THREE.Group(); nUpper.position.y = .6; neighbor.add(nUpper);
+  const nTorso = new THREE.Mesh(new THREE.CapsuleGeometry(.24, .36, 4, 8), mat(PAL.shirt)); nTorso.position.y = .32; nUpper.add(nTorso);
+  const blanket = new THREE.Mesh(new THREE.ConeGeometry(.48, .9, 9, 1, true), new THREE.MeshLambertMaterial({ color: PAL.blanket, flatShading: true, side: THREE.DoubleSide }));
+  blanket.position.set(.04, .3, 0); nUpper.add(blanket);
+  const nHead = new THREE.Group(); nHead.position.set(-.02, .82, 0); nUpper.add(nHead);
+  nHead.add(new THREE.Mesh(new THREE.SphereGeometry(.18, 20, 16), mat(PAL.skin2)));
+  const hood = new THREE.Mesh(new THREE.SphereGeometry(.215, 20, 16, Math.PI * .15, Math.PI * 1.2), mat(PAL.blanket)); hood.rotation.y = Math.PI * .2; nHead.add(hood);
+  for (const z of [.12, -.12]) {
+    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(.09, .36, 4, 8), mat(PAL.trouser)); thigh.rotation.z = Math.PI / 2; thigh.position.set(-.22, .55, z); neighbor.add(thigh);
+    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(.08, .34, 4, 8), mat(PAL.trouser)); shin.position.set(-.44, .3, z); neighbor.add(shin);
+    const shoe = new THREE.Mesh(new THREE.BoxGeometry(.24, .08, .12), mat(PAL.ink)); shoe.position.set(-.5, .06, z); neighbor.add(shoe);
   }
+  const nArmNear = arm(PAL.blanket, PAL.skin2, .36, .34); nArmNear.shoulder.position.set(-.08, .6, .2); nUpper.add(nArmNear.shoulder);
+  const nArmFar = arm(PAL.blanket, PAL.skin2, .36, .34); nArmFar.shoulder.position.set(-.04, .6, -.2); nUpper.add(nArmFar.shoulder);
 
-  // Looping road through town.
-  const curve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-6, 0, 2), new THREE.Vector3(-2, 0, 5), new THREE.Vector3(4, 0, 4.5), new THREE.Vector3(7, 0, 0),
-    new THREE.Vector3(4, 0, -4), new THREE.Vector3(-2, 0, -4.5), new THREE.Vector3(-7, 0, -2),
-  ], true);
-  const roadPts = curve.getSpacedPoints(200), road: number[] = [];
-  for (let i = 0; i < roadPts.length - 1; i++) {
-    const a = roadPts[i], b = roadPts[i + 1], t = curve.getTangentAt(i / 200), n = new THREE.Vector3(-t.z, 0, t.x).multiplyScalar(.7);
-    const tb = curve.getTangentAt((i + 1) / 200), nb = new THREE.Vector3(-tb.z, 0, tb.x).multiplyScalar(.7);
-    road.push(a.x + n.x, .02, a.z + n.z, a.x - n.x, .02, a.z - n.z, b.x + nb.x, .02, b.z + nb.z);
-    road.push(a.x - n.x, .02, a.z - n.z, b.x - nb.x, .02, b.z - nb.z, b.x + nb.x, .02, b.z + nb.z);
+  // The volunteer, leaning in with a warm box.
+  const giver = new THREE.Group(); giver.position.set(-.5, .12, .05); scene.add(giver);
+  const gBody = new THREE.Group(); gBody.position.y = .78; giver.add(gBody);
+  const coat = new THREE.Mesh(new THREE.ConeGeometry(.36, .9, 10, 1, true), new THREE.MeshLambertMaterial({ color: PAL.coat, flatShading: true, side: THREE.DoubleSide }));
+  coat.position.y = .2; gBody.add(coat);
+  const chest = new THREE.Mesh(new THREE.CapsuleGeometry(.24, .32, 4, 8), mat(PAL.coat)); chest.position.y = .5; gBody.add(chest);
+  const scarf = new THREE.Mesh(new THREE.TorusGeometry(.16, .06, 6, 12), mat(PAL.scarf)); scarf.rotation.x = Math.PI / 2; scarf.position.y = .78; gBody.add(scarf);
+  const tailGeo = new THREE.PlaneGeometry(.5, .1, 8, 1); tailGeo.translate(-.25, 0, 0);
+  const tail = new THREE.Mesh(tailGeo, new THREE.MeshLambertMaterial({ color: PAL.scarf, side: THREE.DoubleSide })); tail.position.set(-.1, .74, -.1); gBody.add(tail);
+  const gHead = new THREE.Group(); gHead.position.set(0, 1.0, 0); gBody.add(gHead);
+  gHead.add(new THREE.Mesh(new THREE.SphereGeometry(.19, 20, 16), mat(PAL.skin1)));
+  const beanie = new THREE.Mesh(new THREE.SphereGeometry(.2, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat(PAL.scarf)); beanie.position.y = .04; gHead.add(beanie);
+  for (const z of [.11, -.11]) {
+    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(.09, .55, 4, 8), mat(PAL.trouser)); leg.position.set(0, .36, z); giver.add(leg);
+    const shoe = new THREE.Mesh(new THREE.BoxGeometry(.26, .09, .13), mat(PAL.ink)); shoe.position.set(.06, .05, z); giver.add(shoe);
   }
-  const roadGeo = new THREE.BufferGeometry(); roadGeo.setAttribute('position', new THREE.Float32BufferAttribute(road, 3)); roadGeo.computeVertexNormals();
-  scene.add(new THREE.Mesh(roadGeo, new THREE.MeshLambertMaterial({ color: PAL.road, side: THREE.DoubleSide })));
+  const gArmNear = arm(PAL.coat, PAL.skin1, .4, .38); gArmNear.shoulder.position.set(.04, .66, .22); gBody.add(gArmNear.shoulder);
+  const gArmFar = arm(PAL.coat, PAL.skin1, .4, .38); gArmFar.shoulder.position.set(.04, .66, -.22); gBody.add(gArmFar.shoulder);
 
-  // The kitchen, with a chimney and steam.
-  const kitchen = house(PAL.cream, PAL.orange, 1.9); kitchen.position.set(0, 0, 0); scene.add(kitchen);
-  const chimney = new THREE.Mesh(new THREE.BoxGeometry(.35, .9, .35), mat('#b5552a')); chimney.position.set(.6, 2.9, -.2); scene.add(chimney);
-  const steam: THREE.Mesh[] = [];
-  const steamMat = new THREE.MeshLambertMaterial({ color: '#ffffff', transparent: true, opacity: .8, flatShading: true });
-  for (let i = 0; i < 7; i++) { const p = new THREE.Mesh(new THREE.IcosahedronGeometry(.22, 0), steamMat.clone()); scene.add(p); steam.push(p); }
+  // The meal: a warm box with steam and light.
+  const box = new THREE.Group(); scene.add(box);
+  box.add(new THREE.Mesh(new THREE.BoxGeometry(.34, .2, .26), mat(PAL.cream, '#ffcf8a')));
+  box.add(new THREE.Mesh(new THREE.BoxGeometry(.35, .05, .27), mat(PAL.scarf)));
+  const boxGlow = glowSprite(1.4, .75); box.add(boxGlow);
+  const boxLight = new THREE.PointLight('#ffc98a', 1, 1.6, 2); box.add(boxLight);
+  const steam = Array.from({ length: 6 }, () => {
+    const s = new THREE.Mesh(new THREE.IcosahedronGeometry(.05, 0), new THREE.MeshBasicMaterial({ color: '#fff7ea', transparent: true }));
+    scene.add(s); return s;
+  });
+  const motes = Array.from({ length: 36 }, (_, i) => { const m = glowSprite(.12 + (i % 4) * .03, 0); scene.add(m); return { m, seed: i * 1.618 }; });
 
-  // Neighborhood around the loop.
-  const spots: [number, number, string, string][] = [[-6.5, 5.5, '#F3D9B1', PAL.green], [5.5, 6.8, '#F7E3C6', PAL.rose], [9.5, -2, '#EBD3A8', PAL.green],
-    [5, -7, '#F6E7D0', PAL.gold], [-4, -7.5, '#F0DCC0', PAL.rose], [-9.5, -1, '#F7E3C6', PAL.gold], [0.5, 7.5, '#EED8B4', PAL.green]];
-  for (const [x, z, c, r] of spots) { const h = house(c, r, .9 + Math.random() * .3); h.position.set(x, 0, z); h.lookAt(0, 0, 0); scene.add(h); }
-  const rnd = lcg(3);
-  for (let i = 0; i < 40; i++) {
-    const a = rnd() * Math.PI * 2, r = 8.5 + rnd() * 9, t = tree(.8 + rnd() * .7);
-    t.position.set(Math.cos(a) * r, 0, Math.sin(a) * r - 2); scene.add(t);
-  }
-  for (const [x, z] of [[-2.8, 1.6], [2.8, 1.8], [-2.5, -2.2], [2.6, -2.5]]) { const t = tree(.9); t.position.set(x, 0, z); scene.add(t); }
-
-  const truck = van(); scene.add(truck);
-
-  const camera = new THREE.PerspectiveCamera(30, 1, .1, 140);
+  const camera = new THREE.PerspectiveCamera(28, 1, .1, 120);
   const target = new THREE.WebGLRenderTarget(1, 1, { colorSpace: THREE.SRGBColorSpace });
   const post = new THREE.ShaderMaterial({
     uniforms: { tScene: { value: target.texture }, tPaper: { value: makePaper() }, uRes: { value: new THREE.Vector2() }, uBoil: { value: 0 } },
@@ -188,39 +244,78 @@ export function mountPaintedScene(canvas: HTMLCanvasElement) {
     const pr = renderer.getPixelRatio(); target.setSize(w * pr, h * pr);
     post.uniforms.uRes.value.set(w * pr, h * pr);
     camera.aspect = w / h;
-    // Frame the town to the right on wide screens so the headline has room.
-    camera.setViewOffset(w, h, w > 900 ? -w * .22 : 0, w > 900 ? 0 : h * .12, w, h);
+    // Wide screens: figures sit right of the headline. Phones: figures sit above it.
+    camera.setViewOffset(w, h, w > 900 ? -w * .2 : 0, w > 900 ? 0 : h * .16, w, h);
     camera.updateProjectionMatrix();
   }
   const ro = new ResizeObserver(resize); ro.observe(canvas); resize();
 
-  let raf = 0, visible = true;
-  const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (visible && !reduce) loop(); });
-  io.observe(canvas);
-  const start = performance.now();
-
   function frame(t: number) {
-    const k = (t * .035) % 1, p = curve.getPointAt(k), ahead = curve.getPointAt((k + .01) % 1);
-    truck.position.copy(p); truck.position.y = Math.abs(Math.sin(t * 9)) * .03;
-    truck.lookAt(ahead.x, truck.position.y, ahead.z); truck.rotateY(-Math.PI / 2);
+    // The handoff plays partway on load; scrolling carries it to the end.
+    const h = Math.max(seg(t, .6, 5) * .6, progress());
+    const breathe = Math.sin(t * 1.6) * .012;
+    const toMid = seg(h, 0, .55), toNeighbor = seg(h, .5, .95), release = seg(h, .82, 1);
+
+    // Box: giver's chest → between them → the neighbor's lap.
+    const bp = mix2(mix2([-.12, 1.2], [.3, 1.12], toMid), [.66, 1.0], toNeighbor);
+    box.position.set(bp[0], bp[1] + breathe, .3);
+    box.rotation.z = Math.sin(t * .9) * .03;
+
+    // Volunteer leans in, then rests a hand on the neighbor's shoulder.
+    gBody.rotation.z = -.2 * toMid + .08 * release + breathe;
+    gHead.rotation.z = -.12 - .12 * toMid;
+    const holdL = [bp[0] - .14, bp[1] - .02];
+    reach(gArmNear, ...(mix2(holdL, [-.42, .62], release) as [number, number]), -1);
+    reach(gArmFar, ...(mix2(holdL, [.86, 1.32], release) as [number, number]), -1);
+
+    // Neighbor lifts their head and reaches for the meal.
+    nHead.rotation.z = -.38 + .32 * toMid + Math.sin(t * 1.2) * .02;
+    nUpper.rotation.z = .12 * toMid - .05 * release;
+    const holdR = [bp[0] + .14, bp[1] - .03];
+    reach(nArmNear, ...(mix2([.72, .74], holdR, seg(h, .3, .7)) as [number, number]), 1);
+    reach(nArmFar, ...(mix2([.8, .7], holdR, toNeighbor) as [number, number]), 1);
+
+    // Scarf in the breeze.
+    const tp = tailGeo.attributes.position;
+    for (let i = 0; i < tp.count; i++) { const x = tp.getX(i); tp.setZ(i, Math.sin(t * 4 + x * 9) * .1 * -x); tp.setY(i, (i < tp.count / 2 ? .05 : -.05) + x * .25); }
+    tp.needsUpdate = true;
+
+    // Warmth grows as the meal arrives.
+    const warm = .55 + .45 * toNeighbor;
+    boxGlow.scale.setScalar(1.1 + warm * 1.2 + Math.sin(t * 2.3) * .06);
+    boxLight.intensity = .6 + warm * 1.1;
     steam.forEach((s, i) => {
-      const age = ((t * .45 + i / steam.length) % 1);
-      s.position.set(.6 + Math.sin(age * 6 + i) * .25, 3.4 + age * 2.4, -.2 + age * .4);
-      s.scale.setScalar(.6 + age * 1.6); (s.material as THREE.MeshLambertMaterial).opacity = .85 * (1 - age);
+      const age = (t * .35 + i / steam.length) % 1;
+      s.position.set(box.position.x + Math.sin(age * 7 + i) * .06, box.position.y + .14 + age * .55, .02);
+      s.scale.setScalar(.6 + age * 1.8); (s.material as THREE.MeshBasicMaterial).opacity = .7 * (1 - age);
     });
-    const orbit = Math.sin(t * .05) * .25 + mouse.x * .25;
-    camera.position.set(Math.sin(orbit) * 30, 8 - mouse.y * 1.5, Math.cos(orbit) * 30);
-    camera.lookAt(0, 2.6, 0);
+    motes.forEach(({ m, seed }) => {
+      const age = (t * .08 + seed) % 1, r = .2 + age * 1.6;
+      m.position.set(box.position.x + Math.sin(seed * 7 + t * .4) * r * .7, box.position.y + age * 2.6, Math.cos(seed * 5) * .6);
+      (m.material as THREE.SpriteMaterial).opacity = Math.sin(age * Math.PI) * (.25 + .75 * warm) * .8;
+    });
+
+    camera.position.set(mouse.x * .5 + .2, 1.7 - mouse.y * .3, 11 - h * 1.6);
+    camera.lookAt(.3, 1.0, 0);
     post.uniforms.uBoil.value = Math.floor(t * BOIL_FPS) * 1.37 % 100;
     renderer.setRenderTarget(target); renderer.render(scene, camera);
     renderer.setRenderTarget(null); renderer.render(postScene, postCam);
   }
-  function loop() {
+
+  let raf = 0, visible = true;
+  const start = performance.now();
+  const loop = () => {
     cancelAnimationFrame(raf);
     const tick = () => { if (!visible) return; frame((performance.now() - start) / 1000); raf = requestAnimationFrame(tick); };
     tick();
-  }
-  if (reduce) frame(4); else loop();
+  };
+  const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (visible && !reduce) loop(); });
+  io.observe(canvas);
+  const still = () => frame(8);
+  if (reduce) { still(); addEventListener('scroll', still, { passive: true }); } else loop();
 
-  return () => { cancelAnimationFrame(raf); ro.disconnect(); io.disconnect(); removeEventListener('pointermove', onMove); renderer.dispose(); };
+  return () => {
+    cancelAnimationFrame(raf); ro.disconnect(); io.disconnect();
+    removeEventListener('pointermove', onMove); removeEventListener('scroll', still); renderer.dispose();
+  };
 }
