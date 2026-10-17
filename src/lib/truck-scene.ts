@@ -9,6 +9,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { CSS3DRenderer, CSS3DObject } from 'three/examples/jsm/renderers/CSS3DRenderer.js';
 import { loadFood, type FoodId } from './world/assets';
 import { makeChair } from './world/figure';
 import { loadCast, type Person, type Kind } from './world/people';
@@ -114,7 +115,7 @@ function bake(root: THREE.Object3D, keep: (o: THREE.Object3D) => boolean = () =>
   }
 }
 
-export interface TruckApi { focus(id: StationId | null, peek?: boolean): void; give(amount: number): void; dispose(): void }
+export interface TruckApi { surfaces(s: Partial<Record<'about' | 'contact', HTMLElement>>): void; focus(id: StationId | null, peek?: boolean): void; give(amount: number): void; dispose(): void }
 
 export function mountTruck(
   canvas: HTMLCanvasElement,
@@ -339,8 +340,6 @@ export function mountTruck(
   const board = new THREE.Group(); board.position.set(5.8, .14, 5.4); board.rotation.y = -.45; scene.add(board);
   const boardTex = canvasTex((c, w, h) => {
     c.fillStyle = '#26382E'; c.fillRect(0, 0, w, h);
-    c.fillStyle = '#F4F1E8'; c.font = 'italic 500 92px Georgia, serif'; c.fillText('Our story', 70, 150);
-    c.globalAlpha = .75; c.font = '400 46px Inter, sans-serif'; ['Every Saturday since 2020', '300+ meals a week', '400+ volunteers'].forEach((s, i) => c.fillText(s, 74, 250 + i * 70));
   }, 1024, 640);
   for (const s of [-1, 1]) { const leg = mesh(new THREE.BoxGeometry(.06, 2.3, .06), std(C.wood), s * .78, 1.12, -.12); leg.rotation.z = s * -.06; board.add(leg); }
   board.add(mesh(rbox(1.72, 1.1, .06, .02), std(C.wood), 0, 1.65, 0));
@@ -567,11 +566,16 @@ export function mountTruck(
 
   function resize() {
     const w = canvas.clientWidth, h = canvas.clientHeight; if (!w || !h) return;
-    renderer.setSize(w, h, false);
+    renderer.setSize(w, h, false); css?.setSize(w, h);
     camera.aspect = w / h; narrow = w / h < 1;
     if (!focused) { goal = overview(); flying = true; fovGoal = baseFov(); } else if (!peeking) goal = station(focused);
     camera.updateProjectionMatrix();
   }
+  // Real page surfaces mounted on the boards in the world (one board, not a 3D copy plus an overlay).
+  const css = new CSS3DRenderer();
+  Object.assign(css.domElement.style, { position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '1', overflow: 'hidden' });
+  css.domElement.className = 'surfaces';
+  canvas.after(css.domElement);
   const ro = new ResizeObserver(resize); ro.observe(canvas); resize();
   camera.fov = fovGoal; camera.updateProjectionMatrix();
 
@@ -688,6 +692,8 @@ export function mountTruck(
     // Shadows refresh at half rate: people move slowly enough that nobody notices, and it halves the shadow cost.
     if ((frameNo++ & 1) === 0) renderer.shadowMap.needsUpdate = true;
     renderer.render(scene, camera);
+    css.domElement.style.transform = `translateX(${-shift * w}px)`;
+    css.render(scene, camera);
     placeLabels(w, h);
   }
 
@@ -701,6 +707,12 @@ export function mountTruck(
 
   (window as unknown as { __r: unknown }).__r = renderer;
   return {
+    surfaces(m) {
+      for (const [id, el] of Object.entries(m) as ['about' | 'contact', HTMLElement][]) {
+        const [host, b, pw] = id === 'about' ? [board, BOARD, 1600] : [bulletin, PIN, 1760];
+        const o = new CSS3DObject(el); o.position.set(0, b.y, b.z + .004); o.scale.setScalar(b.w / pw); host.add(o);
+      }
+    },
     focus(id, peek = false) {
       focused = id; peeking = peek; arrivedFor = null; goal = id ? station(id, peek) : overview(); flying = true;
       fovGoal = (id && !peek && goal.fov) || baseFov();

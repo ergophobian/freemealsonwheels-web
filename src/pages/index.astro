@@ -45,11 +45,11 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
     <section class="story" id="story" aria-hidden="true" aria-label="Our story">
       <div class="chalkboard">
         <button class="sheet-close" data-close aria-label="Back to the truck">×</button>
-        <div class="chapters" id="chapters"></div>
+        <div class="chapters"></div>
         <nav class="story-nav">
-          <button id="s-prev" aria-label="Previous">‹</button>
-          <span id="s-dots"></span>
-          <button id="s-next" aria-label="Next">›</button>
+          <button class="s-prev" aria-label="Previous">‹</button>
+          <span class="s-dots"></span>
+          <button class="s-next" aria-label="Next">›</button>
         </nav>
       </div>
     </section>
@@ -64,7 +64,7 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
           <a class="paper flyer peach" href="mailto:info@freemealsonwheels.com?subject=Blanket%20drive"><i class="pin"></i><b>Host a blanket drive</b><span>Every winter we pair a hot meal with a warm blanket.</span></a>
           <a class="paper note" href="https://www.facebook.com/Freemeals20/"><i class="pin"></i><b>Find us on Facebook</b><span>Free Meals on Wheels</span></a>
           <button class="paper note yellow" data-goto="resources"><i class="pin"></i><b>Need a meal?</b><span>There's a seat for you. Tap here.</span></button>
-          <form class="paper letter" id="note-form"><i class="pin"></i><b>Leave a note for the volunteers</b><textarea name="note" rows="3" placeholder="They read these on Saturday morning."></textarea><button class="btn">Pin it</button></form>
+          <form class="paper letter note-form"><i class="pin"></i><b>Leave a note for the volunteers</b><textarea name="note" rows="3" placeholder="They read these on Saturday morning."></textarea><button class="btn">Pin it</button></form>
         </div>
       </div>
     </section>
@@ -196,9 +196,15 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
     history.replaceState(null, '', '#' + id);
   }
   // Boards: the camera flies into the real board in the world; the page fades in only once it arrives.
-  function showSheet(sheet: HTMLElement) { root.classList.add('sheet'); sheet.classList.add('on'); sheet.setAttribute('aria-hidden', 'false'); }
+  function showSheet(sheet: HTMLElement) {
+    root.classList.add('sheet');
+    const id = (Object.entries(sheets).find(([, v]) => v === sheet)?.[0]) as StationId;
+    if (api && wide()) { surfaces[id]?.classList.add('live'); return; }
+    sheet.classList.add('on'); sheet.setAttribute('aria-hidden', 'false');
+  }
   function closeSheets() {
     for (const el of Object.values(sheets)) { el!.classList.remove('on'); el!.setAttribute('aria-hidden', 'true'); }
+    for (const el of [storySurface, corkSurface]) el?.classList.remove('live');
     root.classList.remove('sheet');
   }
   function close() {
@@ -207,13 +213,6 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
     api?.focus(mobile() ? ORDER[idx] : null, true);
     history.replaceState(null, '', location.pathname);
   }
-  document.querySelectorAll<HTMLElement>('[data-close]').forEach((b) => (b.onclick = close));
-  document.querySelectorAll<HTMLElement>('[data-goto]').forEach((b) => (b.onclick = () => open(b.dataset.goto as StationId)));
-  document.getElementById('note-form')!.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const note = String(new FormData(e.target as HTMLFormElement).get('note') || '');
-    location.href = `mailto:info@freemealsonwheels.com?subject=${encodeURIComponent('A note for the volunteers')}&body=${encodeURIComponent(note)}`;
-  });
 
   // Our story: a chalkboard storyboard with taped-up photos.
   const SK = {
@@ -234,7 +233,7 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
     { t: 'Warmth <em>for winter.</em>', b: 'When it gets cold, we pair a hot meal with a warm blanket. At Thanksgiving, everyone gets a seat at the table.', sk: SK.blanket, img: ['blanket.webp', 'thanksgiving.webp'] },
     { t: 'And now, <em>you.</em>', b: 'Every meal starts with someone who decided to care. That can be you this Saturday.', sk: SK.heart, img: [], cta: true },
   ];
-  const chapters = document.getElementById('chapters')!, sdots = document.getElementById('s-dots')!;
+  const chapters = document.querySelector<HTMLElement>('#story .chapters')!, sdots = document.querySelector<HTMLElement>('#story .s-dots')!;
   chapters.innerHTML = CH.map((c, i) => `
     <article class="chapter" data-i="${i}">
       <div class="chalk">
@@ -245,17 +244,32 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
       </div>
       <div class="photos">${c.img.map((src, k) => `<figure style="--r:${(k ? 4 : -3) + (i % 2 ? 2 : -1)}deg"><i class="tape"></i><img src="/img/${src}" alt="" loading="lazy" /></figure>`).join('')}</div>
     </article>`).join('');
-  chapters.querySelectorAll<HTMLElement>('[data-goto]').forEach((b) => (b.onclick = () => open(b.dataset.goto as StationId)));
   sdots.innerHTML = CH.map(() => '<i></i>').join('');
+  // Desktop: the same board, mounted onto the chalkboard and corkboard in the world.
+  const wide = () => innerWidth >= 760;
+  const storySurface = document.querySelector('#story .chalkboard')!.cloneNode(true) as HTMLElement;
+  const corkSurface = document.querySelector('#board .cork')!.cloneNode(true) as HTMLElement;
+  storySurface.classList.add('surface'); corkSurface.classList.add('surface');
+  api?.surfaces({ about: storySurface, contact: corkSurface });
+  const surfaces: Partial<Record<StationId, HTMLElement>> = { about: storySurface, contact: corkSurface };
+  document.addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('.s-prev, .s-next, [data-close], [data-goto]'); if (!b) return;
+    if (b.matches('.s-prev')) showChapter(ch - 1); else if (b.matches('.s-next')) showChapter(ch + 1);
+    else if (b.dataset.goto) open(b.dataset.goto as StationId); else close();
+  });
+  document.addEventListener('submit', (e) => {
+    const f = e.target as HTMLFormElement; if (!f.matches('.note-form')) return; e.preventDefault();
+    location.href = `mailto:info@freemealsonwheels.com?subject=${encodeURIComponent('A note for the volunteers')}&body=${encodeURIComponent(String(new FormData(f).get('note') || ''))}`;
+  });
   let ch = 0;
   function showChapter(i: number) {
     ch = Math.max(0, Math.min(CH.length - 1, i));
-    chapters.querySelectorAll('.chapter').forEach((el, k) => { el.classList.toggle('on', k === ch); el.classList.toggle('past', k < ch); });
-    [...sdots.children].forEach((d, k) => d.classList.toggle('on', k === ch));
+    for (const scope of [document.getElementById('story')!, storySurface]) {
+      scope.querySelectorAll('.chapter').forEach((el) => { const k = Number((el as HTMLElement).dataset.i); el.classList.toggle('on', k === ch); el.classList.toggle('past', k < ch); });
+      scope.querySelectorAll('.s-dots').forEach((d) => [...d.children].forEach((x, k) => x.classList.toggle('on', k === ch)));
+    }
   }
-  document.getElementById('s-prev')!.onclick = () => showChapter(ch - 1);
-  document.getElementById('s-next')!.onclick = () => showChapter(ch + 1);
-  addEventListener('keydown', (e) => { if (!sheets.about!.classList.contains('on')) return; if (e.key === 'ArrowRight') showChapter(ch + 1); if (e.key === 'ArrowLeft') showChapter(ch - 1); });
+  addEventListener('keydown', (e) => { if (!root.classList.contains('sheet') || !location.hash.includes('about')) return; if (e.key === 'ArrowRight') showChapter(ch + 1); if (e.key === 'ArrowLeft') showChapter(ch - 1); });
   let csx = 0;
   sheets.about!.addEventListener('touchstart', (e) => { csx = e.touches[0].clientX; }, { passive: true });
   sheets.about!.addEventListener('touchend', (e) => { const dx = e.changedTouches[0].clientX - csx; if (Math.abs(dx) > 50) showChapter(ch + (dx < 0 ? 1 : -1)); }, { passive: true });
@@ -436,9 +450,9 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   .story-nav { position: absolute; left: 0; right: 0; bottom: 22px; display: flex; justify-content: center; align-items: center; gap: 18px; }
   .story-nav button { width: 46px; height: 46px; border: 2px solid rgb(244 241 232 / .5); border-radius: 50%; background: none; color: #f4f1e8; font-size: 1.6rem; cursor: pointer; }
   .story-nav button:hover { background: rgb(255 255 255 / .1); }
-  #s-dots { display: flex; gap: 8px; }
-  #s-dots :global(i) { width: 8px; height: 8px; border-radius: 50%; background: rgb(244 241 232 / .3); transition: width .2s; }
-  #s-dots :global(i.on) { width: 24px; border-radius: 4px; background: #f4f1e8; }
+  .s-dots { display: flex; gap: 8px; }
+  .s-dots :global(i) { width: 8px; height: 8px; border-radius: 50%; background: rgb(244 241 232 / .3); transition: width .2s; }
+  .s-dots :global(i.on) { width: 24px; border-radius: 4px; background: #f4f1e8; }
 
   /* Contact: bulletin board */
   .cork { position: relative; width: 100%; height: 100%; overflow: auto; border-radius: 16px; border: clamp(10px, 1.6vw, 18px) solid #9a6b40; box-shadow: inset 0 0 30px rgb(80 40 10 / .35), 0 30px 80px rgb(0 0 0 / .45); background-color: #c99c62; background-image: radial-gradient(rgb(120 70 30 / .35) 1px, transparent 1.4px), radial-gradient(rgb(255 230 190 / .3) 1px, transparent 1.4px); background-size: 7px 7px, 11px 11px; background-position: 0 0, 3px 4px; }
@@ -471,5 +485,27 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
     .pinned { grid-template-columns: 1fr; padding: 60px 20px 28px; }
     .pinned .title, .pinned .letter { grid-column: auto; }
   }
+
+  /* Board surfaces mounted in the 3D world (desktop). Fixed design size, sized to the 3D board face. */
+  :global(.surfaces) .surface { pointer-events: none; border: 0 !important; border-radius: 6px !important; box-shadow: none !important; }
+  :global(.surfaces) .surface.live { pointer-events: auto; }
+  :global(.surfaces) .surface:not(.live) .sheet-close, :global(.surfaces) .surface:not(.live) .story-nav { opacity: 0; }
+  :global(.surfaces) .chalkboard.surface { width: 1600px !important; height: 1000px !important; }
+  :global(.surfaces) .cork.surface { width: 1760px !important; height: 1060px !important; overflow: hidden; }
+  :global(.surfaces) .chalkboard.surface .sheet-close, :global(.surfaces) .cork.surface .sheet-close { width: 60px; height: 60px; font-size: 2rem; top: 28px; right: 28px; transition: opacity .3s; }
+  :global(.surfaces) .surface .story-nav { bottom: 40px; gap: 26px; transition: opacity .3s; }
+  :global(.surfaces) .surface .story-nav button { width: 68px; height: 68px; font-size: 2.2rem; }
+  :global(.surfaces) .surface .chapters :global(.chapter) { padding: 90px 110px 150px; gap: 70px; grid-template-columns: 1fr 1fr; }
+  :global(.surfaces) .surface .chapters :global(.chalk small) { font-size: 22px; }
+  :global(.surfaces) .surface .chapters :global(.chalk h2) { font-size: 104px; line-height: .98; }
+  :global(.surfaces) .surface .chapters :global(.chalk p) { font-size: 38px; line-height: 1.4; max-width: 24ch; font-weight: 400; }
+  :global(.surfaces) .surface .chapters :global(.sketch) { width: 170px; margin-top: 40px; }
+  :global(.surfaces) .surface .chapters :global(figure) { width: 640px; padding: 18px 18px 64px; }
+  :global(.surfaces) .surface .chapters :global(figure + figure) { width: 380px; }
+  :global(.surfaces) .surface .chapters :global(.cta) { margin-top: 40px; gap: 16px; }
+  :global(.surfaces) .surface .chapters :global(.cta .btn) { font-size: 26px; padding: 18px 30px; }
+  :global(.surfaces) .surface .s-dots :global(i) { width: 12px; height: 12px; }
+  :global(.surfaces) .surface .s-dots :global(i.on) { width: 36px; }
+  :global(.surfaces) .cork.surface .pinned { grid-template-columns: repeat(4, 1fr); gap: 26px; padding: 44px 50px; zoom: 1.45; width: calc(1760px / 1.45); box-sizing: border-box; }
   @media (prefers-reduced-motion: reduce) { .pop, .labels button i { transition: none; animation: none; } }
 </style>
