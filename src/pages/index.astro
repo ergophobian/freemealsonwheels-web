@@ -83,7 +83,7 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   const mobile = () => innerWidth < 760;
   const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
   const fmt = (d: string, o: Intl.DateTimeFormatOptions) => new Date(d + 'T12:00').toLocaleDateString('en-US', o);
-  let idx = 0, openTimer = 0;
+  let idx = -1, openTimer = 0;
 
   const api = mountTruck(document.getElementById('scene') as HTMLCanvasElement, labels, (id) => open(id), (id) => { const sh = sheets[id]; if (sh && location.hash === '#' + id) showSheet(sh); });
   if (!api) root.classList.add('no-gl');
@@ -222,7 +222,7 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   function close() {
     clearTimeout(openTimer); closeSheets(); root.classList.remove('focus');
     root.classList.remove('open'); pop.setAttribute('aria-hidden', 'true');
-    api?.focus(mobile() ? ORDER[idx] : null, true);
+    api?.focus(mobile() && idx >= 0 ? ORDER[idx] : null, true);
     history.replaceState(null, '', location.pathname);
   }
 
@@ -323,8 +323,8 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   const dots = document.getElementById('dots')!;
   dots.innerHTML = ORDER.map(() => '<i></i>').join('');
   const NAMES: Record<StationId, string> = { volunteer: 'Volunteer', donate: 'Donate', about: 'Our story', resources: 'Get a meal', contact: 'Contact' };
-  function syncDots() { [...dots.children].forEach((d, i) => d.classList.toggle('on', i === idx)); document.getElementById('count')!.textContent = String(idx + 1).padStart(2, '0'); document.getElementById('cname')!.textContent = NAMES[ORDER[idx]]; }
-  function step(d: number) { idx = (idx + d + ORDER.length) % ORDER.length; syncDots(); api?.focus(ORDER[idx], true); }
+  function syncDots() { [...dots.children].forEach((d, i) => d.classList.toggle('on', i === idx)); document.getElementById('count')!.textContent = idx < 0 ? '00' : String(idx + 1).padStart(2, '0'); document.getElementById('cname')!.textContent = idx < 0 ? (mobile() ? 'Swipe to explore' : 'Explore') : NAMES[ORDER[idx]]; }
+  function step(d: number) { idx = idx < 0 ? (d > 0 ? 0 : ORDER.length - 1) : (idx + d + ORDER.length) % ORDER.length; syncDots(); api?.focus(ORDER[idx], true); }
   document.getElementById('prev')!.onclick = () => step(-1);
   document.getElementById('next')!.onclick = () => step(1);
   let sx = 0;
@@ -333,9 +333,10 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
     const dx = e.changedTouches[0].clientX - sx;
     if (Math.abs(dx) > 50 && !root.classList.contains('open') && !root.classList.contains('sheet')) step(dx < 0 ? 1 : -1);
   }, { passive: true });
-  const applyMode = () => { if (!root.classList.contains('open') && !root.classList.contains('sheet')) api?.focus(mobile() ? ORDER[idx] : null, true); };
+  const applyMode = () => { if (!root.classList.contains('open') && !root.classList.contains('sheet')) api?.focus(mobile() && idx >= 0 ? ORDER[idx] : null, true); };
   addEventListener('resize', applyMode); applyMode(); syncDots();
   root.querySelector('canvas')!.addEventListener('pointerdown', () => setTimeout(() => root.classList.add('moved'), 400), { once: true });
+  for (const el of [document.getElementById('prev')!, document.getElementById('next')!]) el.addEventListener('click', () => root.classList.add('moved'), { once: true });
   const fromHash = location.hash.slice(1) as StationId;
   if (ORDER.includes(fromHash)) open(fromHash);
 </script>
@@ -440,8 +441,9 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
     .hint-desktop { display: none; } .hint-mobile { display: block; }
     .hud-nav { display: none; }
     .hud-brand span { font-size: .95rem; }
-    .intro { left: 16px; right: 16px; top: 72px; bottom: auto; max-width: none; padding: 16px 18px; }
-    .intro h1 { font-size: 1.6rem; }
+    .intro { left: 12px; right: 12px; top: 68px; bottom: auto; max-width: none; padding: 12px 16px; }
+    .intro h1 { font-size: 1.3rem; }
+    .intro .eyebrow { display: none; }
     .swiper { bottom: 88px; }
     .swiper .count { min-width: 120px; }
     .swiper button { width: 40px; height: 40px; border: 0; border-radius: 50%; background: rgb(255 255 255 / .9); color: var(--green); font-size: 1.5rem; }
