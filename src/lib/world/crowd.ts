@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import type { Person, Mobility } from './people';
 
 export interface Seat { pos: THREE.Vector3; face: number; taken: boolean }
-type State = 'enter' | 'queue' | 'order' | 'leave' | 'sit' | 'gone';
+type State = 'enter' | 'queue' | 'order' | 'leave' | 'sit' | 'gone' | 'pass';
 interface Npc { f: Person; state: State; path: THREE.Vector3[]; vel: THREE.Vector3; timer: number; slot: number; seat?: Seat; served: boolean; best: number; stuck: number }
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -26,10 +26,10 @@ export class Crowd {
       meal: () => THREE.Object3D; onServe: () => void; onOrder: () => void; make: (mobility: Mobility) => Person;
     },
   ) {
-    for (let i = 0; i < 5; i++) this.spawn(i < 3 ? 'queue' : 'sit');
+    for (let i = 0; i < 8; i++) this.spawn(i < 5 ? 'queue' : i < 7 ? 'sit' : 'pass');
   }
   limit(n: number) { this.opts.max = n; }
-  private slotPos(i: number) { return this.opts.window.clone().addScaledVector(this.opts.queueDir, i * 1.2); }
+  private slotPos(i: number) { return this.opts.window.clone().addScaledVector(this.opts.queueDir, i * .95); }
   private queue() { return this.npcs.filter((n) => n.state === 'queue' || n.state === 'enter' || n.state === 'order').sort((a, b) => a.slot - b.slot); }
   private faceWindow(p: THREE.Vector3) { return Math.atan2(this.opts.window.x - p.x, (this.opts.window.z - .8) - p.z); }
 
@@ -43,7 +43,11 @@ export class Crowd {
       if (seat) { seat.taken = true; n.seat = seat; f.obj.position.copy(seat.pos); f.obj.rotation.y = seat.face; n.timer = rand(12, 40); f.set('sit'); }
       else n.state = 'enter';
     }
-    if (n.state !== 'sit') {
+    if (start === 'pass') {
+      // A passer-by strolling across the plaza.
+      const a = pick(this.opts.entries), b = pick(this.opts.exits.filter((e) => Math.sign(e.x) !== Math.sign(a.x))) ?? pick(this.opts.exits);
+      f.obj.position.copy(a); n.path = [new THREE.Vector3(rand(-6, 6), Y, rand(this.opts.minZ + 4, this.opts.minZ + 12)), b.clone()]; n.state = 'leave'; f.set('walk');
+    } else if (n.state !== 'sit') {
       n.slot = this.queue().length;
       const target = this.slotPos(n.slot);
       if (start === 'queue') { f.obj.position.copy(target); n.state = 'queue'; f.set('idle'); f.obj.rotation.y = this.faceWindow(target); }
@@ -54,7 +58,7 @@ export class Crowd {
 
   update(dt: number) {
     this.spawnIn -= dt;
-    if (this.spawnIn <= 0 && this.queue().length < 4 && this.npcs.length < this.opts.max) { this.spawn(); this.spawnIn = rand(2, 5); }
+    if (this.spawnIn <= 0 && this.npcs.length < this.opts.max) { this.spawn(this.queue().length < 6 ? 'enter' : 'pass'); this.spawnIn = rand(1.5, 3.5); }
 
     for (const n of this.npcs) {
       const o = n.f.obj;

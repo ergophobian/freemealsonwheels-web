@@ -276,6 +276,16 @@ export function mountTruck(
   }, 520, 380);
   truck.add(mesh(rbox(.86, .66, .04, .02), std(C.wood), X0 + .62, 2.2, Z + .07));
   truck.add(mesh(new THREE.PlaneGeometry(.78, .58), std('#ffffff', { map: menuTex }), X0 + .62, 2.2, Z + .095));
+  // The real logo art (pastel heart with fork and spoon), redrawn onto every branded surface once it loads.
+  const logoImg = new Image(); logoImg.src = '/img/logo-heart.png';
+  const logoTextures: { tex: THREE.CanvasTexture; draw: () => void }[] = [];
+  logoImg.onload = () => { for (const l of logoTextures) { l.draw(); l.tex.needsUpdate = true; } };
+  const logoCanvas = (w: number, h: number, draw: (c: CanvasRenderingContext2D, w: number, h: number, logo: HTMLImageElement | null) => void) => {
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const c = cv.getContext('2d')!;
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+    const run = () => { c.clearRect(0, 0, w, h); draw(c, w, h, logoImg.complete && logoImg.naturalWidth ? logoImg : null); };
+    run(); logoTextures.push({ tex, draw: run }); return tex;
+  };
   // Branding: two-tone livery (cream upper band, orange pinstripe), a big emblem and the full name, and a lit roof banner.
   const emblem = (c: CanvasRenderingContext2D, x: number, y: number, r: number, fill: string, ring: string) => {
     c.fillStyle = ring; c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
@@ -285,27 +295,28 @@ export function mountTruck(
   };
   for (const z of [Z + .06, -Z - .06]) { truck.add(mesh(new THREE.BoxGeometry(L + .02, .44, .02), cream, cx, TOP - .24, z)); truck.add(mesh(new THREE.BoxGeometry(L + .03, .05, .03), orange, cx, TOP - .49, z)); }
   for (const x of [X0 - .06, X1 + .06]) truck.add(mesh(new THREE.BoxGeometry(.02, .44, Z * 2 + .14), cream, x, TOP - .24, 0));
-  const brandTex = canvasTex((c, w, h) => {
-    emblem(c, 150, h / 2, 118, C.greenDark, '#F6EBD3');
-    c.fillStyle = '#FFF7E8'; c.font = 'italic 400 128px "Instrument Serif", Georgia, serif'; c.fillText('Free Meals', 310, 150);
+  const brandTex = logoCanvas(1500, 340, (c, w, h, logo) => {
+    c.fillStyle = '#FFF8EC'; c.beginPath(); c.arc(150, h / 2, 128, 0, Math.PI * 2); c.fill();
+    if (logo) c.drawImage(logo, 50, h / 2 - 88, 200, 178);
+    c.fillStyle = '#FFF7E8'; c.font = '700 116px Inter, system-ui, sans-serif'; c.fillText('Free Meals', 310, 150);
     c.font = '600 92px Inter, system-ui, sans-serif'; c.fillText('on Wheels', 316, 250);
-    c.fillStyle = '#FFD9A8'; c.font = '500 40px Inter, system-ui, sans-serif'; c.fillText('Fresh, hot meals · free for everyone · since 2020', 320, 315);
-  }, 1500, 340);
+    c.fillStyle = '#FFD9A8'; c.font = '500 40px Inter, system-ui, sans-serif'; c.fillText('Bringing smiles, one meal at a time', 320, 315);
+  });
   const brand = new THREE.Mesh(new THREE.PlaneGeometry(3.4, .77), std('#ffffff', { map: brandTex, transparent: true, roughness: .55 }));
   brand.position.set(-.55, 1.08, Z + .056); truck.add(brand);
   const backBrand = brand.clone(); backBrand.rotation.y = Math.PI; backBrand.position.z = -Z - .056; truck.add(backBrand);
-  const cabTex = canvasTex((c, w, h) => { emblem(c, w / 2, h / 2, w * .44, C.greenDark, '#F6EBD3'); }, 256, 256);
+  const cabTex = logoCanvas(256, 256, (c, w, h, logo) => { c.fillStyle = '#FFF8EC'; c.beginPath(); c.arc(w / 2, h / 2, w * .46, 0, Math.PI * 2); c.fill(); if (logo) c.drawImage(logo, w * .14, h * .18, w * .72, h * .64); });
   for (const z of [Z + .056, -Z - .056]) { const e = new THREE.Mesh(new THREE.PlaneGeometry(.62, .62), std('#ffffff', { map: cabTex, transparent: true })); e.position.set(3.35, 1.25, z * 1.02); if (z < 0) e.rotation.y = Math.PI; truck.add(e); }
   // Roof banner: wide, two-sided, framed, with the full name and emblem, softly lit.
   const roofSign = new THREE.Group(); roofSign.position.set(-.5, TOP + .78, 0); truck.add(roofSign);
   roofSign.add(mesh(rbox(4.6, .98, .16, .08), std(C.greenDark, { roughness: .4, metalness: .2 })));
-  const roofTex = canvasTex((c, w, h) => {
+  const roofTex = logoCanvas(1800, 380, (c, w, h, logo) => {
     c.fillStyle = '#FFF8EC'; c.fillRect(0, 0, w, h);
-    c.strokeStyle = C.orange; c.lineWidth = 10; c.strokeRect(22, 22, w - 44, h - 44);
-    emblem(c, 170, h / 2, 120, C.greenDark, '#F6EBD3');
-    c.fillStyle = C.greenDark; c.font = 'italic 400 134px "Instrument Serif", Georgia, serif'; c.fillText('Free Meals on Wheels', 330, 196);
-    c.fillStyle = C.orange; c.font = '600 46px Inter, system-ui, sans-serif'; c.fillText('Neighbors feeding neighbors', 336, 272);
-  }, 1800, 380);
+    c.strokeStyle = C.green; c.lineWidth = 10; c.strokeRect(22, 22, w - 44, h - 44);
+    if (logo) c.drawImage(logo, 50, h / 2 - 120, 270, 240);
+    c.fillStyle = C.greenDark; c.font = '700 128px Inter, system-ui, sans-serif'; c.fillText('Free Meals on Wheels', 330, 196);
+    c.fillStyle = C.orange; c.font = '600 46px Inter, system-ui, sans-serif'; c.fillText('Bringing smiles, one meal at a time', 336, 272);
+  });
   for (const sgn of [1, -1]) { const f = new THREE.Mesh(new THREE.PlaneGeometry(4.4, .86), std('#ffffff', { map: roofTex, emissive: '#FFFFFF', emissiveMap: roofTex, emissiveIntensity: .25 })); f.position.z = .085 * sgn; if (sgn < 0) f.rotation.y = Math.PI; roofSign.add(f); }
   for (const x of [-1.8, 0, 1.8]) roofSign.add(mesh(new THREE.CylinderGeometry(.035, .035, .5, 8), std(C.ink), x, -.7, 0));
   truck.add(mesh(rbox(.7, .32, .8, .08), std('#DCD8CF', { metalness: .4, roughness: .4 }), 1.9, TOP + .3, -.6));
@@ -408,6 +419,34 @@ export function mountTruck(
       bl.position.copy(curve.getPoint(i / 10)); bl.position.y -= .05; scene.add(bl); bulbs.push(bl);
     }
   }
+
+  // ——— The logo as a sculpture: the heart drawn as a single tube, with a fork and spoon crossing at its point.
+  const statue = new THREE.Group(); statue.position.set(2.4, .14, 7.4); statue.rotation.y = -.25; scene.add(statue);
+  statue.add(mesh(rbox(1.6, .5, 1.1, .08), std('#E9E2D6', { roughness: .8, roughnessMap: grime }), 0, .25, 0));
+  statue.add(mesh(rbox(1.75, .08, 1.25, .03), std('#D6CCBC'), 0, .54, 0));
+  const plaque = logoCanvas(512, 128, (c, w, h) => { c.fillStyle = '#2E3B33'; c.fillRect(0, 0, w, h); c.fillStyle = '#E9D9B4'; c.font = '600 44px Inter, sans-serif'; c.textAlign = 'center'; c.fillText('Free Meals on Wheels', w / 2, 62); c.font = 'italic 30px Georgia, serif'; c.fillText('Bringing smiles, one meal at a time', w / 2, 104); });
+  statue.add(mesh(new THREE.PlaneGeometry(1.2, .3), std('#ffffff', { map: plaque, metalness: .3, roughness: .4 }), 0, .27, .556));
+  {
+    const pts: THREE.Vector3[] = [];
+    for (let i = 0; i < 120; i++) { const t = (i / 120) * Math.PI * 2; pts.push(new THREE.Vector3(16 * Math.sin(t) ** 3, 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t), 0).multiplyScalar(.055)); }
+    const curve = new THREE.CatmullRomCurve3(pts, true);
+    const geo = new THREE.TubeGeometry(curve, 240, .06, 16, true);
+    // Pastel gradient along the stroke, like the logo's watercolor line: lilac, butter, mint.
+    const cols = ['#B9A3D9', '#F2D488', '#9FD3C1', '#B9A3D9'].map((c) => new THREE.Color(c)), col = new Float32Array(geo.attributes.position.count * 3);
+    const uv = geo.attributes.uv;
+    for (let i = 0; i < uv.count; i++) { const u = uv.getX(i) * 3, k = Math.min(2, Math.floor(u)), c = cols[k].clone().lerp(cols[k + 1], u - k); col.set([c.r, c.g, c.b], i * 3); }
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    statue.add(mesh(geo, new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: .3, metalness: .1, clearcoat: 1 }), 0, 1.45, 0));
+    const ink = new THREE.MeshStandardMaterial({ color: '#2A2A2A', roughness: .4 });
+    const fork = new THREE.Group(), spoon = new THREE.Group();
+    fork.add(mesh(new THREE.CylinderGeometry(.025, .03, .7, 10), std('#F2D488', { roughness: .3 }), 0, 0, 0));
+    for (const x of [-.045, -.015, .015, .045]) fork.add(mesh(new THREE.CylinderGeometry(.008, .008, .16, 6), ink, x, .42, 0));
+    spoon.add(mesh(new THREE.CylinderGeometry(.025, .03, .7, 10), std('#9FD3C1', { roughness: .3 }), 0, 0, 0));
+    const sb = mesh(new THREE.SphereGeometry(.09, 16, 12), std('#9FD3C1', { roughness: .3 }), 0, .44, 0); sb.scale.set(1, 1.4, .45); spoon.add(sb);
+    fork.position.set(-.12, .95, .02); fork.rotation.z = .5; spoon.position.set(.12, .95, -.02); spoon.rotation.z = -.5;
+    statue.add(fork, spoon);
+  }
+  const statueGlow = new THREE.PointLight('#FFE6C2', .8, 4, 2); statueGlow.position.set(0, 1.4, 1.2); statue.add(statueGlow);
 
   // ——— Donation jar on its own little table, with a hand-lettered sign.
   const giving = new THREE.Group(); giving.position.set(3.2, .14, 3.1); scene.add(giving);
@@ -543,16 +582,16 @@ export function mountTruck(
     bake(truck, isPerson); bake(picnic, isPerson); bake(tableFood);
     if (!cast) await castReady;
     crowd = new Crowd(scene, {
-      window: new THREE.Vector3(-.9, .14, Z + .95), queueDir: new THREE.Vector3(-.9, 0, .44), seats, minZ: Z + .75,
+      window: new THREE.Vector3(-.9, .14, Z + .95), queueDir: new THREE.Vector3(-.62, 0, .78), seats, minZ: Z + .75,
       entries: [new THREE.Vector3(-21, .14, 2.1), new THREE.Vector3(21, .14, 2.1), new THREE.Vector3(-19, .14, 13), new THREE.Vector3(19, .14, 14)],
       exits: [new THREE.Vector3(-22, .14, 2.1), new THREE.Vector3(22, .14, 2.1), new THREE.Vector3(-20, .14, 13), new THREE.Vector3(20, .14, 14)],
       obstacles: [
-        ...truckObstacles, { x: 3.2, z: 3.1, r: .55 }, { x: 5.8, z: 5.4, r: .95 }, { x: 9.4, z: 5.2, r: 1.1 },
+        ...truckObstacles, { x: 2.4, z: 7.4, r: 1.1 }, { x: 3.2, z: 3.1, r: .55 }, { x: 5.8, z: 5.4, r: .95 }, { x: 9.4, z: 5.2, r: 1.1 },
         { x: -6, z: 4.6, r: 1.25 }, { x: -9.8, z: 8.2, r: 1.25 }, { x: -3.2, z: 9, r: 1.25 }, { x: 12.5, z: 10, r: 1.25 },
         ...[-15, -9, 7, 13].map((x) => ({ x, z: 3.4, r: .95 })), ...[-12, -3, 3, 10].map((x) => ({ x, z: 2.4, r: .2 })),
         { x: -14, z: 9, r: .9 }, { x: 14, z: 11, r: .9 }, { x: -6, z: 15, r: .9 }, { x: 8, z: 16, r: .9 }, { x: -8, z: 2.4, r: .25 }, { x: 5.6, z: 2.4, r: .25 },
       ],
-      max: tier > 1 ? 10 : 7,
+      max: tier > 1 ? 14 : 9,
       meal: () => food('styrofoam-dinner', .26),
       onOrder: () => server?.set('nod'),
       onServe: () => { server?.set('reach'); serveFlash = 1.2; },
@@ -562,7 +601,7 @@ export function mountTruck(
 
   // ——— Bake static detail into few draw calls (the steam, lights, jar coins and people stay separate).
   bake(truck);
-  for (const o of [...scene.children]) if ((o as THREE.Group).isGroup && o !== truck && o !== city && o !== giving && o !== picnic && o !== board && o !== bulletin) bake(o);
+  for (const o of [...scene.children]) if ((o as THREE.Group).isGroup && o !== truck && o !== city && o !== giving && o !== picnic && o !== board && o !== bulletin && o !== statue) bake(o);
   bake(board); bake(bulletin); bake(picnic);
 
   // ——— Picking.
