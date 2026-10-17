@@ -130,9 +130,9 @@ export function mountTruck(
   const nav = navigator as Navigator & { deviceMemory?: number };
   const modest = matchMedia('(pointer: coarse)').matches || (navigator.hardwareConcurrency || 4) <= 4 || (nav.deviceMemory ?? 8) <= 4;
   let tier = modest ? 1 : 2;
-  try { renderer = new THREE.WebGLRenderer({ canvas, antialias: tier > 1, powerPreference: 'high-performance', logarithmicDepthBuffer: true }); } catch { return null; }
+  try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', logarithmicDepthBuffer: true }); } catch { return null; }
   const applyTier = () => {
-    renderer.setPixelRatio(Math.min(devicePixelRatio, [.75, 1, 1.35][tier]));
+    renderer.setPixelRatio(Math.min(devicePixelRatio, [1.1, matchMedia('(pointer: coarse)').matches ? 1.7 : 1.15, 1.35][tier]));
     renderer.shadowMap.enabled = tier > 0;
     renderer.shadowMap.type = THREE.PCFShadowMap; renderer.shadowMap.autoUpdate = false;
   };
@@ -806,8 +806,8 @@ export function mountTruck(
   const baseFov = () => (narrow ? 40 : 30);
   // The opening view fits the whole scene (tables on the left to the community board on the right) for any screen shape.
   const overview = (): View => {
-    const half = narrow ? 6.5 : 8.6, look: View['look'] = [narrow ? .4 : 1, 1.8, 3.2];
-    const t = Math.tan(THREE.MathUtils.degToRad(baseFov() / 2)), dist = Math.max(half / (t * camera.aspect), 5.5 / t) * 1.02;
+    const half = narrow ? 4.6 : 8.6, look: View['look'] = [narrow ? .2 : 1, narrow ? 2 : 1.8, narrow ? 2.4 : 3.2];
+    const t = Math.tan(THREE.MathUtils.degToRad(baseFov() / 2)), dist = Math.max(half / (t * camera.aspect), (narrow ? 3.2 : 5.5) / t) * 1.02;
     const dir = new THREE.Vector3(.32, .3, 1).normalize().multiplyScalar(dist);
     return { pos: [look[0] + dir.x, look[1] + dir.y, look[2] + dir.z], look };
   };
@@ -867,7 +867,7 @@ export function mountTruck(
       v.set(...ANCHORS[id]).project(camera);
       const half = el.offsetWidth / 2 + 8;
       el.style.transform = `translate(${Math.min(w - half, Math.max(half, (v.x * .5 + .5) * w))}px, ${(-v.y * .5 + .5) * h}px) translate(-50%, -100%)`;
-      el.classList.toggle('off', v.z > 1 || (focused !== null && (!peeking || focused !== id)));
+      el.classList.toggle('off', v.z > 1 || (focused !== null && (!peeking || focused !== id)) || (narrow && focused === null));
     }
   }
 
