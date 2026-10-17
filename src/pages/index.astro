@@ -41,6 +41,33 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
       <button class="pop-close" id="pop-close" aria-label="Back to the truck">×</button>
       <div id="pop-body"></div>
     </aside>
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="chalky"><feTurbulence type="fractalNoise" baseFrequency="1.2" numOctaves="2" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.5"/></filter></svg>
+    <section class="story" id="story" aria-hidden="true" aria-label="Our story">
+      <div class="chalkboard">
+        <button class="sheet-close" data-close aria-label="Back to the truck">×</button>
+        <div class="chapters" id="chapters"></div>
+        <nav class="story-nav">
+          <button id="s-prev" aria-label="Previous">‹</button>
+          <span id="s-dots"></span>
+          <button id="s-next" aria-label="Next">›</button>
+        </nav>
+      </div>
+    </section>
+    <section class="board" id="board" aria-hidden="true" aria-label="Community board">
+      <div class="cork">
+        <button class="sheet-close" data-close aria-label="Back to the truck">×</button>
+        <div class="pinned">
+          <div class="paper title"><i class="pin"></i><h2>Community board</h2><p>Questions, ideas, a team that wants to help, or just a hello. It all goes here.</p></div>
+          <a class="paper card" href="mailto:info@freemealsonwheels.com"><i class="pin"></i><small>Write to us</small><b>info@freemealsonwheels.com</b><span>A real person reads every note.</span></a>
+          <a class="polaroid" href="https://www.instagram.com/freemealsonwheels/"><i class="tape"></i><img src="/img/smile.webp" alt="" loading="lazy" /><span>@freemealsonwheels</span></a>
+          <a class="paper flyer green" href="mailto:info@freemealsonwheels.com?subject=Corporate%20team%20day"><i class="pin"></i><b>Bring your team</b><span>Cook and pack together on a Saturday. Great for companies, schools and clubs.</span></a>
+          <a class="paper flyer peach" href="mailto:info@freemealsonwheels.com?subject=Blanket%20drive"><i class="pin"></i><b>Host a blanket drive</b><span>Every winter we pair a hot meal with a warm blanket.</span></a>
+          <a class="paper note" href="https://www.facebook.com/Freemeals20/"><i class="pin"></i><b>Find us on Facebook</b><span>Free Meals on Wheels</span></a>
+          <button class="paper note yellow" data-goto="resources"><i class="pin"></i><b>Need a meal?</b><span>There's a seat for you. Tap here.</span></button>
+          <form class="paper letter" id="note-form"><i class="pin"></i><b>Leave a note for the volunteers</b><textarea name="note" rows="3" placeholder="They read these on Saturday morning."></textarea><button class="btn">Pin it</button></form>
+        </div>
+      </div>
+    </section>
   </section>
 </Base>
 
@@ -65,7 +92,7 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   function volunteerCard() {
     if (vol.step === 'pick') {
       body.innerHTML = `
-        <p class="kicker">Join the crew</p><h2 id="pop-title">Pick a Saturday shift</h2>
+        <p class="kicker">This is the window. This could be you.</p><h2 id="pop-title">Pick a Saturday shift</h2>
         <div class="seg">${(Object.keys(KITCHENS) as Kitchen[]).map((k) => `<button data-k="${k}" aria-pressed="${k === vol.kitchen}">${KITCHENS[k]}</button>`).join('')}</div>
         <div class="dates">${upcomingSaturdays().map((d) => {
           const open = ROLES.reduce((n, r) => n + spotsLeft(vol.kitchen, d, r.id), 0);
@@ -99,7 +126,12 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
     else if (b.dataset.d) { vol.date = b.dataset.d; volunteerCard(); }
     else if (b.dataset.r) { vol.role = b.dataset.r as RoleId; vol.step = 'form'; volunteerCard(); }
     else if ('back' in b.dataset || 'again' in b.dataset) { vol.step = 'pick'; volunteerCard(); }
-    else if (b.dataset.amt) body.querySelectorAll('[data-amt]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    else if (b.dataset.amt) {
+      body.querySelectorAll('[data-amt]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      const a = Number(b.dataset.amt), m = Math.floor(a / 10) || 1;
+      api?.give(a);
+      document.getElementById('meals')!.innerHTML = `That's <b>${m}</b> warm meal${m > 1 ? 's' : ''}, made with love on Saturday.`;
+    }
   });
   body.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -121,9 +153,10 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
 
   const CARDS: Record<Exclude<StationId, 'volunteer'>, () => string> = {
     donate: () => `
-      <p class="kicker">100% goes to meals</p><h2 id="pop-title">Feed a neighbor</h2>
-      <p class="muted">$10 covers a fresh, hot meal. Every penny goes to food.</p>
+      <p class="kicker">Every coin is a warm dinner</p><h2 id="pop-title">Somebody eats tonight because of you</h2>
+      <p class="muted">Tap an amount and watch it land. $10 covers a fresh, hot meal, and 100% goes to food.</p>
       <div class="amounts">${[10, 25, 50, 100, 250].map((a, i) => `<button data-amt="${a}" aria-pressed="${i === 1}">$${a}</button>`).join('')}</div>
+      <p class="meals" id="meals">That's <b>2</b> warm meals, made with love on Saturday.</p>
       <a class="btn wide" href="${STRIPE}">Donate securely</a>
       <p class="fine">Payments by Stripe. One-time or monthly. Tax-deductible, we're a 501(c)(3).</p>`,
     about: () => `
@@ -132,8 +165,8 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
       <div class="stats"><div><b>300+</b><small>meals a week</small></div><div><b>400+</b><small>volunteers</small></div><div><b>100%</b><small>to meals</small></div></div>
       <a class="link" href="/about">Read the full story →</a>`,
     resources: () => `
-      <p class="kicker">Need a meal?</p><h2 id="pop-title">There's a seat for you</h2>
-      <p class="muted">Fresh, hot meals are free for anyone who needs one. No forms, no questions.</p>
+      <p class="kicker">Need a meal?</p><h2 id="pop-title">Sit down. This one's for you.</h2>
+      <p class="muted">A fresh, hot meal, free for anyone who needs one. No forms, no questions, no one asking why. Just good food and good company.</p>
       <ul class="list"><li><b>Saturdays, 11 AM – 1 PM</b><small>Meals delivered across San Jose and San Ramon</small></li><li><b>Can't get out?</b><small>Email us and we'll add you to a delivery route</small></li></ul>
       <a class="btn wide" href="mailto:info@freemealsonwheels.com?subject=Meal%20delivery">Request a meal</a>
       <a class="link" href="/resources">More resources →</a>`,
@@ -145,21 +178,84 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
       <a class="link" href="/contact">Corporate team days and partnerships →</a>`,
   };
 
+  const sheets: Partial<Record<StationId, HTMLElement>> = { about: document.getElementById('story')!, contact: document.getElementById('board')! };
   function open(id: StationId) {
     idx = ORDER.indexOf(id); syncDots();
+    closeSheets(); root.classList.remove('open');
     api?.focus(id);
-    if (id !== 'volunteer') body.innerHTML = CARDS[id]();
-    else if (vol.step !== 'done' || !body.querySelector('.done')) { if (vol.step === 'done') vol.step = 'pick'; volunteerCard(); }
     clearTimeout(openTimer);
-    openTimer = window.setTimeout(() => { root.classList.add('open'); pop.setAttribute('aria-hidden', 'false'); }, api ? 450 : 0);
+    const sheet = sheets[id];
+    if (sheet) {
+      if (id === 'about') showChapter(0);
+      openTimer = window.setTimeout(() => { root.classList.add('sheet'); sheet.classList.add('on'); sheet.setAttribute('aria-hidden', 'false'); }, api ? 1100 : 0);
+    } else {
+      if (id !== 'volunteer') body.innerHTML = CARDS[id]();
+      else if (vol.step !== 'done' || !body.querySelector('.done')) { if (vol.step === 'done') vol.step = 'pick'; volunteerCard(); }
+      openTimer = window.setTimeout(() => { root.classList.add('open'); pop.setAttribute('aria-hidden', 'false'); }, api ? 650 : 0);
+    }
     history.replaceState(null, '', '#' + id);
   }
+  function closeSheets() { for (const el of Object.values(sheets)) { el!.classList.remove('on'); el!.setAttribute('aria-hidden', 'true'); } root.classList.remove('sheet'); }
   function close() {
-    clearTimeout(openTimer);
+    clearTimeout(openTimer); closeSheets();
     root.classList.remove('open'); pop.setAttribute('aria-hidden', 'true');
-    api?.focus(mobile() ? ORDER[idx] : null);
+    api?.focus(mobile() ? ORDER[idx] : null, true);
     history.replaceState(null, '', location.pathname);
   }
+  document.querySelectorAll<HTMLElement>('[data-close]').forEach((b) => (b.onclick = close));
+  document.querySelectorAll<HTMLElement>('[data-goto]').forEach((b) => (b.onclick = () => open(b.dataset.goto as StationId)));
+  document.getElementById('note-form')!.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const note = String(new FormData(e.target as HTMLFormElement).get('note') || '');
+    location.href = `mailto:info@freemealsonwheels.com?subject=${encodeURIComponent('A note for the volunteers')}&body=${encodeURIComponent(note)}`;
+  });
+
+  // Our story: a chalkboard storyboard with taped-up photos.
+  const SK = {
+    friends: '<path d="M30 90c0-14 8-22 16-22s16 8 16 22M46 60a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM78 90c0-14 8-22 16-22s16 8 16 22M94 60a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM62 74c4-6 12-6 16 0M70 28c-4-6-14-2-10 6l10 9 10-9c4-8-6-12-10-6z"/>',
+    bowl: '<path d="M24 62h92c0 18-20 32-46 32S24 80 24 62zM50 94h40M52 50c-6-8 6-12 0-22M70 50c-6-8 6-12 0-22M88 50c-6-8 6-12 0-22"/>',
+    clock: '<circle cx="70" cy="60" r="34"/><path d="M70 38v22l14 10M70 26v4M104 60h-4M70 94v-4M36 60h4"/>',
+    houses: '<path d="M18 92V58l22-18 22 18v34zM78 92V58l22-18 22 18v34zM62 74c6-8 10-8 16 0M32 92V74h16v18M92 92V74h16v18"/>',
+    truck: '<path d="M14 82V44h66v38zM80 56h22l14 14v12H80zM30 92a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM100 92a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM30 62c6-6 12 6 18 0s12 6 18 0"/>',
+    blanket: '<path d="M24 34h92v52H24zM24 50h92M24 70h92M44 34v52M70 34v52M96 34v52M60 22l4 6M80 18l-2 8M100 24l-4 6"/>',
+    heart: '<path d="M70 96S20 66 20 40c0-14 10-22 22-22 12 0 20 8 28 18 8-10 16-18 28-18 12 0 22 8 22 22 0 26-50 56-50 56z"/>',
+  };
+  const CH = [
+    { t: 'It started with two friends.', b: 'Japjot Sethi and Devinder Kumar believed no neighbor should go to bed hungry. So they started cooking.', sk: SK.friends, img: ['team.webp'] },
+    { t: 'A hot meal is more than food.', b: '“A fresh, hot, and nutritious meal is not just satiating, but more importantly, enabling and liberating.”', sk: SK.bowl, img: ['smile.webp'] },
+    { t: 'Every Saturday, the kitchen wakes up.', b: 'We cook at 7. We pack at 9:30. By 11, meals are on their way.', sk: SK.clock, img: ['kitchen.webp', 'boxes.jpg'] },
+    { t: 'Two kitchens. One family.', b: 'San Jose and San Ramon, and more than 400 volunteers who show up with open hearts.', sk: SK.houses, img: ['serving.jpg'] },
+    { t: '300+ meals, every single week.', b: 'Delivered by hand, still warm, with a smile and a name.', sk: SK.truck, img: ['handoff.jpg'] },
+    { t: 'Warmth for winter.', b: 'When it gets cold, we pair a hot meal with a warm blanket. At Thanksgiving, everyone gets a seat at the table.', sk: SK.blanket, img: ['blanket.webp', 'thanksgiving.webp'] },
+    { t: 'And now, you.', b: 'Every meal starts with someone who decided to care. That can be you this Saturday.', sk: SK.heart, img: [], cta: true },
+  ];
+  const chapters = document.getElementById('chapters')!, sdots = document.getElementById('s-dots')!;
+  chapters.innerHTML = CH.map((c, i) => `
+    <article class="chapter" data-i="${i}">
+      <div class="chalk">
+        <small>${i + 1} / ${CH.length}</small>
+        <h2>${c.t}</h2><p>${c.b}</p>
+        ${c.cta ? '<div class="cta"><button class="btn" data-goto="volunteer">Volunteer this Saturday</button><button class="btn ghost" data-goto="donate">Give a meal</button></div>' : ''}
+      </div>
+      <svg class="sketch" viewBox="0 0 140 110" aria-hidden="true"><g>${c.sk}</g></svg>
+      <div class="photos">${c.img.map((src, k) => `<figure style="--r:${(k ? 4 : -3) + (i % 2 ? 2 : -1)}deg"><i class="tape"></i><img src="/img/${src}" alt="" loading="lazy" /></figure>`).join('')}</div>
+    </article>`).join('');
+  chapters.querySelectorAll<HTMLElement>('[data-goto]').forEach((b) => (b.onclick = () => open(b.dataset.goto as StationId)));
+  sdots.innerHTML = CH.map(() => '<i></i>').join('');
+  let ch = 0;
+  function showChapter(i: number) {
+    ch = Math.max(0, Math.min(CH.length - 1, i));
+    chapters.querySelectorAll('.chapter').forEach((el, k) => { el.classList.toggle('on', k === ch); el.classList.toggle('past', k < ch); });
+    [...sdots.children].forEach((d, k) => d.classList.toggle('on', k === ch));
+  }
+  document.getElementById('s-prev')!.onclick = () => showChapter(ch - 1);
+  document.getElementById('s-next')!.onclick = () => showChapter(ch + 1);
+  addEventListener('keydown', (e) => { if (!sheets.about!.classList.contains('on')) return; if (e.key === 'ArrowRight') showChapter(ch + 1); if (e.key === 'ArrowLeft') showChapter(ch - 1); });
+  let csx = 0;
+  sheets.about!.addEventListener('touchstart', (e) => { csx = e.touches[0].clientX; }, { passive: true });
+  sheets.about!.addEventListener('touchend', (e) => { const dx = e.changedTouches[0].clientX - csx; if (Math.abs(dx) > 50) showChapter(ch + (dx < 0 ? 1 : -1)); }, { passive: true });
+  showChapter(0);
+
   for (const [id, el] of Object.entries(labels)) el.onclick = () => open(id as StationId);
   document.querySelectorAll<HTMLElement>('[data-open]').forEach((b) => (b.onclick = () => open(b.dataset.open as StationId)));
   document.getElementById('pop-close')!.onclick = close;
@@ -169,16 +265,16 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   const dots = document.getElementById('dots')!;
   dots.innerHTML = ORDER.map(() => '<i></i>').join('');
   function syncDots() { [...dots.children].forEach((d, i) => d.classList.toggle('on', i === idx)); }
-  function step(d: number) { idx = (idx + d + ORDER.length) % ORDER.length; syncDots(); api?.focus(ORDER[idx]); }
+  function step(d: number) { idx = (idx + d + ORDER.length) % ORDER.length; syncDots(); api?.focus(ORDER[idx], true); }
   document.getElementById('prev')!.onclick = () => step(-1);
   document.getElementById('next')!.onclick = () => step(1);
   let sx = 0;
   root.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; }, { passive: true });
   root.addEventListener('touchend', (e) => {
     const dx = e.changedTouches[0].clientX - sx;
-    if (Math.abs(dx) > 50 && !root.classList.contains('open')) step(dx < 0 ? 1 : -1);
+    if (Math.abs(dx) > 50 && !root.classList.contains('open') && !root.classList.contains('sheet')) step(dx < 0 ? 1 : -1);
   }, { passive: true });
-  const applyMode = () => { if (!root.classList.contains('open')) api?.focus(mobile() ? ORDER[idx] : null); };
+  const applyMode = () => { if (!root.classList.contains('open') && !root.classList.contains('sheet')) api?.focus(mobile() ? ORDER[idx] : null, true); };
   addEventListener('resize', applyMode); applyMode(); syncDots();
   root.querySelector('canvas')!.addEventListener('pointerdown', () => setTimeout(() => root.classList.add('moved'), 400), { once: true });
   const fromHash = location.hash.slice(1) as StationId;
@@ -289,6 +385,76 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
     .pop { top: auto; right: 0; left: 0; bottom: 0; width: 100%; max-height: 72%; border-radius: 24px 24px 0 0; padding: 24px 20px calc(24px + env(safe-area-inset-bottom)); transform: translateY(100%); }
     .world.open .pop { transform: none; }
     .pop :global(.amounts) { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  .world.sheet .intro, .world.sheet .labels, .world.sheet .hud, .world.sheet .swiper, .world.sheet .quick { opacity: 0; pointer-events: none; }
+  .hud, .swiper, .quick { transition: opacity .35s; }
+  .pop :global(.meals) { margin: 10px 0 2px; text-align: center; font: 600 1.35rem/1.2 Caveat, cursive; color: var(--green-2); }
+  .pop :global(.meals b) { color: var(--orange); font-size: 1.6rem; }
+  .sheet-close { position: absolute; z-index: 3; top: 18px; right: 18px; width: 42px; height: 42px; border: 0; border-radius: 50%; background: rgb(255 255 255 / .92); color: var(--green); font-size: 1.5rem; cursor: pointer; box-shadow: 0 6px 18px rgb(0 0 0 / .2); }
+
+  /* Our story: chalkboard */
+  .story, .board { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; padding: 2.5vh 2.5vw; opacity: 0; pointer-events: none; transition: opacity .5s; }
+  .story.on, .board.on { opacity: 1; pointer-events: auto; }
+  .chalkboard { position: relative; width: 100%; height: 100%; border-radius: 18px; border: clamp(10px, 1.6vw, 18px) solid #8a5a34; box-shadow: inset 0 0 0 3px #6b4223, 0 30px 80px rgb(0 0 0 / .45); background: radial-gradient(ellipse at 30% 20%, rgb(255 255 255 / .07), transparent 55%), radial-gradient(ellipse at 80% 90%, rgb(255 255 255 / .05), transparent 50%), #24382d; overflow: hidden; transform: scale(.82); transition: transform .7s cubic-bezier(.2, .8, .2, 1); }
+  .story.on .chalkboard { transform: none; }
+  .chalkboard::before { content: ''; position: absolute; inset: 0; opacity: .35; pointer-events: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .18 0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  .chapters { position: absolute; inset: 0; }
+  .chapters :global(.chapter) { position: absolute; inset: 0; display: grid; grid-template-columns: 1.05fr 1fr; grid-template-rows: 1fr auto; gap: 12px 40px; padding: clamp(28px, 5vw, 64px) clamp(28px, 5vw, 72px) 90px; opacity: 0; transform: translateX(40px); transition: opacity .5s, transform .6s cubic-bezier(.2, .8, .2, 1); pointer-events: none; }
+  .chapters :global(.chapter.past) { transform: translateX(-40px); }
+  .chapters :global(.chapter.on) { opacity: 1; transform: none; pointer-events: auto; }
+  .chapters :global(.chalk) { align-self: center; color: #f4f1e8; font-family: Caveat, cursive; text-shadow: 0 0 1px rgb(255 255 255 / .5); }
+  .chapters :global(.chalk small) { font-size: 1.3rem; color: var(--gold); opacity: .9; }
+  .chapters :global(.chalk h2) { color: #fffdf4; font-family: Caveat, cursive; font-weight: 700; font-size: clamp(2.4rem, 5vw, 4.2rem); line-height: 1; letter-spacing: 0; margin: .15em 0 .3em; }
+  .chapters :global(.chalk p) { font-size: clamp(1.4rem, 2.2vw, 1.9rem); line-height: 1.25; max-width: 24ch; margin: 0; color: rgb(244 241 232 / .9); }
+  .chapters :global(.cta) { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; font-family: Inter, sans-serif; }
+  .chapters :global(.cta .btn) { border: 0; font: inherit; font-weight: 600; cursor: pointer; }
+  .chapters :global(.sketch) { grid-column: 1; grid-row: 2; width: clamp(110px, 14vw, 170px); fill: none; stroke: #f4f1e8; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; opacity: .85; filter: url(#chalky); }
+  .chapters :global(.chapter.on .sketch path), .chapters :global(.chapter.on .sketch circle) { stroke-dasharray: 600; stroke-dashoffset: 600; animation: draw 2.2s .2s ease forwards; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  .chapters :global(.photos) { grid-column: 2; grid-row: 1 / span 2; position: relative; display: grid; place-items: center; }
+  .chapters :global(figure) { position: relative; margin: 0; padding: 12px 12px 40px; background: #fffdf7; box-shadow: 0 14px 30px rgb(0 0 0 / .35); transform: rotate(var(--r)); width: min(380px, 80%); }
+  .chapters :global(figure + figure) { position: absolute; right: 0; bottom: 4%; width: min(250px, 55%); }
+  .chapters :global(figure img) { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; filter: saturate(.92) contrast(1.02); }
+  :global(.tape) { position: absolute; z-index: 2; top: -14px; left: 50%; width: 110px; height: 30px; transform: translateX(-50%) rotate(-3deg); background: rgb(246 233 196 / .78); box-shadow: 0 2px 4px rgb(0 0 0 / .12); clip-path: polygon(3% 0, 97% 4%, 100% 50%, 96% 100%, 2% 96%, 0 50%); }
+  .story-nav { position: absolute; left: 0; right: 0; bottom: 22px; display: flex; justify-content: center; align-items: center; gap: 18px; }
+  .story-nav button { width: 46px; height: 46px; border: 2px solid rgb(244 241 232 / .5); border-radius: 50%; background: none; color: #f4f1e8; font-size: 1.6rem; cursor: pointer; }
+  .story-nav button:hover { background: rgb(255 255 255 / .1); }
+  #s-dots { display: flex; gap: 8px; }
+  #s-dots :global(i) { width: 8px; height: 8px; border-radius: 50%; background: rgb(244 241 232 / .3); transition: width .2s; }
+  #s-dots :global(i.on) { width: 24px; border-radius: 4px; background: #f4f1e8; }
+
+  /* Contact: bulletin board */
+  .cork { position: relative; width: 100%; height: 100%; overflow: auto; border-radius: 16px; border: clamp(10px, 1.6vw, 18px) solid #9a6b40; box-shadow: inset 0 0 30px rgb(80 40 10 / .35), 0 30px 80px rgb(0 0 0 / .45); background-color: #c99c62; background-image: radial-gradient(rgb(120 70 30 / .35) 1px, transparent 1.4px), radial-gradient(rgb(255 230 190 / .3) 1px, transparent 1.4px); background-size: 7px 7px, 11px 11px; background-position: 0 0, 3px 4px; transform: scale(.82); transition: transform .7s cubic-bezier(.2, .8, .2, 1); }
+  .board.on .cork { transform: none; }
+  .pinned { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 28px; padding: clamp(28px, 4vw, 56px); align-items: start; }
+  .pinned > * { position: relative; display: grid; gap: 6px; padding: 26px 22px 22px; border: 0; text-align: left; font: inherit; color: var(--ink); text-decoration: none; background: #fffdf6; box-shadow: 0 10px 22px rgb(60 30 10 / .28); transition: transform .2s; cursor: pointer; }
+  .pinned > *:nth-child(3n + 1) { transform: rotate(-1.6deg); } .pinned > *:nth-child(3n + 2) { transform: rotate(1.2deg); } .pinned > *:nth-child(3n) { transform: rotate(-.6deg); }
+  .pinned > *:hover { transform: rotate(0) translateY(-3px); }
+  .pinned :global(.pin) { position: absolute; top: 8px; left: 50%; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ff9a6a, #d2501a); box-shadow: 0 3px 4px rgb(0 0 0 / .35); }
+  .pinned .title { grid-column: span 2; background: transparent; box-shadow: none; padding-top: 6px; cursor: default; color: #3b2412; }
+  .pinned .title .pin { display: none; }
+  .pinned .title h2 { font-family: Caveat, cursive; font-size: clamp(2.6rem, 5vw, 3.8rem); color: #2a1a0c; margin: 0; letter-spacing: 0; }
+  .pinned .title p { margin: 0; font-size: 1.05rem; max-width: 40ch; }
+  .pinned small { color: var(--muted); }
+  .pinned b { font-size: 1.15rem; color: var(--green); }
+  .pinned span { color: var(--muted); }
+  .pinned .card b { font-size: 1rem; word-break: break-all; }
+  .pinned .flyer.green { background: #e2efd9; } .pinned .flyer.peach { background: #fde4cf; } .pinned .note.yellow { background: #fff3a8; }
+  .pinned .note b, .pinned .letter b { font-family: Caveat, cursive; font-size: 1.7rem; color: #2a3a2f; }
+  .pinned .polaroid { padding: 12px 12px 14px; }
+  .pinned .polaroid img { width: 100%; aspect-ratio: 1; object-fit: cover; }
+  .pinned .polaroid span { font-family: Caveat, cursive; font-size: 1.5rem; color: var(--ink); text-align: center; }
+  .pinned .letter { grid-column: span 2; cursor: default; background: #fffdf6 repeating-linear-gradient(transparent 0 27px, rgb(120 150 200 / .25) 27px 28px); }
+  .pinned .letter textarea { font: 1.4rem/28px Caveat, cursive; border: 0; background: transparent; resize: none; outline: none; color: var(--ink); }
+  .pinned .letter .btn { justify-self: start; border: 0; font: inherit; font-weight: 600; cursor: pointer; }
+  @media (max-width: 760px) {
+    .chalkboard { height: 100%; }
+    .chapters :global(.chapter) { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; padding: 60px 22px 84px; gap: 10px; }
+    .chapters :global(.photos) { grid-column: 1; grid-row: 3; align-self: start; }
+    .chapters :global(.sketch) { grid-row: 2; width: 90px; }
+    .pinned { grid-template-columns: 1fr; padding: 60px 20px 28px; }
+    .pinned .title, .pinned .letter { grid-column: auto; }
   }
   @media (prefers-reduced-motion: reduce) { .pop, .labels button i { transition: none; animation: none; } }
 </style>

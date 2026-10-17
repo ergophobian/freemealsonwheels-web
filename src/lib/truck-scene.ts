@@ -1,30 +1,29 @@
 // The whole site is one 3D world: a Free Meals on Wheels food truck on a sunny Saturday street.
 // People and objects around it are the navigation; clicking one zooms in and opens its card.
+// Characters and food are CC0 models by Kenney (kenney.nl).
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { loadAssets, type Assets, type FoodId } from './world/assets';
+import { Actor, Crowd, type Seat } from './world/crowd';
 
 export type StationId = 'volunteer' | 'donate' | 'about' | 'resources' | 'contact';
-type View = { pos: [number, number, number]; look: [number, number, number] };
+type View = { pos: [number, number, number]; look: [number, number, number]; fov?: number };
 
 const C = {
   green: '#2F6B4A', greenDark: '#1F4D34', orange: '#E8681C', cream: '#FBF3E4', gold: '#E2C27A',
   grass: '#9DC07E', paving: '#E9DFCF', road: '#6E7276', wood: '#B07A4A', ink: '#26312B', tire: '#2B2B2B', glass: '#BFDCE3',
-  denim: '#4A5A6E', shoe: '#3A3330',
+  skin: '#C68A62',
 };
+// The truck is built at 1 unit and scaled up so it towers a little over the people around it.
+const S = 1.15;
+const HEIGHT = 1.72;
 
-const OVERVIEW: View = { pos: [2.2, 5.6, 19.5], look: [.6, 1.5, 1] };
-const OVERVIEW_NARROW: View = { pos: [1, 6.5, 24], look: [.4, 1.8, 1] };
-const VIEWS: Record<StationId, View> = {
-  volunteer: { pos: [.6, 3.4, 9.4], look: [-.4, 1.9, .8] },
-  donate: { pos: [1.6, 2.7, 5.8], look: [.5, 1.7, 1] },
-  about: { pos: [5.6, 2.1, 6.6], look: [4.3, 1.2, 2.6] },
-  resources: { pos: [-4.4, 2.2, 9.4], look: [-5.4, .9, 4.6] },
-  contact: { pos: [7.4, 1.9, 7.6], look: [6.6, 1.1, 3.6] },
-};
+const OVERVIEW: View = { pos: [2.6, 6.6, 22.5], look: [.4, 1.8, 1.5] };
+const OVERVIEW_NARROW: View = { pos: [1, 8, 29], look: [.2, 2.2, 1.5] };
 const ANCHORS: Record<StationId, [number, number, number]> = {
-  volunteer: [-.5, 2.75, .95], donate: [.6, 2.1, 1.05], about: [4.3, 2.4, 2.6], resources: [-5.4, 2.6, 4.6], contact: [6.6, 1.85, 3.6],
+  volunteer: [-.58, 3.1, 1.1], donate: [2.5, 1.85, 2.7], about: [5.2, 2.5, 2.9], resources: [-5.4, 3.2, 4.8], contact: [7, 2.7, 3.8],
 };
 
 const std = (color: string, extra: THREE.MeshStandardMaterialParameters = {}) =>
@@ -54,53 +53,7 @@ function heart(c: CanvasRenderingContext2D, x: number, y: number, s: number) {
 const rnd = (() => { let s = 7; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
 
 // A friendly rounded character with a tapered body, shoes, hands and a few hair styles.
-type Hair = 'short' | 'bun' | 'long' | 'cap';
-function person(o: { shirt: string; skin: string; hair: string; style?: Hair; cap?: string; pants?: string; apron?: boolean; scale?: number }) {
-  const g = new THREE.Group(); g.scale.setScalar(o.scale ?? 1);
-  const pants = std(o.pants ?? C.denim), skin = std(o.skin, { roughness: .55 }), shirt = std(o.shirt, { roughness: .8 });
-  const hips = new THREE.Group(); hips.position.y = .82; g.add(hips);
-  const legs: THREE.Group[] = [];
-  for (const x of [-.1, .1]) {
-    const leg = new THREE.Group(); leg.position.x = x; hips.add(leg); legs.push(leg);
-    leg.add(mesh(new THREE.CapsuleGeometry(.075, .58, 6, 12), pants, 0, -.36, 0));
-    leg.add(mesh(rbox(.14, .09, .26, .045), std(C.shoe), 0, -.77, .04));
-  }
-  const body = new THREE.Group(); hips.add(body);
-  const torsoGeo = new THREE.LatheGeometry([[0, 0], [.2, 0], [.235, .12], [.25, .38], [.22, .56], [.12, .64], [0, .66]].map(([x, y]) => new THREE.Vector2(x, y)), 24);
-  body.add(mesh(torsoGeo, shirt, 0, -.04, 0));
-  if (o.apron) {
-    body.add(mesh(rbox(.36, .48, .04, .02), std(C.cream), 0, .22, .225));
-    body.add(mesh(new THREE.CircleGeometry(.05, 16), std(C.orange), 0, .32, .247));
-  }
-  body.add(mesh(new THREE.CylinderGeometry(.06, .07, .1, 12), skin, 0, .66, 0));
-  const head = new THREE.Group(); head.position.y = .9; body.add(head);
-  head.add(mesh(new THREE.SphereGeometry(.2, 32, 24), skin));
-  head.add(mesh(new THREE.SphereGeometry(.035, 12, 8), skin, 0, -.02, .2));
-  for (const x of [-.19, .19]) head.add(mesh(new THREE.SphereGeometry(.04, 12, 8), skin, x, -.01, 0));
-  const hairM = std(o.hair, { roughness: .9 });
-  const cap = mesh(new THREE.SphereGeometry(.212, 32, 16, 0, Math.PI * 2, 0, Math.PI * .5), hairM); cap.rotation.x = -.3; head.add(cap);
-  if (o.style === 'bun') head.add(mesh(new THREE.SphereGeometry(.09, 16, 12), hairM, 0, .16, -.14));
-  if (o.style === 'long') head.add(mesh(new THREE.CapsuleGeometry(.17, .22, 6, 16), hairM, 0, -.12, -.08));
-  if (o.style === 'cap' || o.cap) {
-    const cm = std(o.cap ?? C.green);
-    const c2 = mesh(new THREE.SphereGeometry(.222, 32, 12, 0, Math.PI * 2, 0, Math.PI * .4), cm); c2.position.y = .03; head.add(c2);
-    const brim = mesh(new THREE.CylinderGeometry(.15, .15, .02, 24, 1, false, 0, Math.PI), cm, 0, .09, .15); brim.rotation.y = -Math.PI / 2; head.add(brim);
-  }
-  const eyeM = std(C.ink, { roughness: .3 });
-  for (const x of [-.07, .07]) head.add(mesh(new THREE.SphereGeometry(.022, 12, 8), eyeM, x, .03, .185));
-  for (const x of [-.11, .11]) head.add(mesh(new THREE.SphereGeometry(.03, 12, 8), std('#E89A86', { transparent: true, opacity: .5 }), x, -.04, .165));
-  const smile = mesh(new THREE.TorusGeometry(.045, .009, 6, 16, Math.PI), eyeM, 0, -.075, .185); smile.rotation.z = Math.PI; head.add(smile);
-  const arm = (side: 1 | -1) => {
-    const s = new THREE.Group(); s.position.set(side * .27, .52, 0); body.add(s);
-    s.add(mesh(new THREE.CapsuleGeometry(.065, .2, 6, 12), shirt, 0, -.12, 0));
-    const fore = new THREE.Group(); fore.position.y = -.26; s.add(fore);
-    fore.add(mesh(new THREE.CapsuleGeometry(.055, .18, 6, 12), skin, 0, -.1, 0));
-    fore.add(mesh(new THREE.SphereGeometry(.065, 16, 12), skin, 0, -.24, 0));
-    return { s, fore };
-  };
-  return { g, hips, body, head, legs, armL: arm(-1), armR: arm(1) };
-}
-type Person = ReturnType<typeof person>;
+
 
 function tree(scene: THREE.Object3D, x: number, z: number, s: number, kind: 'round' | 'pine' = 'round') {
   const t = new THREE.Group(); t.position.set(x, 0, z); t.scale.setScalar(s); t.rotation.y = rnd() * 6; scene.add(t);
@@ -114,7 +67,7 @@ function tree(scene: THREE.Object3D, x: number, z: number, s: number, kind: 'rou
   return t;
 }
 
-export interface TruckApi { focus(id: StationId | null): void; dispose(): void }
+export interface TruckApi { focus(id: StationId | null, peek?: boolean): void; give(amount: number): void; dispose(): void }
 
 export function mountTruck(
   canvas: HTMLCanvasElement,
@@ -123,9 +76,17 @@ export function mountTruck(
 ): TruckApi | null {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let renderer: THREE.WebGLRenderer;
-  try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true }); } catch { return null; }
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  // Most visitors are on everyday phones and laptops: start light on modest hardware, and step down further if frames run slow.
+  const nav = navigator as Navigator & { deviceMemory?: number };
+  const modest = matchMedia('(pointer: coarse)').matches || (navigator.hardwareConcurrency || 4) <= 4 || (nav.deviceMemory ?? 8) <= 4;
+  let tier = modest ? 1 : 2;
+  try { renderer = new THREE.WebGLRenderer({ canvas, antialias: tier > 1, powerPreference: 'high-performance' }); } catch { return null; }
+  const applyTier = () => {
+    renderer.setPixelRatio(Math.min(devicePixelRatio, [1, 1.25, 1.75][tier]));
+    renderer.shadowMap.enabled = tier > 0;
+    renderer.shadowMap.type = tier > 1 ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+  };
+  applyTier();
   renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
 
   const scene = new THREE.Scene();
@@ -136,9 +97,9 @@ export function mountTruck(
   scene.fog = new THREE.Fog('#EAF0EC', 30, 80);
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(), .04).texture;
-  scene.add(new THREE.HemisphereLight('#fff6ea', '#a9b98f', .8));
-  const sun = new THREE.DirectionalLight('#fff0dc', 2.6); sun.position.set(-8, 12, 9); sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048); sun.shadow.radius = 5; sun.shadow.bias = -.0004; sun.shadow.normalBias = .02;
+  scene.add(new THREE.HemisphereLight('#FFF3E2', '#B7B98F', .85));
+  const sun = new THREE.DirectionalLight('#FFE2BC', 2.8); sun.position.set(-8, 12, 9); sun.castShadow = true;
+  sun.shadow.mapSize.setScalar(tier > 1 ? 2048 : 1024); sun.shadow.radius = 5; sun.shadow.bias = -.0004; sun.shadow.normalBias = .02;
   Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 12, bottom: -12, near: 1, far: 40 });
   scene.add(sun);
 
@@ -176,7 +137,7 @@ export function mountTruck(
   for (let i = 0; i < 14; i++) tree(scene, -26 + i * 4 + rnd(), -14 - rnd() * 4, 1.2 + rnd() * .6, i % 3 ? 'round' : 'pine');
 
   // ——— The truck.
-  const truck = new THREE.Group(); scene.add(truck);
+  const truck = new THREE.Group(); truck.scale.setScalar(S); scene.add(truck);
   const green = std(C.green, { roughness: .35, metalness: .15 }), orange = std(C.orange, { roughness: .45 }), cream = std(C.cream, { roughness: .6 });
   const chrome = std('#E6E3DC', { metalness: .8, roughness: .25 });
   truck.add(mesh(rbox(4.6, 2.3, 1.7, .22), green, -.1, 1.85, 0));
@@ -206,19 +167,21 @@ export function mountTruck(
 
   // Serving window: interior with shelves and pots, orange frame, counter, prop rods, striped awning.
   const winX = -.5;
-  truck.add(mesh(new THREE.PlaneGeometry(2.1, 1), std('#F3E3C6'), winX, 2.0, .852));
-  for (const y of [2.36]) truck.add(mesh(new THREE.BoxGeometry(1.9, .03, .12), std(C.wood), winX, y, .9));
-  for (let k = 0; k < 6; k++) truck.add(mesh(new THREE.CylinderGeometry(.06, .06, .12, 12), std(['#E8681C', '#2F6B4A', '#E2C27A'][k % 3]), winX - .8 + k * .32, 2.43, .9));
+  // The window sits a little low so neighbors can see over the counter.
+  const win = new THREE.Group(); win.position.y = -.18; truck.add(win);
+  const interior = mesh(new THREE.PlaneGeometry(2.1, 1), std('#F3E3C6'), winX, 2.0, .852); win.add(interior);
+  for (const y of [2.36]) win.add(mesh(new THREE.BoxGeometry(1.9, .03, .12), std(C.wood), winX, y, .9));
+  for (let k = 0; k < 6; k++) win.add(mesh(new THREE.CylinderGeometry(.06, .06, .12, 12), std(['#E8681C', '#2F6B4A', '#E2C27A'][k % 3]), winX - .8 + k * .32, 2.43, .9));
   for (const [w, h, x, y] of [[2.3, .1, winX, 2.55], [.1, 1.1, winX - 1.1, 2.0], [.1, 1.1, winX + 1.1, 2.0]] as const)
-    truck.add(mesh(rbox(w, h, .1, .04), orange, x, y, .87));
-  truck.add(mesh(rbox(2.4, .08, .5, .03), std(C.wood, { roughness: .6 }), winX, 1.48, 1.02));
-  for (const x of [-.8, .8, -.3]) truck.add(mesh(rbox(.26, .12, .2, .03), cream, winX + x, 1.58, 1.1));
+    win.add(mesh(rbox(w, h, .1, .04), orange, x, y, .87));
+  win.add(mesh(rbox(2.4, .08, .5, .03), std(C.wood, { roughness: .6 }), winX, 1.48, 1.02));
+  for (const x of [-.8, .8, -.3]) win.add(mesh(rbox(.26, .12, .2, .03), cream, winX + x, 1.58, 1.1));
   const awningTex = canvasTex((c, w, h) => { for (let i = 0; i < 10; i++) { c.fillStyle = i % 2 ? C.cream : C.orange; c.fillRect(i * w / 10, 0, w / 10, h); } }, 512, 64);
-  const awning = mesh(new THREE.BoxGeometry(2.6, .04, .9), std('#ffffff', { map: awningTex, roughness: .8 }), winX, 2.82, 1.25); awning.rotation.x = .32; truck.add(awning);
-  for (const x of [-1.2, 1.2]) { const rod = mesh(new THREE.CylinderGeometry(.015, .015, .9, 6), chrome, winX + x, 2.7, 1.3); rod.rotation.x = 1.25; truck.add(rod); }
+  const awning = mesh(new THREE.BoxGeometry(2.6, .04, .9), std('#ffffff', { map: awningTex, roughness: .8 }), winX, 2.82, 1.25); awning.rotation.x = .32; win.add(awning);
+  for (const x of [-1.2, 1.2]) { const rod = mesh(new THREE.CylinderGeometry(.015, .015, .9, 6), chrome, winX + x, 2.7, 1.3); rod.rotation.x = 1.25; win.add(rod); }
   const valanceTex = canvasTex((c, w, h) => { for (let i = 0; i < 20; i++) { c.fillStyle = i % 2 ? C.cream : C.orange; c.beginPath(); c.arc(i * w / 20 + w / 40, 0, w / 40, 0, Math.PI); c.fill(); } }, 1024, 64);
   const valance = new THREE.Mesh(new THREE.PlaneGeometry(2.6, .16), new THREE.MeshStandardMaterial({ map: valanceTex, transparent: true, side: THREE.DoubleSide }));
-  valance.position.set(winX, 2.6, 1.68); truck.add(valance);
+  valance.position.set(winX, 2.6, 1.68); win.add(valance);
 
   // Branding.
   const brandTex = canvasTex((c) => {
@@ -227,7 +190,7 @@ export function mountTruck(
     c.fillStyle = C.gold; c.font = '500 46px Inter, system-ui, sans-serif'; c.fillText('Fresh, hot meals · free for all', 204, 215);
   }, 1300, 260);
   const brand = new THREE.Mesh(new THREE.PlaneGeometry(2.4, .48), new THREE.MeshStandardMaterial({ map: brandTex, transparent: true, roughness: .6 }));
-  brand.position.set(-.55, 1.2, .855); truck.add(brand);
+  brand.position.set(-.55, 1.1, .855); brand.scale.setScalar(.85); truck.add(brand);
   const backBrand = brand.clone(); backBrand.rotation.y = Math.PI; backBrand.position.z = -.855; truck.add(backBrand);
   const menuTex = canvasTex((c, w, h) => {
     c.fillStyle = '#24372D'; c.fillRect(0, 0, w, h);
@@ -248,7 +211,7 @@ export function mountTruck(
   for (const x of [-.8, .8]) roofSign.add(mesh(new THREE.CylinderGeometry(.03, .03, .3, 8), std(C.ink), x, -.45, 0));
 
   // ——— Our story: a sandwich board near the cab.
-  const board = new THREE.Group(); board.position.set(4.3, .14, 2.6); board.rotation.y = -.4; scene.add(board);
+  const board = new THREE.Group(); board.position.set(5.2, .14, 2.9); board.rotation.y = -.4; scene.add(board);
   const boardTex = canvasTex((c, w, h) => {
     c.fillStyle = '#24372D'; c.fillRect(0, 0, w, h);
     c.fillStyle = C.gold; c.font = '700 64px Inter, system-ui, sans-serif'; c.fillText('Our story', 40, 90);
@@ -260,25 +223,47 @@ export function mountTruck(
   const boardFace = new THREE.Mesh(new THREE.PlaneGeometry(.95, .7), new THREE.MeshStandardMaterial({ map: boardTex, roughness: .9 }));
   boardFace.position.set(0, 1.45, .056); board.add(boardFace);
 
-  // ——— Picnic area with an umbrella: neighbors sharing a meal.
-  const picnic = new THREE.Group(); picnic.position.set(-5.4, .14, 4.6); picnic.rotation.y = .25; scene.add(picnic);
+  // ——— Picnic tables: one is yours in the "Get a meal" view, the rest fill up with neighbors.
   const woodM = std(C.wood, { roughness: .8 });
-  picnic.add(mesh(rbox(1.9, .08, .85, .03), woodM, 0, .78, 0));
-  for (const z of [-.68, .68]) picnic.add(mesh(rbox(1.9, .06, .3, .02), woodM, 0, .45, z));
-  for (const x of [-.72, .72]) picnic.add(mesh(new THREE.BoxGeometry(.08, .78, 1.7), woodM, x, .39, 0));
-  picnic.add(mesh(new THREE.CylinderGeometry(.03, .03, 2.3, 8), chrome, 0, 1.15, 0));
   const umbTex = canvasTex((c, w, h) => { for (let i = 0; i < 8; i++) { c.fillStyle = i % 2 ? C.cream : C.green; c.beginPath(); c.moveTo(w / 2, h / 2); c.arc(w / 2, h / 2, w / 2, i * Math.PI / 4, (i + 1) * Math.PI / 4); c.fill(); } }, 256, 256);
-  const umb = mesh(new THREE.ConeGeometry(1.4, .5, 8, 1, true), std('#ffffff', { map: umbTex, side: THREE.DoubleSide }), 0, 2.35, 0); picnic.add(umb);
-  for (const x of [-.45, .45]) {
-    picnic.add(mesh(rbox(.3, .12, .22, .03), cream, x, .88, -.15));
-    picnic.add(mesh(new THREE.CylinderGeometry(.05, .045, .14, 16), std(C.orange), x + .22, .89, -.05));
+  const seats: Seat[] = [];
+  const table = (x: number, z: number, rot: number, umbrella: boolean, skip: [number, number][] = []) => {
+    const t = new THREE.Group(); t.position.set(x, .14, z); t.rotation.y = rot; scene.add(t);
+    t.add(mesh(rbox(1.9, .08, .85, .03), woodM, 0, .78, 0));
+    for (const bz of [-.68, .68]) t.add(mesh(rbox(1.9, .06, .3, .02), woodM, 0, .45, bz));
+    for (const bx of [-.72, .72]) t.add(mesh(new THREE.BoxGeometry(.08, .78, 1.7), woodM, bx, .39, 0));
+    if (umbrella) {
+      t.add(mesh(new THREE.CylinderGeometry(.03, .03, 2.3, 8), std('#E6E3DC', { metalness: .8, roughness: .25 }), 0, 1.15, 0));
+      t.add(mesh(new THREE.ConeGeometry(1.4, .5, 8, 1, true), std('#ffffff', { map: umbTex, side: THREE.DoubleSide }), 0, 2.35, 0));
+    }
+    t.updateMatrixWorld(true);
+    for (const sx of [-.45, .45]) for (const sz of [-.68, .68]) {
+      if (skip.some(([a, b]) => a === sx && b === sz)) continue;
+      seats.push({ pos: t.localToWorld(new THREE.Vector3(sx, -.14 + SIT_Y, sz * 1.18)), face: rot + (sz > 0 ? Math.PI : 0), taken: false });
+    }
+    return t;
+  };
+  // Kenney's sit pose rests on the floor, so seated people are lifted to bench height.
+  const SIT_Y = .5;
+  const picnic = table(-5.4, 4.8, .25, true, [[.45, .68], [.45, -.68], [-.45, .68], [-.45, -.68]]);
+  table(-8.6, 7.4, -.3, false);
+  table(9.6, 7.2, .4, true);
+
+
+  // ——— Contact: a community bulletin board on posts.
+  const bulletin = new THREE.Group(); bulletin.position.set(7, .14, 3.8); bulletin.rotation.y = -.55; scene.add(bulletin);
+  for (const x of [-.85, .85]) bulletin.add(mesh(new THREE.BoxGeometry(.1, 2.4, .1), std(C.wood), x, 1.2, 0));
+  bulletin.add(mesh(rbox(1.9, 1.2, .1, .03), std('#8A5E3C'), 0, 1.75, 0));
+  bulletin.add(mesh(new THREE.BoxGeometry(1.75, 1.05, .04), std('#C9A06A', { roughness: 1 }), 0, 1.75, .05));
+  bulletin.add(mesh(new THREE.ConeGeometry(1.15, .35, 4, 1), std(C.green), 0, 2.55, 0)).rotation.y = Math.PI / 4;
+  const noteCols = ['#FFF7E6', '#FDE2C8', '#DDEFD6', '#FFF1A8', '#E3ECF7', '#FFFFFF'];
+  for (let i = 0; i < 9; i++) {
+    const w = .28 + rnd() * .14, h = .22 + rnd() * .14;
+    const n = mesh(new THREE.PlaneGeometry(w, h), std(noteCols[i % noteCols.length], { side: THREE.DoubleSide }), -.65 + (i % 4) * .42 + rnd() * .06, 1.45 + Math.floor(i / 4) * .32 + rnd() * .05, .075);
+    n.rotation.z = (rnd() - .5) * .25; bulletin.add(n);
+    bulletin.add(mesh(new THREE.SphereGeometry(.022, 8, 6), std(['#E8681C', '#2F6B4A', '#D94F4F'][i % 3]), n.position.x, n.position.y + h / 2 - .03, .09));
   }
 
-  // ——— Contact: a mailbox among planters.
-  const mailbox = new THREE.Group(); mailbox.position.set(6.6, .14, 3.6); scene.add(mailbox);
-  mailbox.add(mesh(new THREE.BoxGeometry(.08, 1.05, .08), std(C.wood), 0, .52, 0));
-  mailbox.add(mesh(rbox(.34, .32, .52, .12), std(C.orange, { roughness: .35 }), 0, 1.2, 0));
-  const flag = mesh(new THREE.BoxGeometry(.02, .22, .07), std(C.green), .19, 1.32, -.1); mailbox.add(flag);
   const flowerCols = ['#F2A65A', '#E86A6A', '#F6D365', '#FFFFFF', '#C79BE0'];
   const planter = (x: number, z: number, w = 1.2) => {
     const p = new THREE.Group(); p.position.set(x, .14, z); scene.add(p);
@@ -286,7 +271,8 @@ export function mountTruck(
     for (let i = 0; i < 4; i++) p.add(mesh(new THREE.IcosahedronGeometry(.2, 2), std('#5E8F55'), -w / 2 + .2 + i * (w - .4) / 3, .55, 0));
     for (let i = 0; i < 9; i++) p.add(mesh(new THREE.SphereGeometry(.05, 8, 6), std(flowerCols[i % 5]), (rnd() - .5) * w * .85, .68 + rnd() * .1, (rnd() - .5) * .3));
   };
-  planter(7.8, 3.2); planter(-2.6, 7.4, 1.6); planter(3, 7.6, 1.6); planter(-8.2, 3.2);
+  planter(8.8, 2.4); planter(-2.6, 7.4, 1.6); planter(3, 7.6, 1.6); planter(-8.2, 3.2);
+
 
   // ——— Street lamps, trees, bushes, string lights, bike rack.
   const lamp = (x: number, z: number) => {
@@ -304,7 +290,7 @@ export function mountTruck(
   const pole = (x: number, z: number) => scene.add(mesh(new THREE.CylinderGeometry(.04, .05, 3.2, 8), std(C.ink), x, 1.6, z));
   pole(-6.5, 2); pole(7, 2.2);
   const bulbs: THREE.Mesh[] = [];
-  for (const [a, b] of [[new THREE.Vector3(-6.5, 3.15, 2), new THREE.Vector3(-2.4, 3.05, .9)], [new THREE.Vector3(2.2, 2.9, .9), new THREE.Vector3(7, 3.15, 2.2)]] as const) {
+  for (const [a, b] of [[new THREE.Vector3(-6.5, 3.15, 2), new THREE.Vector3(-2.75, 3.5, 1.05)], [new THREE.Vector3(2.55, 3.35, 1.05), new THREE.Vector3(7, 3.15, 2.2)]] as const) {
     const mid = a.clone().lerp(b, .5); mid.y -= .45;
     const curve = new THREE.QuadraticBezierCurve3(a, mid, b);
     scene.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 24, .008, 4), std(C.ink)));
@@ -338,31 +324,6 @@ export function mountTruck(
   const steamM = new THREE.MeshStandardMaterial({ color: '#ffffff', transparent: true, roughness: 1, emissive: '#ffffff', emissiveIntensity: .3, depthWrite: false });
   const steam = Array.from({ length: 14 }, (_, i) => { const s = new THREE.Mesh(new THREE.SphereGeometry(.08, 12, 8), steamM.clone()); s.userData.src = i % 2; scene.add(s); return s; });
 
-  // ——— People.
-  const server = person({ shirt: C.green, skin: '#C68A62', hair: '#2B211C', apron: true, cap: C.orange });
-  server.g.position.set(winX - .3, .62, .78); truck.add(server.g); server.legs.forEach((l) => (l.visible = false));
-  const cook = person({ shirt: '#F2EDE2', skin: '#8E5B3E', hair: '#1E1714', style: 'bun', apron: true });
-  cook.g.position.set(winX + .55, .62, .62); cook.g.rotation.y = -.5; truck.add(cook.g); cook.legs.forEach((l) => (l.visible = false));
-  const founder = person({ shirt: '#E9B872', skin: '#9C6C50', hair: '#1E1714', pants: '#5A4A3A' });
-  founder.g.position.set(3.3, .14, 3.2); founder.g.rotation.y = .6; scene.add(founder.g);
-  const queue = [
-    person({ shirt: '#C9826B', skin: '#8E5B3E', hair: '#2B211C', cap: C.green }),
-    person({ shirt: '#7D93B2', skin: '#E2B796', hair: '#C28A4A', style: 'long' }),
-    person({ shirt: '#A7C4A0', skin: '#C68A62', hair: '#3A2A20', style: 'short', scale: .72 }),
-  ];
-  queue.forEach((p, i) => { p.g.position.set(-.9 - i * .75, .14, 2.3 + i * .55); p.g.rotation.y = Math.PI + .5 - i * .1; scene.add(p.g); });
-  const diners = [
-    person({ shirt: '#E7C6D8', skin: '#D7A684', hair: '#7A5236', style: 'bun' }),
-    person({ shirt: '#4F7F9E', skin: '#6E4630', hair: '#1E1714' }),
-  ];
-  diners.forEach((p, i) => {
-    picnic.add(p.g); p.g.position.set(i ? .45 : -.45, -.36, i ? -.68 : .68); p.g.rotation.y = i ? 0 : Math.PI;
-    p.legs.forEach((l) => { l.rotation.x = -Math.PI / 2; l.position.z = .02; });
-  });
-  const walker = person({ shirt: '#F2D27E', skin: '#C68A62', hair: '#2B211C', style: 'short' });
-  walker.g.position.set(0, .14, 5); scene.add(walker.g);
-  const walkerBox = mesh(rbox(.26, .12, .2, .03), cream, 0, -.3, .12); walker.armR.fore.add(walkerBox);
-
   // A dog who wags.
   const dog = new THREE.Group(); dog.position.set(4, .14, 3.9); dog.rotation.y = -1; scene.add(dog);
   const fur = std('#C9955C', { roughness: .9 });
@@ -376,50 +337,145 @@ export function mountTruck(
   const tail = new THREE.Group(); tail.position.set(-.3, .42, 0); dog.add(tail);
   const tailM = mesh(new THREE.CapsuleGeometry(.03, .18, 4, 8), fur, 0, .1, 0); tail.add(tailM); tail.rotation.z = .7;
 
-  // Donation jar on the counter.
-  const jar = new THREE.Group(); jar.position.set(.45, 1.52, 1.05); truck.add(jar);
-  jar.add(mesh(new THREE.CylinderGeometry(.13, .13, .32, 32, 1, true), new THREE.MeshPhysicalMaterial({ color: '#ffffff', transmission: .9, roughness: .05, thickness: .1, transparent: true, opacity: .5, side: THREE.DoubleSide }), 0, .16, 0));
-  jar.add(mesh(new THREE.CylinderGeometry(.11, .11, .12, 24), std(C.gold, { metalness: .7, roughness: .3 }), 0, .07, 0));
-  jar.add(mesh(new THREE.CylinderGeometry(.14, .14, .04, 32), orange, 0, .33, 0));
-  const jarTag = canvasTex((c, w, h) => { c.fillStyle = C.cream; c.fillRect(0, 0, w, h); c.fillStyle = C.orange; heart(c, w / 2, 12, 60); c.fillStyle = C.greenDark; c.font = '700 30px Inter, sans-serif'; c.textAlign = 'center'; c.fillText('Give', w / 2, 112); }, 160, 128);
-  const tag = new THREE.Mesh(new THREE.PlaneGeometry(.16, .13), new THREE.MeshStandardMaterial({ map: jarTag })); tag.position.set(0, .18, .132); jar.add(tag);
+
+  // ——— Donation jar on the counter: open-topped, so every gift can be seen landing.
+  // It sits on its own little table out front, with a hand-lettered sign.
+  const giving = new THREE.Group(); giving.position.set(2.5, .14, 2.7); scene.add(giving);
+  giving.add(mesh(new THREE.CylinderGeometry(.42, .42, .05, 32), std(C.wood, { roughness: .6 }), 0, .86, 0));
+  giving.add(mesh(new THREE.CylinderGeometry(.04, .06, .84, 12), std(C.greenDark), 0, .43, 0));
+  giving.add(mesh(new THREE.CylinderGeometry(.22, .25, .03, 24), std(C.greenDark), 0, .015, 0));
+  const signTex = canvasTex((c, w, h) => {
+    c.fillStyle = '#24372D'; c.fillRect(0, 0, w, h); c.fillStyle = '#F07B4A'; heart(c, w / 2, 26, 60);
+    c.fillStyle = C.cream; c.textAlign = 'center'; c.font = '700 52px Caveat, cursive'; c.fillText('Every coin is', w / 2, 140); c.fillText('a warm dinner', w / 2, 196);
+  }, 320, 240);
+  const sign = new THREE.Group(); sign.position.set(.2, .89, -.12); sign.rotation.set(-.25, -.35, 0); giving.add(sign);
+  sign.add(mesh(rbox(.34, .26, .02, .01), std(C.wood), 0, .13, 0));
+  sign.add(mesh(new THREE.PlaneGeometry(.3, .22), std('#ffffff', { map: signTex }), 0, .13, .012));
+  const vase = mesh(new THREE.CylinderGeometry(.04, .05, .14, 16), std('#DDEDEA', { roughness: .2 }), -.24, .96, -.1); giving.add(vase);
+  for (let i = 0; i < 5; i++) giving.add(mesh(new THREE.SphereGeometry(.035, 10, 8), std(['#F2A65A', '#E86A6A', '#F6D365', '#FFFFFF', '#C79BE0'][i]), -.24 + Math.sin(i * 1.3) * .05, 1.1 + (i % 2) * .04, -.1 + Math.cos(i * 1.3) * .04));
+  const jar = new THREE.Group(); jar.position.set(-.02, .885, .05); jar.scale.setScalar(1.25); giving.add(jar);
+  jar.add(mesh(new THREE.CylinderGeometry(.14, .13, .34, 40, 1, true), new THREE.MeshPhysicalMaterial({ color: '#ffffff', transmission: .95, roughness: .04, thickness: .08, ior: 1.4, transparent: true, opacity: .45, side: THREE.DoubleSide }), 0, .17, 0));
+  jar.add(mesh(new THREE.TorusGeometry(.14, .012, 8, 40), std('#ffffff', { roughness: .1, transparent: true, opacity: .6 }), 0, .34, 0)).rotation.x = Math.PI / 2;
+  jar.add(mesh(new THREE.CylinderGeometry(.13, .13, .01, 32), std('#d8d2c4'), 0, .005, 0));
+  const ribbon = mesh(new THREE.TorusGeometry(.142, .018, 8, 40), std(C.orange), 0, .25, 0); ribbon.rotation.x = Math.PI / 2; jar.add(ribbon);
+  const jarTag = canvasTex((c, w, h) => { c.fillStyle = C.cream; c.fillRect(0, 0, w, h); c.fillStyle = C.orange; heart(c, w / 2, 14, 54); c.fillStyle = C.greenDark; c.font = '600 26px Caveat, Inter, sans-serif'; c.textAlign = 'center'; c.fillText('Thank you', w / 2, 106); }, 160, 128);
+  const tag = mesh(new THREE.PlaneGeometry(.15, .12), std('#ffffff', { map: jarTag }), .02, .2, .16); tag.rotation.set(0, .1, .05); jar.add(tag);
+  const coinGeo = new THREE.CylinderGeometry(.03, .03, .007, 20), coinM = std(C.gold, { metalness: .85, roughness: .25 });
+  const billM = std('#A9C99A', { roughness: .8, side: THREE.DoubleSide });
+  const pile: THREE.Object3D[] = [];
+  const addToPile = (o: THREE.Object3D) => {
+    const n = pile.length, r = Math.sqrt((n % 9) / 9) * .09, a = n * 2.4;
+    o.position.set(Math.cos(a) * r, .015 + Math.floor(n / 9) * .012, Math.sin(a) * r); o.rotation.set((rnd() - .5) * .5, rnd() * 6, (rnd() - .5) * .5);
+    jar.add(o); pile.push(o);
+  };
+  for (let i = 0; i < 46; i++) addToPile(i % 5 ? new THREE.Mesh(coinGeo, coinM) : new THREE.Mesh(new THREE.PlaneGeometry(.1, .05), billM));
+  const falling: { o: THREE.Object3D; v: number; spin: number }[] = [];
+  const heartTex = canvasTex((c, w) => { c.fillStyle = '#F07B4A'; heart(c, w / 2, 8, w - 16); }, 64, 64);
+  const hearts: { s: THREE.Sprite; age: number; dx: number }[] = [];
+
+  // ——— Steam over the soup at your seat.
+  const steamM2 = new THREE.MeshStandardMaterial({ color: '#ffffff', transparent: true, roughness: 1, emissive: '#ffffff', emissiveIntensity: .3, depthWrite: false });
+  const bowlSteam = Array.from({ length: 6 }, () => { const s = new THREE.Mesh(new THREE.SphereGeometry(.03, 10, 8), steamM2.clone()); scene.add(s); return s; });
+
+  // ——— First-person hands for the volunteer view, holding the next meal.
+  const hands = new THREE.Group(); hands.visible = false; hands.scale.setScalar(.6);
+  const sleeve = std(C.green), skinM = std(C.skin, { roughness: .55 });
+  for (const s of [-1, 1]) {
+    const arm = new THREE.Group(); arm.position.set(s * .17, -.2, -.38); arm.rotation.x = -.15; hands.add(arm);
+    arm.add(mesh(new THREE.CapsuleGeometry(.04, .2, 6, 12), sleeve, 0, 0, .08)).rotation.x = Math.PI / 2;
+    arm.add(mesh(new THREE.SphereGeometry(.045, 16, 12), skinM, 0, 0, -.08));
+  }
+  const handBox = mesh(rbox(.26, .09, .18, .03), std('#FFFDF6'), 0, -.15, -.5); hands.add(handBox);
+  handBox.add(mesh(new THREE.BoxGeometry(.262, .02, .182), std(C.orange), 0, 0, 0));
+  scene.add(hands);
+  let handPush = -1;
+
+  // ——— People and food, once the models arrive.
+  let crowd: Crowd | null = null, server: Actor | null = null, cook: Actor | null = null, founder: Actor | null = null, friend: Actor | null = null;
+  const helpers: { a: Actor; next: number; pool: string[] }[] = [];
+  let assets: Assets | null = null;
+  const place = (o: THREE.Object3D, parent: THREE.Object3D, x: number, y: number, z: number, ry = 0) => { o.position.set(x, y, z); o.rotation.y = ry; parent.add(o); return o; };
+  // Lighter devices download fewer characters (each carries its own animations).
+  loadAssets('/models', tier > 1 ? undefined : ['male-c', 'female-b', 'male-e', 'female-d', 'male-a', 'female-a', 'male-b', 'female-f', 'male-d']).then((A) => {
+    if (!alive) return;
+    assets = A;
+    // Volunteers inside the truck.
+    server = new Actor('male-c', A, HEIGHT / S); place(server.obj, win, winX - .45, .66, .9); server.play('idle', 0);
+    cook = new Actor('female-b', A, HEIGHT / S); place(cook.obj, win, winX + .55, .66, .8, -.5); cook.play('idle', 0);
+    helpers.push({ a: cook, next: 1, pool: ['interact-left', 'interact-right', 'pick-up', 'idle', 'emote-yes'] });
+    // Food on the counter and shelves.
+    const F = (id: FoodId, size: number, x: number, y: number, z: number, ry = 0) => place(A.food(id, size), win, x, y, z, ry);
+    F('styrofoam-dinner', .26, winX + .35, 1.53, 1.08, .2); F('styrofoam-dinner', .26, winX + .62, 1.53, 1.1, -.1); F('styrofoam-dinner', .26, winX + .48, 1.62, 1.09, .05);
+    F('pot-stew', .3, winX + .75, 1.52, .95); F('loaf-round', .18, winX + .1, 1.52, 1.12); F('apple', .07, winX + .3, 1.52, 1.18); F('orange', .07, winX + .38, 1.52, 1.12);
+    for (let i = 0; i < 5; i++) F((['pumpkin-basic', 'cabbage', 'carrot', 'tomato', 'corn'] as FoodId[])[i], .14, winX - .8 + i * .38, 2.38, .9, rnd() * 3);
+    // Your seat: a warm tray, and a friend across the table.
+    const tray: [FoodId, number, number, number][] = [['plate-dinner', .34, .45, .22], ['bowl-soup', .2, .4, .2], ['loaf-round', .13, .62, .12], ['apple', .07, .25, .35], ['mug', .1, .7, .34], ['utensil-spoon', .16, .2, .18]];
+    for (const [id, sz, x, z] of tray) place(A.food(id, sz), picnic, x, .83, z, rnd() * .4);
+    for (const [id, sz, x, z] of [['plate-dinner', .34, .45, -.25], ['salad', .18, .45, -.25], ['cup-tea', .09, .2, -.3]] as [FoodId, number, number, number][]) place(A.food(id, sz), picnic, x, .83, z);
+    friend = new Actor('female-d', A, HEIGHT); place(friend.obj, picnic, .45, SIT_Y - .14, -.95); friend.play('sit', 0);
+    founder = new Actor('male-a', A, HEIGHT); place(founder.obj, scene, 4.5, .14, 3.4, -.4); founder.play('idle', 0);
+    // Tables already set with food.
+    for (const s of seats) place(A.food((['salad', 'sandwich', 'bowl-broth', 'pie', 'rice-ball'] as FoodId[])[Math.floor(rnd() * 5)], .16), scene, s.pos.x - Math.sin(s.face) * .35, .97, s.pos.z - Math.cos(s.face) * .35);
+    crowd = new Crowd(scene, A, {
+      window: new THREE.Vector3(winX * S - .2, .14, 2.4), queueDir: new THREE.Vector3(-.88, 0, .48), seats,
+      entries: [new THREE.Vector3(-16, .14, 7.5), new THREE.Vector3(16, .14, 7), new THREE.Vector3(-16, .14, 3), new THREE.Vector3(16, .14, 9)],
+      exits: [new THREE.Vector3(-17, .14, 6), new THREE.Vector3(17, .14, 8), new THREE.Vector3(-17, .14, 9), new THREE.Vector3(17, .14, 4)],
+      max: tier > 1 ? 9 : 6, height: HEIGHT, exclude: ['male-c', 'female-b', 'male-e', 'female-d', 'male-a'],
+      meal: () => A.food('styrofoam-dinner', .3),
+      onOrder: () => server?.play('emote-yes', .25),
+      onServe: () => { server?.play('interact-right', .2); handPush = 0; },
+    });
+  }).catch(() => {});
 
   // ——— Picking.
-  const targets: Record<StationId, THREE.Object3D[]> = {
-    volunteer: [server.g, cook.g], donate: [jar], about: [board, founder.g, dog], resources: [picnic], contact: [mailbox],
-  };
+  const targets: Record<StationId, THREE.Object3D[]> = { volunteer: [interior], donate: [giving], about: [board], resources: [picnic], contact: [bulletin] };
   const owner = new Map<THREE.Object3D, StationId>();
-  for (const [id, list] of Object.entries(targets) as [StationId, THREE.Object3D[]][]) list.forEach((o) => o.traverse((c) => owner.set(c, id)));
-  const pickables = Object.values(targets).flat();
+  const claim = () => { owner.clear(); for (const [id, list] of Object.entries(targets) as [StationId, THREE.Object3D[]][]) list.forEach((o) => o.traverse((c) => owner.set(c, id))); };
+  claim();
+
+  // ——— Views. Volunteer and Get a meal are first person; Donate is a close-up of the jar.
+  const W = (o: THREE.Object3D, x: number, y: number, z: number) => o.localToWorld(new THREE.Vector3(x, y, z)).toArray() as View['pos'];
+  truck.updateMatrixWorld(true); win.updateMatrixWorld(true); picnic.updateMatrixWorld(true); board.updateMatrixWorld(true); bulletin.updateMatrixWorld(true);
+  const VIEWS: Record<StationId, View> = {
+    volunteer: { pos: W(win, winX - .3, 2.05, -.35), look: [winX * S - .4, 1.5, 2.8], fov: 56 },
+    donate: { pos: [3.15, 1.66, 4.2], look: [2.45, 1.2, 2.7], fov: 32 },
+    about: { pos: W(board, 0, 1.45, 1.25), look: W(board, 0, 1.45, 0), fov: 40 },
+    resources: { pos: W(picnic, .45, 1.3, 1.15), look: W(picnic, .45, 1.05, -.5), fov: 56 },
+    contact: { pos: W(bulletin, 0, 1.75, 2.2), look: W(bulletin, 0, 1.75, 0), fov: 40 },
+  };
 
   // ——— Camera: free look on desktop (drag to look around), eased flights to each station.
-  const camera = new THREE.PerspectiveCamera(30, 1, .1, 200);
+  const camera = new THREE.PerspectiveCamera(30, 1, .05, 200);
   const controls = new OrbitControls(camera, canvas);
   Object.assign(controls, {
     enableDamping: true, dampingFactor: .08, enablePan: false, rotateSpeed: .5, zoomSpeed: .6,
-    minDistance: 8, maxDistance: 24, minPolarAngle: .9, maxPolarAngle: 1.38, minAzimuthAngle: -.75, maxAzimuthAngle: .75,
+    minDistance: 9, maxDistance: 30, minPolarAngle: .9, maxPolarAngle: 1.38, minAzimuthAngle: -.75, maxAzimuthAngle: .75,
   });
-  let narrow = false, focused: StationId | null = null, flying = true, shift = 0;
+  let narrow = false, peeking = false, focused: StationId | null = null, flying = true, shift = 0, fovGoal = 30;
+  const baseFov = () => (narrow ? 40 : 30);
   const overview = () => (narrow ? OVERVIEW_NARROW : OVERVIEW);
-  const station = (id: StationId): View => {
-    if (!narrow) return VIEWS[id];
-    const v = VIEWS[id], l = v.look;
-    // Phones: back off and aim lower so the subject sits above the bottom sheet.
+  const station = (id: StationId, peek = false): View => {
+    const v = VIEWS[id];
+    // Browsing on a phone: look at each station from outside; first person starts once it's opened.
+    if (peek) { const a = ANCHORS[id]; return { pos: [a[0] + .8, a[1] + 1.4, a[2] + 7.5], look: [a[0], a[1] - 1.2, a[2]] }; }
+    if (narrow && v.fov) return { pos: v.pos, look: [v.look[0], v.look[1] - .5, v.look[2]], fov: v.fov + 10 };
+    if (!narrow || v.fov) return v;
+    const l = v.look;
     return { pos: [v.pos[0] + (v.pos[0] - l[0]) * 1.1, v.pos[1] + 1.4, v.pos[2] + (v.pos[2] - l[2]) * 1.1], look: [l[0], l[1] - .5, l[2]] };
   };
   let goal = overview();
   camera.position.set(...goal.pos); controls.target.set(...goal.look);
-  // Opening shot: start high and wide, then settle in.
-  if (!reduce) camera.position.set(goal.pos[0] - 6, goal.pos[1] + 7, goal.pos[2] + 10);
+  if (!reduce) camera.position.set(goal.pos[0] - 6, goal.pos[1] + 8, goal.pos[2] + 10);
 
   function resize() {
     const w = canvas.clientWidth, h = canvas.clientHeight; if (!w || !h) return;
     renderer.setSize(w, h, false);
-    camera.aspect = w / h; narrow = w / h < 1; camera.fov = narrow ? 40 : 30;
-    if (!focused) { goal = overview(); flying = true; }
+    camera.aspect = w / h; narrow = w / h < 1;
+    if (!focused) { goal = overview(); flying = true; fovGoal = baseFov(); }
     camera.updateProjectionMatrix();
   }
   const ro = new ResizeObserver(resize); ro.observe(canvas); resize();
+  camera.fov = fovGoal; camera.updateProjectionMatrix();
 
   const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
   let hover: StationId | null = null;
@@ -427,18 +483,22 @@ export function mountTruck(
     const r = canvas.getBoundingClientRect();
     ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(ndc, camera);
-    for (const hit of ray.intersectObjects(pickables, true)) { const id = owner.get(hit.object); if (id) return id; }
+    const list = [...Object.values(targets).flat(), ...(server ? [server.obj, cook!.obj] : []), ...(founder ? [founder.obj, dog] : [])];
+    for (const hit of ray.intersectObjects(list, true)) {
+      let o: THREE.Object3D | null = hit.object;
+      while (o) { if (owner.has(o)) return owner.get(o)!; if (o === server?.obj || o === cook?.obj) return 'volunteer'; if (o === founder?.obj || o === dog) return 'about'; o = o.parent; }
+    }
     return null;
   };
   const onMove = (e: PointerEvent) => {
-    hover = e.pointerType === 'mouse' ? pick(e) : null;
+    hover = e.pointerType === 'mouse' && !focused ? pick(e) : null;
     canvas.style.cursor = hover ? 'pointer' : focused ? '' : 'grab';
     for (const [id, el] of Object.entries(labels)) el?.classList.toggle('hot', id === hover);
   };
   let down: { x: number; y: number } | null = null;
   const onDown = (e: PointerEvent) => { down = { x: e.clientX, y: e.clientY }; };
   const onUp = (e: PointerEvent) => {
-    if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) return;
+    if (focused || !down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) return;
     const id = pick(e); if (id) onSelect(id);
   };
   canvas.addEventListener('pointermove', onMove);
@@ -451,42 +511,63 @@ export function mountTruck(
       v.set(...ANCHORS[id]).project(camera);
       const half = el.offsetWidth / 2 + 8;
       el.style.transform = `translate(${Math.min(w - half, Math.max(half, (v.x * .5 + .5) * w))}px, ${(-v.y * .5 + .5) * h}px) translate(-50%, -100%)`;
-      el.classList.toggle('off', v.z > 1 || (focused !== null && focused !== id));
+      el.classList.toggle('off', v.z > 1 || (focused !== null && (!peeking || focused !== id)));
     }
   }
 
-  const pose = (p: Person, t: number, ph: number) => { p.head.rotation.y = Math.sin(t * .5 + ph) * .3; p.body.rotation.z = Math.sin(t * 1.2 + ph) * .02; };
-  let last = 0;
+  let last = 0, alive = true;
+  let slow = 0, sampled = 0;
   function frame(t: number) {
-    const dt = Math.min(.05, t - last); last = t;
+    const raw = t - last, dt = Math.min(.05, raw); last = t;
+    // Adaptive quality: if frames average over ~28 ms for a couple of seconds, drop a tier.
+    if (tier > 0 && t > 3 && raw < .5) {
+      slow += raw > .028 ? 1 : 0; sampled++;
+      if (sampled >= 120) {
+        if (slow / sampled > .5) { tier--; applyTier(); sun.shadow.map?.dispose(); sun.shadow.map = null; resize(); crowd?.limit(tier ? 7 : 5); }
+        slow = sampled = 0;
+      }
+    }
     const k = reduce ? 1 : 1 - Math.exp(-dt * 2.6);
     controls.enabled = !focused && !narrow && !flying;
     if (flying) {
       camera.position.lerp(v.set(...goal.pos), k);
       controls.target.lerp(v2.set(...goal.look), k);
-      if (camera.position.distanceTo(v) < .05 && controls.target.distanceTo(v2) < .05) flying = !!focused;
+      if (camera.position.distanceTo(v) < .03 && controls.target.distanceTo(v2) < .03) flying = !!focused;
       camera.lookAt(controls.target);
     } else controls.update();
+    if (Math.abs(camera.fov - fovGoal) > .01) { camera.fov += (fovGoal - camera.fov) * k; camera.updateProjectionMatrix(); }
     const w = canvas.clientWidth, h = canvas.clientHeight;
-    shift += ((narrow || !focused ? 0 : .2) - shift) * k;
+    const pov = focused === 'volunteer' || focused === 'resources' || focused === 'donate', full = focused === 'about' || focused === 'contact';
+    shift += ((narrow || !focused || full || peeking ? 0 : pov ? .12 : .2) - shift) * k;
     camera.setViewOffset(w, h, shift * w, 0, w, h);
 
-    // Life around the truck.
-    server.armR.s.rotation.x = -1.2 + Math.sin(t * 2.2) * .25; server.armR.fore.rotation.x = -.6;
-    server.armL.s.rotation.z = focused === 'volunteer' ? -2.6 + Math.sin(t * 7) * .25 : -.15;
-    server.head.rotation.y = focused === 'volunteer' ? 0 : Math.sin(t * .6) * .3;
-    cook.armL.s.rotation.x = -1 + Math.sin(t * 3) * .3; cook.armR.s.rotation.x = -1 + Math.cos(t * 3) * .3; cook.head.rotation.x = .2;
-    founder.armR.s.rotation.x = -.4 + Math.sin(t * 1.5) * .35; founder.armR.fore.rotation.x = -.8;
-    founder.armL.s.rotation.z = focused === 'about' ? -2.6 + Math.sin(t * 7) * .25 : 0;
-    pose(founder, t, 1);
-    queue.forEach((p, i) => { pose(p, t, i * 1.7); p.hips.position.y = .82 + Math.abs(Math.sin(t * 1.6 + i)) * .012; });
-    queue[2].armL.s.rotation.z = -.4 + Math.sin(t * 2) * .2;
-    diners.forEach((p, i) => { p.armR.s.rotation.x = -1.1 + Math.max(0, Math.sin(t * 1.6 + i * 2)) * .5; p.armR.fore.rotation.x = -1; p.head.rotation.x = Math.sin(t * 1.6 + i * 2) * .08; });
-    // The walker strolls the plaza with a fresh meal.
-    const wp = (t * .05) % 1, wx = -9 + wp * 18;
-    walker.g.position.set(wx, .14, 6.2 + Math.sin(wp * Math.PI * 2) * .4); walker.g.rotation.y = Math.PI / 2;
-    walker.legs.forEach((l, i) => (l.rotation.x = Math.sin(t * 6 + i * Math.PI) * .45));
-    walker.armL.s.rotation.x = Math.sin(t * 6) * .4; walker.armR.s.rotation.x = -.9;
+    // First person: you are the volunteer at the window.
+    const inTruck = focused === 'volunteer' && camera.position.distanceTo(v.set(...VIEWS.volunteer.pos)) < .6;
+    interior.visible = !inTruck; if (server) server.obj.visible = !inTruck; if (cook) cook.obj.visible = !inTruck;
+    hands.visible = inTruck;
+    if (inTruck) {
+      hands.position.copy(camera.position); hands.quaternion.copy(camera.quaternion);
+      if (handPush >= 0) { handPush += dt / .9; if (handPush > 1) handPush = -1; }
+      const p = handPush < 0 ? 0 : Math.sin(handPush * Math.PI);
+      hands.children.forEach((c, i) => { if (c !== handBox) c.position.z = -.38 - p * .25; void i; });
+      handBox.position.z = -.5 - p * .3; handBox.visible = handPush < .5;
+      hands.position.y += Math.sin(t * 1.5) * .004 - .06;
+    }
+
+    // Life.
+    crowd?.update(dt);
+    // Nobody walks through a first-person camera.
+    if (crowd) for (const n of crowd.npcs) n.a.obj.visible = !focused || n.a.obj.position.distanceTo(camera.position) > 1.8;
+    for (const a of [server, founder, friend]) a?.mixer.update(dt);
+    for (const hp of helpers) {
+      hp.a.mixer.update(dt); hp.next -= dt;
+      if (hp.next <= 0) { hp.a.play(hp.pool[Math.floor(Math.random() * hp.pool.length)] as never, .35); hp.next = 1.5 + Math.random() * 3; }
+    }
+    if (server?.cur && server.cur.loop === THREE.LoopOnce && !server.cur.isRunning()) server.play('idle', .4);
+    if (founder) { if (focused === 'about' && founder.cur !== founder.actions.get('emote-yes')) founder.play('emote-yes'); else if (focused !== 'about' && founder.cur && !founder.cur.isRunning()) founder.play('idle'); }
+    if (friend && Math.random() < dt * .08) friend.play('emote-yes', .4);
+    if (friend?.cur && friend.cur.loop === THREE.LoopOnce && !friend.cur.isRunning()) friend.play('sit', .4);
+
     tail.rotation.x = Math.sin(t * 12) * .6; dogHead.rotation.z = Math.sin(t * 1.3) * .15;
     roofSign.rotation.y = Math.sin(t * .5) * .02;
     bulbs.forEach((b, i) => ((b.material as THREE.MeshStandardMaterial).emissiveIntensity = 1.2 + Math.sin(t * 2 + i) * .25));
@@ -498,18 +579,35 @@ export function mountTruck(
     });
     steam.forEach((s, i) => {
       const age = (t * .28 + i / steam.length) % 1, src = s.userData.src;
-      s.position.set(src ? .9 + Math.sin(age * 6 + i) * .1 : winX - .7 + Math.sin(age * 5 + i) * .1, (src ? 3.5 : 2.6) + age * 1.4, src ? -.3 : 1.2);
-      s.scale.setScalar(.8 + age * 3); (s.material as THREE.MeshStandardMaterial).opacity = .55 * (1 - age);
+      s.position.set(src ? .9 * S + Math.sin(age * 6 + i) * .1 : (winX + .75) * S + Math.sin(age * 5 + i) * .1, (src ? 3.5 * S : 2.1 * S) + age * 1.4, src ? -.3 * S : 1.0 * S);
+      s.scale.setScalar(.8 + age * 3); (s.material as THREE.MeshStandardMaterial).opacity = .5 * (1 - age);
     });
+    const bowl = v.copy(picnic.localToWorld(v2.set(.4, 1, .2)));
+    bowlSteam.forEach((s, i) => {
+      const age = (t * .3 + i / bowlSteam.length) % 1;
+      s.position.set(bowl.x + Math.sin(age * 6 + i) * .03, bowl.y + age * .45, bowl.z);
+      s.scale.setScalar(.6 + age * 2.4); (s.material as THREE.MeshStandardMaterial).opacity = .28 * (1 - age);
+    });
+    // Gifts falling into the jar, and hearts rising out of it.
+    for (let i = falling.length - 1; i >= 0; i--) {
+      const f = falling[i]; f.v += dt * 2.2; f.o.position.y -= f.v * dt; f.o.rotation.x += f.spin * dt;
+      if (f.o.position.y <= .02 + Math.floor(pile.length / 9) * .012) { falling.splice(i, 1); f.o.removeFromParent(); addToPile(f.o); }
+    }
+    for (let i = hearts.length - 1; i >= 0; i--) {
+      const hh = hearts[i]; hh.age += dt / 2.4;
+      hh.s.position.y += dt * .22; hh.s.position.x += Math.sin(hh.age * 8) * .002 + hh.dx * dt;
+      hh.s.material.opacity = Math.sin(Math.min(1, hh.age) * Math.PI);
+      if (hh.age >= 1) { hh.s.removeFromParent(); hearts.splice(i, 1); }
+    }
     for (const [id, list] of Object.entries(targets) as [StationId, THREE.Object3D[]][]) {
-      if (id === 'volunteer' || id === 'about') continue;
-      const s = id === hover ? 1.05 : 1; list.forEach((o) => o.scale.lerp(v.set(s, s, s), .2));
+      if (id === 'volunteer' || id === 'donate') continue;
+      const s = id === hover ? 1.04 : 1; list.forEach((o) => o.scale.lerp(v.set(s, s, s), .2));
     }
     renderer.render(scene, camera);
     placeLabels(w, h);
   }
 
-  let raf = 0, visible = true, alive = true;
+  let raf = 0, visible = true;
   const start = performance.now();
   const tick = () => { if (!visible || !alive) return; frame((performance.now() - start) / 1000); raf = requestAnimationFrame(tick); };
   const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; cancelAnimationFrame(raf); if (visible) tick(); });
@@ -517,10 +615,24 @@ export function mountTruck(
   tick();
 
   return {
-    focus(id) {
-      if (!focused && !flying) { goal = { pos: camera.position.toArray() as View['pos'], look: controls.target.toArray() as View['look'] }; }
-      focused = id; goal = id ? station(id) : overview(); flying = true;
-      if (reduce) frame(8);
+    focus(id, peek = false) {
+      focused = id; peeking = peek; goal = id ? station(id, peek) : overview(); flying = true;
+      fovGoal = (id && !peek && goal.fov) || baseFov();
+      if (reduce) { camera.fov = fovGoal; camera.updateProjectionMatrix(); frame(8); }
+    },
+    give(amount) {
+      // A coin (and the odd bill) for every five dollars, capped so it stays a gentle shower.
+      const n = Math.min(14, Math.max(2, Math.round(amount / 5)));
+      for (let i = 0; i < n; i++) {
+        const o = i % 4 === 3 ? new THREE.Mesh(new THREE.PlaneGeometry(.1, .05), billM) : new THREE.Mesh(coinGeo, coinM);
+        o.position.set((rnd() - .5) * .1, .55 + i * .07, (rnd() - .5) * .1); jar.add(o);
+        falling.push({ o, v: 0, spin: 4 + rnd() * 8 });
+      }
+      for (let i = 0; i < Math.min(8, 2 + n / 2); i++) {
+        const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: heartTex, transparent: true, opacity: 0, depthWrite: false }));
+        s.scale.setScalar(.05 + rnd() * .04); s.position.copy(jar.localToWorld(new THREE.Vector3((rnd() - .5) * .2, .35 + rnd() * .1, (rnd() - .5) * .1)));
+        scene.add(s); hearts.push({ s, age: -i * .15, dx: (rnd() - .5) * .08 });
+      }
     },
     dispose() {
       alive = false; cancelAnimationFrame(raf); ro.disconnect(); io.disconnect(); controls.dispose();
