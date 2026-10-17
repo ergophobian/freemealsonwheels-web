@@ -79,3 +79,18 @@ export function listSignups(kitchen: Kitchen, date: string): Signup[] {
 }
 
 export function resetDemo() { try { localStorage.removeItem(KEY); } catch {} }
+
+// Volunteer account helpers (temporary: matched by email; Firebase Auth replaces this).
+export function signupsFor(email: string): Signup[] {
+  const e = email.trim().toLowerCase();
+  return load().filter((s) => s.email.toLowerCase() === e && s.status !== 'cancelled').sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export function reschedule(id: string, patch: Partial<Pick<Signup, 'kitchen' | 'date' | 'role' | 'party'>>): Signup | null {
+  const all = load(), s = all.find((x) => x.id === id); if (!s) return null;
+  const next = { ...s, ...patch };
+  const free = spotsLeft(next.kitchen, next.date, next.role) + (s.kitchen === next.kitchen && s.date === next.date && s.role === next.role && s.status === 'booked' ? s.party : 0);
+  next.status = free >= next.party ? 'booked' : 'waitlist';
+  save(all.map((x) => (x.id === id ? next : x)));
+  return next;
+}
