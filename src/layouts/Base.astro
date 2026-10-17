@@ -101,6 +101,7 @@ const nav = [
 
   .site-header { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
   .bar { display: flex; align-items: center; justify-content: space-between; height: 68px; }
+  .brand img { width: 40px; height: 40px; object-fit: contain; }
   .brand { display: flex; align-items: center; gap: .6rem; font-weight: 650; letter-spacing: -.02em; font-size: 1.15rem; text-decoration: none; margin: 0; }
   nav { display: flex; align-items: center; gap: 1.6rem; }
   nav a { text-decoration: none; font-weight: 500; }
@@ -115,7 +116,9 @@ const nav = [
   }
 
   .site-footer { background: var(--green); color: #e9f1ea; padding: 64px 0 28px; }
-  .site-footer .muted, .site-footer h4, .footer-grid a { color: rgb(233 241 234 / .7); }
+  .site-footer .muted, .site-footer h4 { color: rgb(233 241 234 / .75); }
+  .footer-grid a { color: #f1f6f1; }
+  .site-footer h4 { color: var(--gold); }
   .footer-grid { display: grid; gap: 32px; grid-template-columns: 2fr 1fr 1fr; margin-bottom: 24px; }
   .footer-grid a { display: block; text-decoration: none; margin-bottom: .4rem; color: var(--muted); }
   .footer-grid a:hover { color: var(--gold); }

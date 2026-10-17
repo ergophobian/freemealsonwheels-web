@@ -42,7 +42,7 @@ const programs = [
         <a href="/volunteer" class="btn">See open spots</a>
       </div>
       <figure class="photo-stack">
-        <img src="/img/handoff.jpg" alt="A meal being handed to a neighbor" />
+        <img src="/img/smile.webp" alt="A smiling neighbor receiving a meal" />
         <img src="/img/boxes.jpg" alt="Volunteers packing boxes" />
       </figure>
     </div>
@@ -50,8 +50,8 @@ const programs = [
 
   <section class="quote">
     <div class="wrap">
-      <img src="/logo.png" alt="" width="56" height="56" />
-      <blockquote>“A fresh, hot, and nutritious meal is not just satiating, but more importantly, enabling and liberating.”</blockquote>
+      <span class="mark">“</span>
+      <blockquote>A fresh, hot, and nutritious meal is not just satiating, but more importantly, enabling and liberating.</blockquote>
       <p>Free Meals on Wheels mission</p>
     </div>
   </section>
@@ -113,7 +113,7 @@ const programs = [
   .photo-stack img:last-child { inset: 40% 0 0 34%; width: 66%; height: 60%; border: 6px solid var(--bg); }
 
   .quote { background: var(--green); color: #fff; padding: clamp(64px, 10vw, 120px) 0; text-align: center; }
-  .quote img { margin: 0 auto 20px; filter: brightness(0) invert(1); opacity: .85; }
+  .quote .mark { display: block; font-size: 5rem; line-height: .6; color: var(--gold); margin-bottom: 12px; }
   .quote blockquote { margin: 0 auto; max-width: 28ch; font-size: clamp(1.6rem, 3.6vw, 2.5rem); font-weight: 600; letter-spacing: -.02em; line-height: 1.25; }
   .quote p { color: var(--gold); margin-top: 20px; }
 
