@@ -1,0 +1,115 @@
+---
+interface Props { title: string; description?: string }
+const { title, description = 'Free Meals on Wheels cooks and delivers free, fresh meals to neighbors in need across the Bay Area.' } = Astro.props;
+const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+const nav = [
+  ['/about', 'About'],
+  ['/programs', 'Programs'],
+  ['/volunteer', 'Volunteer'],
+  ['/resources', 'Resources'],
+  ['/contact', 'Contact'],
+];
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{title === 'Home' ? 'Free Meals on Wheels' : `${title} · Free Meals on Wheels`}</title>
+  <meta name="description" content={description} />
+  <link rel="icon" href="/logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap bar">
+      <a href="/" class="brand"><img src="/logo.png" alt="" width="36" height="36" /> Free Meals on Wheels</a>
+      <input type="checkbox" id="menu" class="menu-toggle" aria-label="Open menu" />
+      <label for="menu" class="menu-btn" aria-hidden="true"><span></span></label>
+      <nav>
+        {nav.map(([href, label]) => <a href={href} aria-current={path === href ? 'page' : undefined}>{label}</a>)}
+        <a href="/donate" class="btn btn-sm">Donate</a>
+      </nav>
+    </div>
+  </header>
+  <main><slot /></main>
+  <footer class="site-footer">
+    <div class="wrap footer-grid">
+      <div>
+        <p class="brand"><img src="/logo.png" alt="" width="32" height="32" /> Free Meals on Wheels</p>
+        <p class="muted">Bringing smiles, one meal at a time. A 501(c)(3) nonprofit with kitchens in San Jose and San Ramon.</p>
+      </div>
+      <div>
+        <h4>Get involved</h4>
+        <a href="/donate">Donate</a><a href="/volunteer">Volunteer</a><a href="/programs">Programs</a>
+      </div>
+      <div>
+        <h4>Say hello</h4>
+        <a href="mailto:info@freemealsonwheels.com">info@freemealsonwheels.com</a>
+        <a href="https://www.instagram.com/freemealsonwheels/">Instagram</a>
+        <a href="https://www.facebook.com/Freemeals20/">Facebook</a>
+      </div>
+    </div>
+    <p class="wrap muted small">© {new Date().getFullYear()} Free Meals on Wheels. Every dollar goes to meals.</p>
+  </footer>
+</body>
+</html>
+
+<style is:global>
+  :root {
+    --bg: #fbf8f3; --surface: #ffffff; --ink: #1f2a24; --muted: #5d6b63;
+    --brand: #d9480f; --brand-ink: #ffffff; --accent: #2f6b4f; --soft: #f3ece1; --line: #e7dfd2;
+    --radius: 18px; --shadow: 0 10px 30px -12px rgb(31 42 36 / .18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #141815; --surface: #1c221e; --ink: #eef1ec; --muted: #a3b0a8; --brand: #ff7a3d; --brand-ink: #1a0f08; --accent: #7ccaa2; --soft: #222a25; --line: #2e3631; }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 400 17px/1.6 Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: Fraunces, Georgia, serif; line-height: 1.12; letter-spacing: -.01em; margin: 0 0 .5em; }
+  h1 { font-size: clamp(2.4rem, 6vw, 4.2rem); }
+  h2 { font-size: clamp(1.8rem, 4vw, 2.6rem); }
+  h3 { font-size: 1.3rem; }
+  h4 { font-size: .95rem; margin: 0 0 .6rem; color: var(--muted); font-weight: 600; }
+  a { color: inherit; }
+  img { max-width: 100%; display: block; }
+  .wrap { width: min(1120px, 100% - 32px); margin-inline: auto; }
+  .muted { color: var(--muted); }
+  .small { font-size: .85rem; }
+  .section { padding: clamp(56px, 9vw, 110px) 0; }
+  .section.alt { background: var(--soft); }
+  .lead { font-size: 1.2rem; color: var(--muted); max-width: 60ch; }
+  .eyebrow { color: var(--brand); font-weight: 600; margin-bottom: .6rem; }
+  .btn { display: inline-flex; align-items: center; gap: .4rem; background: var(--brand); color: var(--brand-ink); padding: .85rem 1.4rem; border-radius: 999px; font-weight: 600; text-decoration: none; border: 0; cursor: pointer; transition: transform .15s, box-shadow .15s; }
+  .btn:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+  .btn.ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--line); }
+  .btn-sm { padding: .55rem 1.1rem; }
+  .grid { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .card { background: var(--surface); border-radius: var(--radius); padding: 28px; box-shadow: var(--shadow); }
+  .card p:last-child { margin-bottom: 0; }
+
+  .site-header { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+  .bar { display: flex; align-items: center; justify-content: space-between; height: 68px; }
+  .brand { display: flex; align-items: center; gap: .6rem; font-family: Fraunces, serif; font-weight: 700; font-size: 1.15rem; text-decoration: none; margin: 0; }
+  nav { display: flex; align-items: center; gap: 1.6rem; }
+  nav a { text-decoration: none; font-weight: 500; }
+  nav a:not(.btn):hover, nav a[aria-current] { color: var(--brand); }
+  .menu-toggle, .menu-btn { display: none; }
+  @media (max-width: 820px) {
+    .menu-btn { display: block; width: 28px; height: 20px; position: relative; cursor: pointer; }
+    .menu-btn span, .menu-btn::before, .menu-btn::after { content: ''; position: absolute; left: 0; right: 0; height: 2px; background: var(--ink); }
+    .menu-btn::before { top: 0; } .menu-btn span { top: 9px; } .menu-btn::after { bottom: 0; }
+    nav { display: none; position: absolute; top: 68px; left: 0; right: 0; flex-direction: column; align-items: flex-start; padding: 16px; gap: 1rem; background: var(--bg); border-bottom: 1px solid var(--line); }
+    .menu-toggle:checked ~ nav { display: flex; }
+  }
+
+  .site-footer { border-top: 1px solid var(--line); padding: 56px 0 28px; }
+  .footer-grid { display: grid; gap: 32px; grid-template-columns: 2fr 1fr 1fr; margin-bottom: 24px; }
+  .footer-grid a { display: block; text-decoration: none; margin-bottom: .4rem; color: var(--muted); }
+  .footer-grid a:hover { color: var(--brand); }
+  @media (max-width: 720px) { .footer-grid { grid-template-columns: 1fr; } }
+
+  .page-hero { padding: clamp(56px, 9vw, 100px) 0 24px; }
+</style>

@@ -1,0 +1,30 @@
+---
+import Base from '../layouts/Base.astro';
+const shifts = [
+  ['Cooking and prepping', '7:00 – 10:00 AM', 'Chop, stir and cook alongside our kitchen leads.'],
+  ['Packing and boxing', '9:30 – 11:00 AM', 'Portion and pack meals ready for the road.'],
+  ['Delivery', '11:00 AM – 1:00 PM', 'Bring meals to neighbors. A car is required.'],
+  ['Kitchen clean up', '11:00 AM', 'Help us reset the kitchen for next week.'],
+];
+---
+<Base title="Volunteer" description="Saturday volunteer shifts at Free Meals on Wheels.">
+  <section class="wrap page-hero">
+    <p class="eyebrow">Every Saturday</p>
+    <h1>Volunteer with us</h1>
+    <p class="lead">Come for one shift or the whole morning. No experience needed, just bring yourself.</p>
+  </section>
+  <section class="wrap section" style="padding-top:24px">
+    <div class="grid">
+      {shifts.map(([name, time, text]) => (
+        <article class="card"><p class="eyebrow">{time}</p><h3>{name}</h3><p class="muted">{text}</p></article>
+      ))}
+    </div>
+  </section>
+  <section class="section alt">
+    <div class="wrap">
+      <h2>Groups and celebrations</h2>
+      <p class="lead">Host a birthday, a school service day or a corporate team-building morning in our kitchen.</p>
+      <a class="btn" href="mailto:info@freemealsonwheels.com?subject=Volunteer%20sign%20up">Sign up to volunteer</a>
+    </div>
+  </section>
+</Base>

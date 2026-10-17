@@ -1,0 +1,35 @@
+---
+import Base from '../layouts/Base.astro';
+// Replace with the live Stripe Payment Link used by the mobile app.
+const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
+const amounts = [10, 25, 50, 100, 250, 500];
+---
+<Base title="Donate" description="Sponsor a meal. Every penny goes to meals.">
+  <section class="wrap page-hero">
+    <p class="eyebrow">100% to meals</p>
+    <h1>Feed a neighbor</h1>
+    <p class="lead">Every penny of every donation goes directly to impact programming.</p>
+  </section>
+  <section class="wrap section" style="padding-top:24px">
+    <div class="grid">
+      <article class="card">
+        <h3>Give an amount</h3>
+        <div class="amounts">
+          {amounts.map((a) => <a class="chip" href={STRIPE_LINK}>${a}</a>)}
+        </div>
+        <a class="btn" href={STRIPE_LINK}>Donate securely</a>
+        <p class="muted small">Payments are handled by Stripe. One-time or monthly.</p>
+      </article>
+      <article class="card" id="winter">
+        <h3>Meal and a blanket</h3>
+        <p class="muted">Our winter drive pairs a hot meal with a warm blanket for unhoused neighbors.</p>
+        <a class="btn ghost" href={STRIPE_LINK}>Give warmth</a>
+      </article>
+    </div>
+  </section>
+</Base>
+<style>
+  .amounts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0 20px; }
+  .chip { text-align: center; padding: .8rem; border-radius: 12px; background: var(--soft); text-decoration: none; font-weight: 600; }
+  .chip:hover { background: var(--brand); color: var(--brand-ink); }
+</style>
