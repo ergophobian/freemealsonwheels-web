@@ -18,6 +18,7 @@ const nav = [
   <title>{title === 'Home' ? 'Free Meals on Wheels' : `${title} · Free Meals on Wheels`}</title>
   <meta name="description" content={description} />
   <link rel="icon" href="/logo.png" />
+  <script is:inline>if (new URLSearchParams(location.search).has('embed')) document.documentElement.classList.add('embed');</script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </head>
@@ -57,6 +58,9 @@ const nav = [
 </html>
 
 <style is:global>
+  html.embed .site-header, html.embed .site-footer { display: none; }
+  html.embed body { background: transparent; }
+  html.embed main > .page-hero:first-child { padding-top: 28px; }
   :root {
     /* Brand: deep forest green carries the page, orange is reserved for actions, gold from the logo ties them. */
     --green: #1f4d34; --green-2: #2f6b4a; --orange: #e8681c; --gold: #e2c27a; --cream: #fbf6ee;

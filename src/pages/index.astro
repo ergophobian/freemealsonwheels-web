@@ -2,26 +2,38 @@
 import Base from '../layouts/Base.astro';
 ---
 <Base title="Home">
-  <section class="hero" id="hero">
-    <div class="hero-stage">
-      <canvas class="hero-canvas" id="painted" aria-hidden="true"></canvas>
-      <div class="wrap hero-inner">
-        <div class="beat" id="beat1">
-          <span class="eyebrow">San Jose and San Ramon · every Saturday</span>
-          <h1>Dignity starts with a full belly.</h1>
-          <p>Our volunteers cook, pack and deliver fresh, hot meals to neighbors who need them.</p>
-          <div class="actions">
-            <a href="/volunteer" class="btn">Volunteer this Saturday</a>
-            <a href="/donate" class="btn ghost">Donate a meal</a>
-          </div>
-        </div>
-        <div class="beat" id="beat2" aria-hidden="true">
-          <h2>One meal.<br />One neighbor.<br />Every week.</h2>
-          <p>That is the whole idea. You can be part of it this Saturday.</p>
-        </div>
-      </div>
-      <span class="scroll-hint" id="hint">Scroll</span>
+  <section class="kitchen" id="kitchen">
+    <canvas class="kitchen-canvas" id="painted" aria-hidden="true"></canvas>
+    <div class="intro wrap">
+      <span class="eyebrow">San Jose and San Ramon · every Saturday</span>
+      <h1>Dignity starts with a full belly.</h1>
+      <p class="hint-desktop">Step into our kitchen. Click the clipboard to volunteer, or the jar to give.</p>
+      <p class="hint-mobile">Swipe around the kitchen and tap what you need.</p>
     </div>
+    <div class="labels" id="labels">
+      <button data-station="volunteer"><b>Volunteer</b><small>Pick a Saturday shift</small></button>
+      <button data-station="donate"><b>Donate</b><small>$10 feeds a neighbor</small></button>
+      <button data-station="about"><b>Our story</b><small>Where the meals go</small></button>
+      <button data-station="resources"><b>Resources</b><small>Find a meal near you</small></button>
+      <button data-station="contact"><b>Contact</b><small>Say hello</small></button>
+    </div>
+    <div class="swiper" id="swiper">
+      <button id="prev" aria-label="Previous">‹</button>
+      <span id="dots"></span>
+      <button id="next" aria-label="Next">›</button>
+    </div>
+    <div class="quick">
+      <button class="btn" data-open="volunteer">Volunteer</button>
+      <button class="btn ghost" data-open="donate">Donate</button>
+    </div>
+    <aside class="panel" id="panel" aria-hidden="true">
+      <div class="panel-bar">
+        <b id="panel-title"></b>
+        <a id="panel-full" href="#">Full page</a>
+        <button id="panel-close" aria-label="Back to the kitchen">×</button>
+      </div>
+      <iframe id="panel-frame" title="Page"></iframe>
+    </aside>
   </section>
 
   <section class="wrap impact">
@@ -76,23 +88,57 @@ import Base from '../layouts/Base.astro';
 </Base>
 
 <script>
-  import { mountPaintedScene } from '../lib/painted-scene';
-  const clamp = (x: number) => Math.max(0, Math.min(1, x));
+  import { mountKitchen, type StationId } from '../lib/kitchen-scene';
   import { ROLES, upcomingSaturdays, spotsLeft } from '../lib/store';
-  const hero = document.getElementById('hero')!;
-  const heroProgress = () => clamp((-hero.getBoundingClientRect().top) / (hero.offsetHeight - innerHeight));
-  mountPaintedScene(document.getElementById('painted') as HTMLCanvasElement, heroProgress);
-  const beat1 = document.getElementById('beat1')!, beat2 = document.getElementById('beat2')!, hint = document.getElementById('hint')!;
-  const onScroll = () => {
-    const p = heroProgress();
-    beat1.style.opacity = String(1 - clamp((p - .25) / .2));
-    beat1.style.transform = `translateY(${-p * 60}px)`;
-    beat2.style.opacity = String(clamp((p - .55) / .2));
-    beat2.style.transform = `translateY(${(1 - clamp((p - .55) / .25)) * 30}px)`;
-    beat1.style.pointerEvents = p > .4 ? 'none' : 'auto';
-    hint.style.opacity = String(1 - clamp(p / .1));
-  };
-  addEventListener('scroll', onScroll, { passive: true }); onScroll();
+  const ORDER: StationId[] = ['volunteer', 'donate', 'about', 'resources', 'contact'];
+  const TITLES: Record<StationId, string> = { volunteer: 'Volunteer', donate: 'Donate', about: 'Our story', resources: 'Resources', contact: 'Contact' };
+  const root = document.getElementById('kitchen')!, panel = document.getElementById('panel')!, frame = document.getElementById('panel-frame') as HTMLIFrameElement;
+  const labels = Object.fromEntries([...document.querySelectorAll<HTMLElement>('#labels button')].map((b) => [b.dataset.station, b])) as Record<StationId, HTMLElement>;
+  const mobile = () => innerWidth < 760;
+  let idx = 0, openTimer = 0;
+
+  const api = mountKitchen(document.getElementById('painted') as HTMLCanvasElement, labels, (id) => open(id));
+  if (!api) root.classList.add('no-gl');
+
+  function open(id: StationId) {
+    idx = ORDER.indexOf(id); syncDots();
+    api?.focus(id);
+    clearTimeout(openTimer);
+    openTimer = window.setTimeout(() => {
+      if (!frame.src.includes(`/${id}?`)) frame.src = `/${id}?embed=1`;
+      document.getElementById('panel-title')!.textContent = TITLES[id];
+      (document.getElementById('panel-full') as HTMLAnchorElement).href = `/${id}`;
+      root.classList.add('open'); panel.setAttribute('aria-hidden', 'false');
+    }, api ? 650 : 0);
+  }
+  function close() {
+    clearTimeout(openTimer);
+    root.classList.remove('open'); panel.setAttribute('aria-hidden', 'true');
+    api?.focus(mobile() ? ORDER[idx] : null);
+  }
+  for (const [id, el] of Object.entries(labels)) el.onclick = () => open(id as StationId);
+  document.querySelectorAll<HTMLElement>('[data-open]').forEach((b) => (b.onclick = () => open(b.dataset.open as StationId)));
+  document.getElementById('panel-close')!.onclick = close;
+  addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+
+  // Phones: swipe or tap arrows to walk between stations.
+  const dots = document.getElementById('dots')!;
+  dots.innerHTML = ORDER.map(() => '<i></i>').join('');
+  function syncDots() { [...dots.children].forEach((d, i) => d.classList.toggle('on', i === idx)); }
+  function step(d: number) { idx = (idx + d + ORDER.length) % ORDER.length; syncDots(); api?.focus(ORDER[idx]); }
+  document.getElementById('prev')!.onclick = () => step(-1);
+  document.getElementById('next')!.onclick = () => step(1);
+  let sx = 0;
+  root.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; }, { passive: true });
+  root.addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].clientX - sx;
+    if (Math.abs(dx) > 50 && !root.classList.contains('open')) step(dx < 0 ? 1 : -1);
+  }, { passive: true });
+  const applyMode = () => { if (!root.classList.contains('open')) api?.focus(mobile() ? ORDER[idx] : null); };
+  addEventListener('resize', applyMode); applyMode(); syncDots();
+  const fromHash = location.hash.slice(1) as StationId;
+  if (ORDER.includes(fromHash)) open(fromHash);
+
   const date = upcomingSaturdays()[0];
   document.getElementById('sat-date')!.textContent = new Date(date + 'T12:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   document.getElementById('sat-roles')!.innerHTML = ROLES.map((r) => {
@@ -102,29 +148,53 @@ import Base from '../layouts/Base.astro';
 </script>
 
 <style>
-  .hero { position: relative; height: 210vh; background: #f6efe2; }
-  .hero-stage { position: sticky; top: 0; height: 100vh; overflow: hidden; display: grid; align-items: center; }
-  .hero-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-  .hero-stage::before { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(90deg, rgb(246 239 226 / .9) 0%, rgb(246 239 226 / .6) 30%, transparent 55%); }
-  .hero-inner { position: relative; z-index: 2; display: grid; }
-  .beat { grid-area: 1 / 1; align-self: center; transition: opacity .1s linear; will-change: opacity, transform; }
-  #beat2 { opacity: 0; pointer-events: none; }
-  .hero h1 { max-width: 11ch; font-size: clamp(2.8rem, 7vw, 5.4rem); }
-  .hero h2 { font-size: clamp(2.4rem, 5.5vw, 4.4rem); line-height: 1.05; }
-  .hero p { font-size: 1.15rem; max-width: 36ch; color: var(--ink); }
-  .hero .eyebrow { background: rgb(255 255 255 / .7); backdrop-filter: blur(8px); }
-  .hero .btn.ghost { background: rgb(255 255 255 / .7); backdrop-filter: blur(10px); }
-  .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
-  .scroll-hint { position: absolute; z-index: 2; left: 50%; bottom: 28px; transform: translateX(-50%); font-size: .85rem; color: var(--muted); letter-spacing: .04em; }
-  .scroll-hint::after { content: ''; display: block; width: 1px; height: 28px; margin: 8px auto 0; background: var(--muted); animation: drip 1.8s ease-in-out infinite; transform-origin: top; }
-  @keyframes drip { 0% { transform: scaleY(0); } 50% { transform: scaleY(1); } 100% { transform: scaleY(1); opacity: 0; } }
-  @media (max-width: 900px) {
-    .hero { height: 190vh; }
-    .hero-stage { align-items: end; }
-    .hero-stage::before { background: linear-gradient(180deg, transparent 38%, rgb(246 239 226 / .94) 62%); }
-    .hero-inner { padding-bottom: 72px; }
+  .kitchen { position: relative; height: calc(100svh - 68px); min-height: 520px; overflow: hidden; background: #f3e7d3; }
+  .kitchen-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: pan-y; }
+  .intro { position: absolute; z-index: 2; left: 0; right: 0; top: 50%; transform: translateY(-50%); pointer-events: none; transition: opacity .4s; }
+  .intro h1 { max-width: 14ch; font-size: clamp(2rem, 4.6vw, 3.6rem); margin: .3em 0 .2em; }
+  .intro p { margin: 0; color: var(--ink); max-width: 34ch; }
+  .intro .eyebrow { background: rgb(255 255 255 / .7); backdrop-filter: blur(8px); }
+  .hint-mobile { display: none; }
+  .kitchen::before { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(90deg, rgb(246 239 226 / .92) 0%, rgb(246 239 226 / .55) 28%, transparent 46%); transition: opacity .4s; }
+  .kitchen.open::before { opacity: 0; }
+  .labels { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+  .labels button { position: absolute; left: 0; top: 0; pointer-events: auto; display: grid; text-align: left; gap: 1px; padding: .5rem .85rem .55rem; border: 0; border-radius: 14px; background: rgb(255 253 247 / .9); backdrop-filter: blur(10px); box-shadow: 0 6px 20px rgb(60 40 20 / .16); font: inherit; color: var(--ink); cursor: pointer; transition: opacity .3s, box-shadow .2s; will-change: transform; }
+  .labels button::after { content: ''; position: absolute; left: 50%; bottom: -6px; width: 12px; height: 12px; background: inherit; transform: translateX(-50%) rotate(45deg); border-radius: 2px; }
+  .labels b { color: var(--green); font-weight: 650; }
+  .labels small { color: var(--muted); font-size: .8rem; }
+  .labels button[data-station="volunteer"] b, .labels button[data-station="donate"] b { color: var(--orange); }
+  .labels button:hover, .labels :global(button.hot) { box-shadow: 0 0 0 3px var(--gold), 0 8px 24px rgb(60 40 20 / .2); }
+  .labels :global(button.off) { opacity: 0; pointer-events: none; }
+  .swiper, .quick { display: none; }
+  .panel { position: absolute; z-index: 5; top: 12px; right: 12px; bottom: 12px; width: min(560px, calc(100% - 24px)); display: flex; flex-direction: column; background: var(--cream); border-radius: 24px; box-shadow: 0 20px 60px rgb(40 30 20 / .28); transform: translateX(calc(100% + 24px)); transition: transform .45s cubic-bezier(.2, .8, .2, 1); overflow: hidden; }
+  .kitchen.open .panel { transform: none; }
+  .kitchen.open .intro { opacity: 0; }
+  .kitchen.open .labels, .kitchen.open .swiper { opacity: 0; pointer-events: none; }
+  .panel-bar { display: flex; align-items: center; gap: 14px; padding: 12px 14px 12px 22px; border-bottom: 1px solid var(--line); }
+  .panel-bar b { flex: 1; color: var(--green); font-size: 1.1rem; }
+  .panel-bar a { color: var(--muted); font-size: .9rem; }
+  .panel-bar button { width: 38px; height: 38px; border: 0; border-radius: 50%; background: var(--tint); color: var(--green); font-size: 1.4rem; cursor: pointer; }
+  .panel iframe { flex: 1; width: 100%; border: 0; }
+  .no-gl { height: auto; padding: 48px 0; }
+  .no-gl .intro, .no-gl .labels { position: static; }
+  .no-gl .labels { display: flex; flex-wrap: wrap; gap: 12px; padding: 24px 16px 0; max-width: 1120px; margin: 0 auto; }
+  .no-gl .labels button { position: static; transform: none !important; opacity: 1 !important; }
+  @media (max-width: 760px) {
+    .hint-desktop { display: none; } .hint-mobile { display: block; }
+    .kitchen::before { background: linear-gradient(180deg, rgb(246 239 226 / .92) 0%, rgb(246 239 226 / .5) 26%, transparent 40%); }
+    .intro { top: 20px; transform: none; }
+    .intro h1 { font-size: 2rem; }
+    .swiper { display: flex; position: absolute; z-index: 3; left: 0; right: 0; bottom: 88px; justify-content: center; align-items: center; gap: 14px; }
+    .swiper button { width: 40px; height: 40px; border: 0; border-radius: 50%; background: rgb(255 253 247 / .85); color: var(--green); font-size: 1.5rem; }
+    #dots { display: flex; gap: 6px; }
+    #dots :global(i) { width: 7px; height: 7px; border-radius: 50%; background: rgb(31 77 52 / .25); transition: width .2s; }
+    #dots :global(i.on) { width: 20px; border-radius: 4px; background: var(--green); }
+    .quick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; position: absolute; z-index: 3; left: 16px; right: 16px; bottom: 20px; }
+    .quick .btn { justify-content: center; }
+    .quick .btn.ghost { background: rgb(255 253 247 / .9); }
+    .panel { top: auto; left: 0; right: 0; bottom: 0; width: 100%; height: 88%; border-radius: 24px 24px 0 0; transform: translateY(105%); }
   }
-  @media (prefers-reduced-motion: reduce) { .hero { height: auto; } .hero-stage { position: relative; min-height: 100vh; } #beat2, .scroll-hint { display: none; } }
+  @media (prefers-reduced-motion: reduce) { .panel { transition: none; } }
 
   .saturday { display: block; text-decoration: none; padding: 26px; }
   .sat-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0 0 14px; flex-wrap: wrap; }
@@ -139,7 +209,7 @@ import Base from '../layouts/Base.astro';
   .saturday :global(em.full) { background: var(--tint); color: var(--muted); }
   .sat-cta { color: var(--orange); font-weight: 600; }
 
-  .impact { position: relative; z-index: 2; margin-top: 0; transform: translateY(-50%); display: grid; grid-template-columns: repeat(4, 1fr); background: var(--surface); backdrop-filter: blur(20px) saturate(1.3); border: 1px solid var(--glass-line); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .impact { position: relative; z-index: 2; margin-top: 0; margin-top: 32px; display: grid; grid-template-columns: repeat(4, 1fr); background: var(--surface); backdrop-filter: blur(20px) saturate(1.3); border: 1px solid var(--glass-line); border-radius: var(--radius); box-shadow: var(--shadow); }
   .impact div { padding: 26px 20px; text-align: center; }
   .impact div + div { border-left: 1px solid var(--line); }
   .impact strong { display: block; font-size: 2.2rem; font-weight: 700; letter-spacing: -.03em; color: var(--green); }
