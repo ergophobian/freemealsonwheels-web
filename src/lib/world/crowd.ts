@@ -10,7 +10,7 @@ interface Npc { f: Person; state: State; path: THREE.Vector3[]; vel: THREE.Vecto
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const pick = <T,>(xs: readonly T[]) => xs[Math.floor(Math.random() * xs.length)];
-const Y = .14;
+let Y = .14;
 
 export class Crowd {
   npcs: Npc[] = [];
@@ -22,10 +22,11 @@ export class Crowd {
     private scene: THREE.Object3D,
     private opts: {
       window: THREE.Vector3; queueDir: THREE.Vector3; seats: Seat[]; exits: THREE.Vector3[]; entries: THREE.Vector3[];
-      max: number; minZ: number; obstacles: { x: number; z: number; r: number }[];
+      max: number; minZ: number; maxZ?: number; y?: number; obstacles: { x: number; z: number; r: number }[];
       meal: () => THREE.Object3D; onServe: () => void; onOrder: () => void; make: (mobility: Mobility) => Person;
     },
   ) {
+    Y = opts.y ?? .14;
     for (let i = 0; i < 11; i++) this.spawn(i < 3 ? 'queue' : i < 8 ? 'sit' : 'pass', true);
   }
   limit(n: number) { this.opts.max = n; }
@@ -46,9 +47,9 @@ export class Crowd {
     if (start === 'pass') {
       // A passer-by strolling across the plaza.
       const a = pick(this.opts.entries), b = pick(this.opts.exits.filter((e) => Math.sign(e.x) !== Math.sign(a.x))) ?? pick(this.opts.exits);
-      const via = new THREE.Vector3(rand(-8, 8), Y, rand(this.opts.minZ + 3, this.opts.minZ + 10));
+      const via = new THREE.Vector3(rand(-8, 8), Y, rand(this.opts.minZ + 3, Math.min(this.opts.minZ + 10, (this.opts.maxZ ?? 99) - .5)));
       // On first load, passers-by are already mid-stroll in the plaza rather than off-screen.
-      if (mid) { f.obj.position.set(rand(-9, 9), Y, rand(this.opts.minZ + 2.5, this.opts.minZ + 9)); n.path = [b.clone()]; } else { f.obj.position.copy(a); n.path = [via, b.clone()]; }
+      if (mid) { f.obj.position.set(rand(-9, 9), Y, rand(this.opts.minZ + 2.5, Math.min(this.opts.minZ + 9, (this.opts.maxZ ?? 99) - .5))); n.path = [b.clone()]; } else { f.obj.position.copy(a); n.path = [via, b.clone()]; }
       n.state = 'leave'; f.set('walk');
     } else if (n.state !== 'sit') {
       n.slot = this.queue().length;
@@ -96,7 +97,7 @@ export class Crowd {
     const d = this.d.subVectors(t, o.position).setY(0), dist = d.length();
     if (dist < .08) { n.path.shift(); n.best = Infinity; n.stuck = 0; if (!n.path.length) this.arrive(n); return; }
     if (dist < n.best - .1) { n.best = dist; n.stuck = 0; }
-    else if ((n.stuck += dt) > 2) { n.path.unshift(new THREE.Vector3(o.position.x + rand(-.8, .8), Y, Math.min(this.opts.minZ + 3.5, o.position.z + 1.5))); n.best = Infinity; n.stuck = 0; }
+    else if ((n.stuck += dt) > 2) { n.path.unshift(new THREE.Vector3(o.position.x + rand(-.8, .8), Y, Math.min(this.opts.minZ + 3.5, o.position.z + 1.5, (this.opts.maxZ ?? 99) - .3))); n.best = Infinity; n.stuck = 0; }
     const speed = (n.f.rolling ? .75 : n.f.usesCane ? .55 : 1) * Math.min(1, .45 + dist);
     const want = this.want.copy(d).normalize();
     const finalStep = n.path.length === 1 && dist < 1.2;
@@ -117,7 +118,7 @@ export class Crowd {
     // Velocity smoothing: steering changes ease in instead of snapping frame to frame (no jitter).
     n.vel.lerp(want, 1 - Math.exp(-dt * 4));
     o.position.addScaledVector(n.vel, dt);
-    o.position.z = Math.max(this.opts.minZ, o.position.z);
+    o.position.z = Math.min(this.opts.maxZ ?? 99, Math.max(this.opts.minZ, o.position.z));
     if (n.vel.lengthSq() > .01) {
       const yaw = Math.atan2(n.vel.x, n.vel.z), dy = Math.atan2(Math.sin(yaw - o.rotation.y), Math.cos(yaw - o.rotation.y));
       o.rotation.y += dy * (1 - Math.exp(-dt * 5));
@@ -138,7 +139,7 @@ export class Crowd {
   private toExit(n: Npc) {
     n.state = 'leave';
     const e = pick(this.opts.exits), p = n.f.obj.position;
-    n.path = [new THREE.Vector3((p.x + e.x) / 2 + rand(-1.5, 1.5), Y, Math.max(p.z, e.z) + rand(.5, 1.5)), e.clone()];
+    n.path = [new THREE.Vector3((p.x + e.x) / 2 + rand(-1.5, 1.5), Y, Math.min((this.opts.maxZ ?? 99) - .3, Math.max(p.z, e.z) + rand(.5, 1.5))), e.clone()];
   }
   private arrive(n: Npc) {
     const o = n.f.obj;

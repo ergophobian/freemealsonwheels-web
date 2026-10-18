@@ -7,7 +7,7 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
     <canvas class="world-canvas" id="scene" aria-hidden="true"></canvas>
     <div class="loader" id="loader" aria-live="polite">
       <img src={`${import.meta.env.BASE_URL.replace(/\/?$/, '/')}img/logo-heart.png`} alt="" width="120" height="106" />
-      <p>Setting up the truck…</p>
+      <p>Setting up the kitchen…</p>
       <i class="bar"><b id="load-bar"></b></i>
     </div>
     <header class="hud">
@@ -24,8 +24,8 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
     <div class="intro">
       <span class="eyebrow">San Jose and San Ramon · every Saturday</span>
       <h1>Dignity starts with <em>a full belly.</em></h1>
-      <p class="hint-desktop">Welcome to the truck. Drag to look around, click anyone to say hi.</p>
-      <p class="hint-mobile">Swipe around the truck and tap what you need.</p>
+      <p class="hint-desktop">Welcome to our kitchen. Drag to look around, click anything to step in.</p>
+      <p class="hint-mobile">Swipe around the kitchen and tap what you need.</p>
     </div>
     <div class="labels" id="labels">
       <button data-station="volunteer"><i></i>Volunteer</button>
@@ -44,13 +44,13 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
       <button class="btn ghost" data-open="donate">Donate</button>
     </div>
     <aside class="pop" id="pop" aria-hidden="true" role="dialog" aria-labelledby="pop-title">
-      <button class="pop-close" id="pop-close" aria-label="Back to the truck">×</button>
+      <button class="pop-close" id="pop-close" aria-label="Back to the street">×</button>
       <div id="pop-body"></div>
     </aside>
     <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="chalky"><feTurbulence type="fractalNoise" baseFrequency="1.2" numOctaves="2" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.5"/></filter></svg>
     <section class="story" id="story" aria-hidden="true" aria-label="Our story">
       <div class="chalkboard">
-        <button class="sheet-close" data-close aria-label="Back to the truck">×</button>
+        <button class="sheet-close" data-close aria-label="Back to the street">×</button>
         <div class="chapters"></div>
         <nav class="story-nav">
           <button class="s-prev" aria-label="Previous">‹</button>
@@ -61,7 +61,7 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
     </section>
     <section class="board" id="board" aria-hidden="true" aria-label="Community board">
       <div class="cork">
-        <button class="sheet-close" data-close aria-label="Back to the truck">×</button>
+        <button class="sheet-close" data-close aria-label="Back to the street">×</button>
         <div class="pinned">
           <div class="paper title"><i class="pin"></i><h2>Community board</h2><p>Questions, ideas, a team that wants to help, or just a hello. It all goes here.</p></div>
           <a class="paper card" href="mailto:info@freemealsonwheels.com"><i class="pin"></i><small>Write to us</small><b>info@freemealsonwheels.com</b><span>A real person reads every note.</span></a>
@@ -78,7 +78,7 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
 </Base>
 
 <script>
-  import { mountTruck, type StationId } from '../lib/truck-scene';
+  import { mountWorld, type StationId } from '../lib/kitchen-scene';
   const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   import { KITCHENS, ROLES, upcomingSaturdays, spotsLeft, book, signupsFor, reschedule, cancel, type Kitchen, type RoleId } from '../lib/store';
 
@@ -94,7 +94,7 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   const loader = document.getElementById('loader')!, loadBar = document.getElementById('load-bar')!;
   const reveal = () => { loader.classList.add('gone'); root.classList.add('ready'); };
   setTimeout(reveal, 7000); // never keep people waiting on a slow connection
-  const api = mountTruck(document.getElementById('scene') as HTMLCanvasElement, labels, (id) => open(id), (id) => { const sh = sheets[id]; if (sh && location.hash === '#' + id) showSheet(sh); },
+  const api = mountWorld(document.getElementById('scene') as HTMLCanvasElement, labels, (id) => open(id), (id) => { const sh = sheets[id]; if (sh && location.hash === '#' + id) showSheet(sh); },
     (p, done) => { loadBar.style.width = `${Math.round(15 + p * 85)}%`; if (done) reveal(); });
   if (!api) reveal();
   if (!api) root.classList.add('no-gl');
@@ -104,7 +104,7 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   function volunteerCard() {
     if (vol.step === 'pick') {
       body.innerHTML = `
-        <p class="kicker">This is the window. This could be you.</p><h2 id="pop-title">Pick a Saturday shift</h2>
+        <p class="kicker">This is the kitchen. This could be you.</p><h2 id="pop-title">Pick a Saturday shift</h2>
         <div class="seg kseg" data-at="${vol.kitchen}"><i class="pill"></i>${(Object.keys(KITCHENS) as Kitchen[]).map((k) => `<button data-k="${k}" aria-pressed="${k === vol.kitchen}">${KITCHENS[k]}</button>`).join('')}</div>
         <div class="dates">${upcomingSaturdays().map((d) => {
           const open = ROLES.reduce((n, r) => n + spotsLeft(vol.kitchen, d, r.id), 0);
@@ -343,7 +343,7 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   document.getElementById('pop-close')!.onclick = close;
   addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
 
-  // Phones: swipe or use the arrows to walk around the truck.
+  // Phones: swipe or use the arrows to walk around the kitchen.
   const dots = document.getElementById('dots')!;
   dots.innerHTML = ORDER.map(() => '<i></i>').join('');
   const NAMES: Record<StationId, string> = { volunteer: 'Volunteer', donate: 'Donate', about: 'Our story', resources: 'Get a meal', contact: 'Contact' };
@@ -361,7 +361,7 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   addEventListener('resize', applyMode); applyMode(); syncDots();
   root.querySelector('canvas')!.addEventListener('pointerdown', () => setTimeout(() => root.classList.add('moved'), 400), { once: true });
   for (const el of [document.getElementById('prev')!, document.getElementById('next')!]) el.addEventListener('click', () => root.classList.add('moved'), { once: true });
-  // ——— My shifts, inside the world: the camera goes to the truck and a sign-in card opens beside it.
+  // ——— My shifts, inside the world: the camera goes into the kitchen and a sign-in card opens beside it.
   const SKEY = 'fmow.session.v1';
   const sess = () => { try { return localStorage.getItem(SKEY); } catch { return null; } };
   const sfmt = (d: string) => new Date(d + 'T12:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });

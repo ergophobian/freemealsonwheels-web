@@ -19,7 +19,7 @@ const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 const load = (u: string) => new Promise<{ scene: THREE.Group; animations: THREE.AnimationClip[] }>((res, rej) => loader.load(u, res, undefined, rej));
 
 export interface Cast { kinds: Kind[]; make(kind?: Kind, opts?: PersonOpts): Person }
-interface PersonOpts { height?: number; mobility?: Mobility; skin?: number; apron?: boolean; chair?: () => THREE.Object3D }
+interface PersonOpts { height?: number; mobility?: Mobility; skin?: number; apron?: boolean; chair?: () => THREE.Object3D; seatTop?: number }
 
 export async function loadCast(base: string, kinds: Kind[]): Promise<Cast> {
   const [am, aw, ...models] = await Promise.all([load(`${base}/anim-m.glb`), load(`${base}/anim-w.glb`), ...kinds.map((k) => load(`${base}/${k}.glb`))]);
@@ -54,8 +54,9 @@ export class Person {
   private wasSeated = false;
   private feet: Record<string, THREE.Object3D | undefined> = {};
   private height = 1.72;
+  seatTop = .62;
   constructor(model: THREE.Group, clips: THREE.AnimationClip[], o: PersonOpts) {
-    const h = o.height ?? 1.72; this.height = h;
+    const h = o.height ?? 1.72; this.height = h; this.seatTop = o.seatTop ?? .62;
     const b = new THREE.Box3().setFromObject(model);
     model.scale.multiplyScalar(h / Math.max(.1, b.max.y - b.min.y));
     this.obj.add(model); this.model = model;
@@ -129,8 +130,8 @@ export class Person {
     const seated = this.pose === 'sit';
     if (seated !== this.wasSeated) {
       this.wasSeated = seated;
-      // Seat height: pelvis just above a .62 m bench; standing pelvis sits at about 53% of height.
-      this.model.position.set(0, seated ? .69 - this.height * .53 : 0, seated ? -.12 : 0);
+      // Seat height: pelvis just above the seat; standing pelvis sits at about 53% of height.
+      this.model.position.set(0, seated ? this.seatTop + .07 - this.height * .53 : 0, seated ? -.12 : 0);
     }
     if (seated) {
       const q = this.obj.getWorldQuaternion(Q4);
