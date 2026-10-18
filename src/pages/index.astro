@@ -39,7 +39,8 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
       <span class="count"><b id="count">01</b> / 05 · <i id="cname">Volunteer</i></span><span id="dots"></span>
       <button id="next" aria-label="Next">›</button>
     </div>
-    <div class="quick">
+    <div class="quick" id="quick">
+      <button class="btn go" id="go" hidden>Open</button>
       <button class="btn" data-open="volunteer">Volunteer</button>
       <button class="btn ghost" data-open="donate">Donate</button>
     </div>
@@ -347,7 +348,10 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   const dots = document.getElementById('dots')!;
   dots.innerHTML = ORDER.map(() => '<i></i>').join('');
   const NAMES: Record<StationId, string> = { volunteer: 'Volunteer', donate: 'Donate', about: 'Our story', resources: 'Get a meal', contact: 'Contact' };
-  function syncDots() { [...dots.children].forEach((d, i) => d.classList.toggle('on', i === idx)); document.getElementById('count')!.textContent = idx < 0 ? '00' : String(idx + 1).padStart(2, '0'); document.getElementById('cname')!.textContent = idx < 0 ? (mobile() ? 'Swipe' : 'Explore') : NAMES[ORDER[idx]]; }
+  const GO: Record<StationId, string> = { volunteer: 'Pick a shift', donate: 'Give', about: 'Read our story', resources: 'Get a meal', contact: 'Say hello' };
+  const go = document.getElementById('go') as HTMLButtonElement;
+  go.onclick = () => { if (idx >= 0) open(ORDER[idx]); };
+  function syncDots() { go.hidden = idx < 0; document.getElementById('quick')!.classList.toggle('peek', idx >= 0); if (idx >= 0) go.textContent = GO[ORDER[idx]]; [...dots.children].forEach((d, i) => d.classList.toggle('on', i === idx)); document.getElementById('count')!.textContent = idx < 0 ? '00' : String(idx + 1).padStart(2, '0'); document.getElementById('cname')!.textContent = idx < 0 ? (mobile() ? 'Swipe' : 'Explore') : NAMES[ORDER[idx]]; }
   function step(d: number) { idx = idx < 0 ? (d > 0 ? 0 : ORDER.length - 1) : (idx + d + ORDER.length) % ORDER.length; syncDots(); api?.focus(ORDER[idx], true); }
   document.getElementById('prev')!.onclick = () => step(-1);
   document.getElementById('next')!.onclick = () => step(1);
@@ -473,6 +477,11 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   .swiper button { width: 46px; height: 46px; border-radius: 50%; font-size: 1.4rem; color: #16231c; cursor: pointer; background: linear-gradient(135deg, rgb(255 255 255 / .55), rgb(255 255 255 / .25)); backdrop-filter: blur(16px); border: 1px solid rgb(255 255 255 / .6); box-shadow: inset 0 1px 0 rgb(255 255 255 / .8), 0 8px 20px rgb(20 60 100 / .15); }
   .swiper .count { font: 500 .8rem ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; color: rgb(10 30 50 / .7); min-width: 170px; text-align: center; }
   .swiper .count i { font-family: 'Instrument Serif', Georgia, serif; font-size: 1.05rem; letter-spacing: 0; color: #16231c; }
+  /* After a swipe, one clear button opens the station you're looking at. */
+  .quick .go[hidden] { display: none; }
+  .quick.peek .btn:not(.go) { display: none; }
+  .quick.peek .go { flex: 1; }
+  .quick.peek { grid-template-columns: 1fr !important; }
   .swiper #dots { display: none; }
   .world.open .swiper, .world.sheet .swiper { opacity: 0; pointer-events: none; }
 

@@ -7,7 +7,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { CSS3DRenderer, CSS3DObject } from 'three/examples/jsm/renderers/CSS3DRenderer.js';
 import { loadBaked } from './world/baked';
-import { loadCast, type Person, type Kind, type Pose } from './world/people';
+import { loadCast, VOLUNTEERS, NEIGHBOURS, type Person, type Kind, type Pose } from './world/people';
 import { Crowd, type Seat } from './world/crowd';
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
@@ -220,8 +220,10 @@ export function mountWorld(
   }).catch((e) => { console.error(e); partDone('world'); });
 
   // ——— People: volunteers cooking and packing inside, one handing out meals at the door, neighbours outside.
-  // Everyday clothes only: the kit's worker and farmer outfits wear hard hats, and its suit outfits carry a handgun.
-  const KINDS: Kind[] = tier > 1 ? ['m-casual_2', 'm-casual_hoodie', 'm-beach', 'w-casual', 'w-formal', 'w-adventurer'] : ['m-casual_2', 'm-casual_hoodie', 'w-casual', 'w-formal', 'w-adventurer'];
+  // Realistic MakeHuman cast: volunteers in green tees and neighbours of every age. Lighter devices load fewer.
+  const CREW: Kind[] = tier > 1 ? [...VOLUNTEERS] : ['v-maya', 'v-james', 'v-linda'];
+  const FOLK: Kind[] = tier > 1 ? [...NEIGHBOURS] : ['n-chen', 'n-amara', 'n-marcus', 'n-ruth'];
+  const KINDS: Kind[] = [...CREW, ...FOLK];
   type Station = { x: number; z: number; ry: number; pose: Pose; aisle: number };
   // Two aisles run left to right through the kitchen (behind the island, and between island and packing line),
   // joined at either end of the island. Volunteers walk the aisles, so nobody passes through a counter.
@@ -249,17 +251,17 @@ export function mountWorld(
   let server: Person | null = null, friend: Person | null = null, serveFlash = 0;
   loadCast(`${BASE}models/people`, KINDS).then((cast) => {
     if (!alive) return;
-    const crewKinds: Kind[] = (['m-casual_2', 'w-casual', 'm-casual_hoodie', 'w-adventurer', 'm-beach', 'w-formal'] as Kind[]).filter((k) => KINDS.includes(k));
+    const crewKinds: Kind[] = CREW.filter((k) => k !== 'v-james');
     const starts = [0, 2, 8, 4, 9, 6];
     crewKinds.forEach((k, i) => {
-      const p = grounded(cast.make(k, { height: 1.68, skin: [1, 3, 4, 0, 2, 5][i] }));
+      const p = grounded(cast.make(k));
       const st = STATIONS[starts[i]]; p.obj.position.set(st.x, 0, st.z); p.obj.rotation.y = st.ry; scene.add(p.obj); p.set(st.pose);
       crew.push({ p, at: starts[i], path: [], timer: 2 + Math.random() * 6 }); taken.add(starts[i]);
     });
-    server = grounded(cast.make('w-casual', { height: 1.66, skin: 3 }));
+    server = grounded(cast.make('v-james'));
     server.obj.position.set(4.25, 0, .72); scene.add(server.obj); server.set('idle');
     const fp = setPoint(reserved, CHAIRS[1]), top = setPoint(reserved, TABLE_TOP);
-    friend = cast.make('w-formal', { height: 1.64, skin: 2, seatTop: .45 }); friend.obj.position.copy(fp); friend.obj.rotation.y = Math.atan2(top.x - fp.x, top.z - fp.z); scene.add(friend.obj); friend.set('sit');
+    friend = cast.make(FOLK.includes('n-amara') ? 'n-amara' : FOLK[0]); friend.obj.position.copy(fp); friend.obj.rotation.y = Math.atan2(top.x - fp.x, top.z - fp.z); scene.add(friend.obj); friend.set('sit');
     crowd = new Crowd(scene, {
       y: 0, minZ: .55, maxZ: 8.2,
       window: new THREE.Vector3(3.95, 0, 2.6), queueDir: new THREE.Vector3(.55, 0, .83), seats,
@@ -278,7 +280,7 @@ export function mountWorld(
       meal: mealBox,
       onOrder: () => server?.set('nod'),
       onServe: () => { server?.set('reach'); serveFlash = 1.2; },
-      make: (mobility) => grounded(cast.make(undefined, { mobility, height: 1.6 + Math.random() * .22, seatTop: .45 })),
+      make: () => grounded(cast.make(FOLK[Math.floor(Math.random() * FOLK.length)])),
     });
     partDone('people');
   }).catch((e) => { console.error(e); partDone('people'); });
@@ -323,9 +325,9 @@ export function mountWorld(
   const baseFov = () => (narrow ? 44 : 36);
   // The opening view fits the whole street front (community board on the left to the hand-out table on the right).
   const overview = (): View => {
-    const half = narrow ? 4.4 : 9.4, look: V3 = narrow ? [1.4, 1.7, 2.2] : [-1.4, 2.4, 1.5];
+    const half = narrow ? 4.4 : 9.4, look: V3 = narrow ? [1.4, 1.5, 2.6] : [-1.4, 2.4, 1.5];
     const t = Math.tan(THREE.MathUtils.degToRad(baseFov() / 2)), dist = Math.max(half / (t * camera.aspect), (narrow ? 3.4 : 4.6) / t) * 1.04;
-    const dir = new THREE.Vector3(.16, .3, 1).normalize().multiplyScalar(dist);
+    const dir = new THREE.Vector3(.16, narrow ? .5 : .3, 1).normalize().multiplyScalar(dist);
     return { pos: [look[0] + dir.x, look[1] + dir.y, look[2] + dir.z], look };
   };
   const station = (id: StationId, peek = false): View => {

@@ -86,6 +86,16 @@ def grime(name, a, b, rough=.7, scale=5., metal=0.):
     nt.links.new(noise_mix(nt, None, a, b, scale), principled(m).inputs['Base Color'])
     return m
 
+def stripe_tex(name, a, b):
+    # A crisp two-colour stripe image, used as a tiling photo-style texture so awnings stay sharp on the web.
+    import numpy as np
+    d = os.path.join(PH, 'tex', name); os.makedirs(d, exist_ok=True); p = os.path.join(d, 'diff.jpg')
+    W = 512; img = bpy.data.images.new(name, W, 64)
+    ca, cb = np.array([*srgb(a), 1]), np.array([*srgb(b), 1])
+    row = np.array([ca if (x * 2 // W) % 2 == 0 else cb for x in range(W)])
+    px = np.tile(row, (64, 1)).astype(np.float32)
+    img.pixels.foreach_set(px.ravel()); img.filepath_raw = p; img.file_format = 'JPEG'; img.save()
+    return name
 def stripes(name, a, b, width=.5):
     m = mat(name, a, .8); nt = m.node_tree; n = nt.nodes; L = nt.links
     g = n.new('ShaderNodeNewGeometry'); sp = n.new('ShaderNodeSeparateXYZ'); L.new(g.outputs['Position'], sp.inputs[0])
@@ -145,7 +155,7 @@ CONCRETE = tiled('Concrete', 'concrete_floor_02', 3.)
 ASPHALT = tiled('Asphalt', 'asphalt_02', 4.)
 LINE = mat('RoadLine', '#F2EEDF', .7)
 CURB = tiled('Curb', 'concrete_floor_02', 2., '#E6E1D7')
-AWNING = stripes('Awning', '#1F7A4A', '#F7F1E3', .7)
+AWNING = tiled('Awning', stripe_tex('awning_green', '#1F7A4A', '#F4EEE0'), 1.4, rough=.85)
 KRAFT = grime('Kraft', '#C9A36F', '#B48C58', .8, 12.)
 BAG = mat('DeliveryBag', '#1F7A4A', .7)
 TOMATO = mat('Tomato', '#D1392B', .35)
@@ -358,8 +368,9 @@ if LOGO and os.path.exists(LOGO):
     for x in (-5.75, 5.75):
         bpy.ops.mesh.primitive_plane_add(size=.5, location=T(x, 3.9, .125)); p = bpy.context.object; p.name = 'LogoPlate'
         p.rotation_euler.x = math.radians(90); p.data.materials.append(lm); GROUPS.setdefault('logo', []).append(p)
-group('shell')
-text('Community kitchen  ·  San Jose', .2, 0, H1 + .55, .02, TRIM, .015)
+group('sign')
+KITCHEN_INK = mat('KitchenInk', '#1E5A3A', .5)
+text('Community kitchen  ·  San Jose', .3, 0, H1 + .6, .02, KITCHEN_INK, .02)
 
 # Blade sign by the door.
 group('sign')
@@ -378,10 +389,11 @@ bm.faces.new(v); bm.to_mesh(me); bm.free(); bpy.data.objects.remove(aw)
 aw = bpy.data.objects.new('Awning', me); scene.collection.objects.link(aw)
 sol = aw.modifiers.new('sol', 'SOLIDIFY'); sol.thickness = .03
 finish(aw, AWNING)
-# Scalloped valance along the front edge.
+# Scalloped valance along the front edge, alternating green and cream.
+SCALLOP_CREAM = mat('ScallopCream', '#F4EEE0', .8)
 for i in range(28):
     x = x0 + (i + .5) * (x1 - x0) / 28
-    o = cyl('Scallop', x, y1 - .22, y1, z1 + .01, .125, AWNING, 12)
+    o = cyl('Scallop', x, y1 - .22, y1, z1 + .01, .125, GREEN if i % 2 else SCALLOP_CREAM, 12)
     o.rotation_euler.x = math.radians(90); o.scale = (1, 1, .12); o.location = T(x, y1 - .1, z1)
 for x in (x0 + .1, x1 - .1): cyl('AwningPole', x, 0, y1, z1 - .05, .03, BLACK, 12)
 
@@ -672,9 +684,9 @@ def neighbour(x0, x1, h, wall, awn, name, frame=None):
             box('NSill', cx - .7, cx + .7, y - .12, y, -.42, -.16, TRIM, .01)
             box('NLintel', cx - .7, cx + .7, y + 1.8, y + 1.98, -.38, -.2, TRIM, .01)
     text(name, .3, (x0 + x1) / 2, 3.87, .03, GREEN_D if wall is not BRICK_N else TRIM, .015)
-AWN_RED = stripes('AwningRed', '#B4443A', '#F3E8D6', .6)
+AWN_RED = tiled('AwningRed', stripe_tex('awning_red', '#B4443A', '#F3E8D6'), 1.2, rough=.85)
 AWN_NAVY = mat('AwningNavy', '#2D4A6B', .85)
-AWN_MUSTARD = stripes('AwningMustard', '#D9A33A', '#F5ECD8', .5)
+AWN_MUSTARD = tiled('AwningMustard', stripe_tex('awning_mustard', '#D9A33A', '#F5ECD8'), 1.0, rough=.85)
 AWN_TEAL = mat('AwningTeal', '#2F7D7A', .85)
 AWN_BURG = mat('AwningBurgundy', '#7E2F3A', .85)
 neighbour(-14.5, -7.35, 11.5, STUCCO2, AWN_NAVY, 'Corner Books')
@@ -841,10 +853,18 @@ if MODE == 'bake':
         for l in me.uv_layers: l.active_render = l.name == render
         bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active = o
         bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT')
+        scene.tool_settings.use_uv_select_sync = True  # so packing sees every island, not just UV-selected ones
         bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=.004, area_weight=0., scale_to_bounds=False)
         bpy.ops.uv.pack_islands(margin=.006, rotate=True)
         bpy.ops.object.mode_set(mode='OBJECT')
         a = sum(p_.area for p_ in me.polygons)
+        uvd = me.uv_layers['LM'].data; us = [d.uv.x for d in uvd]; vs = [d.uv.y for d in uvd]
+        # If packing left most of the square empty (long thin pieces), stretch the layout to fill it.
+        su, sv = 1 / max(1e-4, max(us)), 1 / max(1e-4, max(vs))
+        if su > 1.3 or sv > 1.3:
+            for d in uvd: d.uv = (d.uv.x * min(su, 1 / .999), d.uv.y * min(sv, 1 / .999)) if False else (d.uv.x * su * .999, d.uv.y * sv * .999)
+            us = [d.uv.x for d in uvd]; vs = [d.uv.y for d in uvd]
+        print('UVDBG', o.name, len(me.polygons), round(min(us), 3), round(max(us), 3), round(min(vs), 3), round(max(vs), 3), 'area', round(a, 1), 'dims', [round(x, 1) for x in o.dimensions])
         size = 2 ** max(8, min(12, round(math.log2(max(1, math.sqrt(a) * density)))))
         return size
 
