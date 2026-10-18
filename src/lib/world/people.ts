@@ -6,7 +6,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
-export type Pose = 'idle' | 'walk' | 'sit' | 'serve' | 'reach' | 'nod' | 'wave' | 'stir' | 'carry' | 'chair' | 'chair-roll';
+export type Pose = 'idle' | 'walk' | 'sit' | 'serve' | 'reach' | 'nod' | 'wave' | 'stir' | 'carry' | 'chair' | 'chair-roll' | 'chop' | 'pack';
 export type Mobility = 'walk' | 'cane' | 'chair';
 export const MEN = ['casual_2', 'casual_hoodie', 'farmer', 'suit', 'worker', 'beach'] as const;
 export const WOMEN = ['casual', 'formal', 'suit', 'worker', 'adventurer'] as const;
@@ -42,13 +42,13 @@ export async function loadCast(base: string, kinds: Kind[]): Promise<Cast> {
 
 const CLIP: Record<Pose, string> = {
   idle: 'Idle_Neutral', walk: 'Walk', carry: 'Walk', sit: 'Idle_Neutral', serve: 'Interact', reach: 'Interact', stir: 'Interact',
-  nod: 'Idle', wave: 'Wave', chair: 'Idle_Neutral', 'chair-roll': 'Idle_Neutral',
+  nod: 'Idle', wave: 'Wave', chair: 'Idle_Neutral', 'chair-roll': 'Idle_Neutral', chop: 'Interact', pack: 'Interact',
 };
 
 // Universal Animation Library clips on the MakeHuman cast.
 const CLIP_MH: Record<Pose, string> = {
-  idle: 'Idle_Loop', walk: 'Walk_Loop', carry: 'Walk_Loop', sit: 'Sitting_Idle_Loop', serve: 'Interact', reach: 'PickUp_Table', stir: 'Interact',
-  nod: 'Idle_Talking_Loop', wave: 'Idle_Talking_Loop', chair: 'Sitting_Idle_Loop', 'chair-roll': 'Walk_Loop',
+  idle: 'Idle_Loop', walk: 'Walk_Loop', carry: 'Walk_Loop', sit: 'Sitting_Idle_Loop', serve: 'Pack', reach: 'PickUp_Table', stir: 'Stir',
+  nod: 'Idle_Talking_Loop', wave: 'Idle_Talking_Loop', chair: 'Sitting_Idle_Loop', 'chair-roll': 'Walk_Loop', chop: 'Chop', pack: 'Pack',
 };
 
 export class Person {

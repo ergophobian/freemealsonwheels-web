@@ -6,6 +6,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { CSS3DRenderer, CSS3DObject } from 'three/examples/jsm/renderers/CSS3DRenderer.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { loadBaked } from './world/baked';
 import { loadCast, VOLUNTEERS, NEIGHBOURS, type Person, type Kind, type Pose } from './world/people';
 import { Crowd, type Seat } from './world/crowd';
@@ -17,7 +19,7 @@ type View = { pos: V3; look: V3; fov?: number };
 
 // Where each station's label floats.
 const ANCHORS: Record<StationId, V3> = {
-  volunteer: [-2.0, 3.05, -.2], donate: [5.6, 1.45, 1.5], about: [-1.0, 2.45, 1.3], resources: [.35, 1.35, 6.4], contact: [-9.0, 2.75, 1.75],
+  volunteer: [-2.0, 3.05, -.2], donate: [4.3, 2.2, 1.9], about: [-1.0, 2.45, 1.3], resources: [.35, 1.35, 6.4], contact: [-9.0, 2.75, 1.75],
 };
 
 function canvasTex(draw: (c: CanvasRenderingContext2D, w: number, h: number) => void, w = 1024, h = 256) {
@@ -64,15 +66,15 @@ export function mountWorld(
   // Lighting is baked, so the only per-frame cost is drawing: phones can afford a sharp pixel ratio.
   const applyTier = () => renderer.setPixelRatio(Math.min(devicePixelRatio, [1, coarse ? 1.75 : 1.25, 1.5][tier]));
   applyTier();
-  renderer.toneMapping = THREE.AgXToneMapping; renderer.toneMappingExposure = .8;
+  renderer.toneMapping = THREE.AgXToneMapping; renderer.toneMappingExposure = Number(new URLSearchParams(location.search).get("exp") ?? 1.35);
 
   const scene = new THREE.Scene();
-  scene.background = canvasTex((c, w, h) => {
-    const g = c.createLinearGradient(0, 0, 0, h);
-    g.addColorStop(0, '#7FB2DE'); g.addColorStop(.5, '#B5D2E8'); g.addColorStop(.8, '#E9DCCB'); g.addColorStop(1, '#F3E3CC');
-    c.fillStyle = g; c.fillRect(0, 0, w, h);
-  }, 4, 256);
-  scene.fog = new THREE.Fog('#E6DCCD', 45, 120);
+  // A real sky (Poly Haven CC0, the same one the street was lit with in Blender).
+  scene.background = new THREE.Color('#9BB5D3');
+  let sky: THREE.Texture | null = null, glassMats: THREE.MeshStandardMaterial[] = [];
+  const skyGlass = () => { if (sky) for (const g of glassMats) { g.envMap = sky; g.needsUpdate = true; } };
+  new THREE.TextureLoader().load(`${BASE}tex/sky.webp`, (t) => { t.mapping = THREE.EquirectangularReflectionMapping; t.colorSpace = THREE.SRGBColorSpace; scene.background = t; scene.backgroundRotation.y = 2.2; sky = t; skyGlass(); });
+  scene.fog = new THREE.Fog('#C9D3DD', 55, 140);
   // A small generated room for reflections on coins, the jar and people (baked surfaces ignore it).
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(), .04).texture; scene.environmentIntensity = .6;
@@ -145,8 +147,10 @@ export function mountWorld(
       c.save(); c.translate(x + ww / 2, y + hh / 2); c.rotate(rot); c.shadowColor = 'rgba(60,30,10,.3)'; c.shadowBlur = 24; c.shadowOffsetY = 12; c.fillStyle = bg; c.fillRect(-ww / 2, -hh / 2, ww, hh); c.shadowColor = 'transparent';
       c.fillStyle = '#E8682F'; c.beginPath(); c.arc(0, -hh / 2 + 18, 10, 0, Math.PI * 2); c.fill(); c.translate(-ww / 2 + 28, -hh / 2 + 34); draw(); c.restore();
     };
-    c.fillStyle = '#2A1A0C'; c.font = 'italic 400 96px "Instrument Serif", Georgia, serif'; c.fillText('Community board', col(0), X(34) + 90);
-    c.fillStyle = '#3B2412'; c.font = '400 26px Inter, sans-serif'; c.fillText('Questions, ideas, a team that wants to help,', col(0), X(34) + 150); c.fillText('or just a hello. It all goes here.', col(0), X(34) + 186);
+    note(col(0), X(34), X(322 * 2 + 22), X(196), '#FFFDF6', -.012, () => {});
+    c.save(); c.translate(col(0) + X(666) / 2, X(34) + X(98)); c.rotate(-.012); c.translate(-(col(0) + X(666) / 2), -(X(34) + X(98)));
+    c.fillStyle = '#2A1A0C'; c.font = 'italic 400 96px "Instrument Serif", Georgia, serif'; c.fillText('Community board', col(0) + 36, X(34) + 110);
+    c.fillStyle = '#3B2412'; c.font = '400 26px Inter, sans-serif'; c.fillText('Questions, ideas, a team that wants to help,', col(0) + 36, X(34) + 170); c.fillText('or just a hello. It all goes here.', col(0) + 36, X(34) + 206); c.restore();
     const tt = (t: string, sub: string[], serif = false) => () => { c.fillStyle = '#1F4D34'; c.font = serif ? 'italic 400 44px "Instrument Serif", Georgia, serif' : '650 30px Inter, sans-serif'; c.fillText(t, 0, 36); c.fillStyle = '#5F6B64'; c.font = '400 24px Inter, sans-serif'; sub.forEach((l, i) => c.fillText(l, 0, 80 + i * 32)); };
     note(col(2), X(34), cw, X(150), '#FFFDF6', .02, () => { c.fillStyle = '#5F6B64'; c.font = '400 22px Inter, sans-serif'; c.fillText('Write to us', 0, 24); c.fillStyle = '#1F4D34'; c.font = '650 22px Inter, sans-serif'; c.fillText('info@freemealsonwheels.com', 0, 62); c.fillStyle = '#5F6B64'; c.font = '400 22px Inter, sans-serif'; c.fillText('A real person reads every note.', 0, 100); });
     note(col(3), X(34), cw, X(250), '#FFFDF6', -.02, () => { if (smileImg.complete && smileImg.naturalWidth) { const s2 = cw - 56; c.drawImage(smileImg, -12, -20, s2 + 24, s2 * .82); } c.fillStyle = '#17271E'; c.font = 'italic 400 34px "Instrument Serif", Georgia, serif'; c.fillText('@freemealsonwheels', 40, X(250) - 70); });
@@ -191,7 +195,17 @@ export function mountWorld(
   const blobTex = canvasTex((c, w, h) => { const g = c.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2); g.addColorStop(0, 'rgba(40,28,18,.45)'); g.addColorStop(1, 'rgba(40,28,18,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); }, 64, 64);
   const blobGeo = new THREE.PlaneGeometry(.9, .9).rotateX(-Math.PI / 2), blobM = new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false });
   const grounded = (p: Person) => { const b = new THREE.Mesh(blobGeo, blobM); b.position.y = .012; b.renderOrder = 1; p.obj.add(b); return p; };
-  const mealBox = () => { const g = new THREE.Group(); const b = new THREE.Mesh(new THREE.BoxGeometry(.3, .07, .24), lit('#C9A36F', { roughness: .85 })); g.add(b); return g; };
+  const labelTex = new THREE.TextureLoader().load(`${BASE}tex/meal-label.webp`); labelTex.colorSpace = THREE.SRGBColorSpace;
+  const kraftM = lit('#C9A36F', { roughness: .85 }), labelM = new THREE.MeshStandardMaterial({ map: labelTex, roughness: .8 });
+  // A branded meal box (for volunteers carrying a tray) and a paper bag with the box inside (for neighbours walking home).
+  const mealBox = () => { const g = new THREE.Group(); g.add(new THREE.Mesh(new THREE.BoxGeometry(.3, .07, .24), [kraftM, kraftM, labelM, kraftM, kraftM, kraftM])); return g; };
+  const bagGeo = new THREE.BoxGeometry(.24, .28, .13), handleGeo = new THREE.TorusGeometry(.045, .006, 6, 16, Math.PI);
+  const mealBag = () => {
+    const g = new THREE.Group(), b = new THREE.Mesh(bagGeo, [kraftM, kraftM, kraftM, kraftM, labelM, labelM]); b.position.y = -.2; g.add(b);
+    const h = new THREE.Mesh(handleGeo, kraftM); h.position.y = -.06; g.add(h); return g;
+  };
+  const qTmp = new THREE.Quaternion();
+  let donateMix: THREE.AnimationMixer | null = null;
 
   // ——— The world itself.
   let crowd: Crowd | null = null;
@@ -208,16 +222,37 @@ export function mountWorld(
   loadBaked(`${BASE}models/kitchen`, renderer).then((w) => {
     if (!alive) return;
     scene.add(w.root);
-    const jarAt = w.anchors.jar?.position ?? new THREE.Vector3(5.6, .8, 1.5);
-    giving.position.copy(jarAt);
+    glassMats = w.glass; skyGlass();
+    // The jar sits at the front corner of the hand-out table, beside the moment the meal changes hands.
+    giving.position.set(3.55, .8, 1.42);
     for (const [id, key, tex, pw] of [['about', 'story', storyTex, 1600], ['contact', 'contact', corkTex, 1760]] as const) {
       const b = w.boards[key]; if (!b) continue;
-      const face = new THREE.Mesh(new THREE.PlaneGeometry(b.w, b.h), new THREE.MeshBasicMaterial({ map: tex }));
+      // Not tone mapped, so the board in the world matches the page that takes over exactly.
+      const face = new THREE.Mesh(new THREE.PlaneGeometry(b.w, b.h), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
       face.position.copy(b.obj.position).add(new THREE.Vector3(0, 0, .002)); scene.add(face);
       boards[id] = { host: face, w: b.w, h: b.h, pw };
     }
     partDone('world');
   }).catch((e) => { console.error(e); partDone('world'); });
+
+  // ——— The donate moment: frozen figures built in Blender (tools/blender/people.py), plus the box between their hands.
+  {
+    const gl = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+    const fix = (o: THREE.Object3D) => o.traverse((c) => {
+      const m = c as THREE.Mesh; if (!m.isMesh) return; m.frustumCulled = false;
+      for (const mat of [m.material].flat() as THREE.MeshStandardMaterial[]) {
+        const cut = /hair|bun|ponytail|short|eyebrow|eyelash/i.test(mat.name);
+        mat.transparent = false; mat.depthWrite = true; mat.alphaTest = cut ? .45 : 0; mat.side = cut ? THREE.DoubleSide : THREE.FrontSide; mat.roughness = .65;
+        const pm = mat as THREE.MeshPhysicalMaterial; if (pm.clearcoat !== undefined) pm.clearcoat = 0;
+      }
+    });
+    donateMix = new THREE.AnimationMixer(scene);
+    for (const f of ['d-dadi', 'd-mom', 'd-baby']) gl.loadAsync(`${BASE}models/people/mh/${f}.glb`).then((g) => {
+      if (!alive) return; fix(g.scene); scene.add(g.scene);
+      if (g.animations[0]) donateMix!.clipAction(g.animations[0], g.scene).play();
+    }).catch(() => {});
+    const handoff = mealBox(); handoff.position.set(4.32, .99, 1.6); handoff.rotation.y = .08; scene.add(handoff);
+  }
 
   // ——— People: volunteers cooking and packing inside, one handing out meals at the door, neighbours outside.
   // Realistic MakeHuman cast: volunteers in green tees and neighbours of every age. Lighter devices load fewer.
@@ -230,10 +265,10 @@ export function mountWorld(
   const AISLE = [-6.95, -4.0], LINKS = [-5.85, .7];
   const STATIONS: Station[] = [
     { x: -5.6, z: -7.7, ry: Math.PI, pose: 'stir', aisle: 0 }, { x: -3.4, z: -7.7, ry: Math.PI, pose: 'stir', aisle: 0 },
-    { x: -3.9, z: -6.15, ry: 0, pose: 'reach', aisle: 0 }, { x: -1.9, z: -6.15, ry: 0, pose: 'reach', aisle: 0 },
+    { x: -3.9, z: -6.15, ry: 0, pose: 'chop', aisle: 0 }, { x: -1.9, z: -6.15, ry: 0, pose: 'chop', aisle: 0 },
     { x: .3, z: -7.95, ry: Math.PI, pose: 'reach', aisle: 0 }, { x: 4.25, z: -6.85, ry: Math.PI, pose: 'reach', aisle: 0 },
     { x: -5.85, z: -5.0, ry: -Math.PI / 2, pose: 'reach', aisle: 0 },
-    { x: -3.0, z: -4.05, ry: Math.PI, pose: 'reach', aisle: 1 }, { x: 2.9, z: -3.95, ry: 0, pose: 'reach', aisle: 1 }, { x: 4.5, z: -3.95, ry: 0, pose: 'reach', aisle: 1 },
+    { x: -3.0, z: -4.05, ry: Math.PI, pose: 'chop', aisle: 1 }, { x: 2.9, z: -3.95, ry: 0, pose: 'pack', aisle: 1 }, { x: 4.5, z: -3.95, ry: 0, pose: 'pack', aisle: 1 },
   ];
   type Crew = { p: Person; at: number; path: THREE.Vector3[]; timer: number };
   const crew: Crew[] = [];
@@ -248,23 +283,22 @@ export function mountWorld(
     pts.push(new THREE.Vector3(st.x, 0, AISLE[st.aisle]), new THREE.Vector3(st.x, 0, st.z));
     return pts;
   };
-  let server: Person | null = null, friend: Person | null = null, serveFlash = 0;
+  let friend: Person | null = null;
   loadCast(`${BASE}models/people`, KINDS).then((cast) => {
     if (!alive) return;
-    const crewKinds: Kind[] = CREW.filter((k) => k !== 'v-james');
-    const starts = [0, 2, 8, 4, 9, 6];
+    const crewKinds: Kind[] = CREW;
+    const starts = [0, 2, 8, 7, 9, 6];
     crewKinds.forEach((k, i) => {
       const p = grounded(cast.make(k));
       const st = STATIONS[starts[i]]; p.obj.position.set(st.x, 0, st.z); p.obj.rotation.y = st.ry; scene.add(p.obj); p.set(st.pose);
       crew.push({ p, at: starts[i], path: [], timer: 2 + Math.random() * 6 }); taken.add(starts[i]);
     });
-    server = grounded(cast.make('v-james'));
-    server.obj.position.set(4.25, 0, .72); scene.add(server.obj); server.set('idle');
     const fp = setPoint(reserved, CHAIRS[1]), top = setPoint(reserved, TABLE_TOP);
     friend = cast.make(FOLK.includes('n-amara') ? 'n-amara' : FOLK[0]); friend.obj.position.copy(fp); friend.obj.rotation.y = Math.atan2(top.x - fp.x, top.z - fp.z); scene.add(friend.obj); friend.set('sit');
     crowd = new Crowd(scene, {
       y: 0, minZ: .55, maxZ: 8.2,
-      window: new THREE.Vector3(3.95, 0, 2.6), queueDir: new THREE.Vector3(.55, 0, .83), seats,
+      // The line starts just behind the mother at the table and bends away along the plaza.
+      window: new THREE.Vector3(4.6, 0, 3.15), queueDir: new THREE.Vector3(.45, 0, .89), seats,
       entries: [new THREE.Vector3(-24, 0, 3.4), new THREE.Vector3(24, 0, 3.6), new THREE.Vector3(-24, 0, 6.8), new THREE.Vector3(24, 0, 7)],
       exits: [new THREE.Vector3(-25, 0, 3.2), new THREE.Vector3(25, 0, 3.4), new THREE.Vector3(-25, 0, 7), new THREE.Vector3(25, 0, 6.8)],
       obstacles: [
@@ -277,9 +311,9 @@ export function mountWorld(
         { x: -8, z: 8.1, r: .35 }, { x: 11.2, z: 8.1, r: .35 }, { x: 9.8, z: 8.1, r: .25 }, { x: -14, z: 8.25, r: .2 }, { x: 14, z: 8.25, r: .2 },
       ],
       max: tier > 1 ? 13 : 9,
-      meal: mealBox,
-      onOrder: () => server?.set('nod'),
-      onServe: () => { server?.set('reach'); serveFlash = 1.2; },
+      meal: mealBag,
+      onOrder: () => {},
+      onServe: () => {},
       make: () => grounded(cast.make(FOLK[Math.floor(Math.random() * FOLK.length)])),
     });
     partDone('people');
@@ -290,7 +324,7 @@ export function mountWorld(
   const hit = (w: number, h: number, d: number, x: number, y: number, z: number) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), hitM); m.position.set(x, y, z); scene.add(m); return m; };
   const targets: Record<StationId, THREE.Object3D[]> = {
     volunteer: [hit(14, 4.4, .6, 0, 2.2, -.1), hit(13.2, .7, .4, 0, 3.9, .1)],
-    donate: [hit(3.6, 1.3, 1.2, 4.3, .65, 1.55)],
+    donate: [hit(3.8, 1.8, 2.2, 4.3, .9, 1.9)],
     about: [hit(2, 2.4, .4, -1, 1.2, 1.3)],
     resources: [hit(2.2, 1.2, 2.2, .35, .6, 6.4)],
     contact: [hit(2.9, 2.6, .5, -9, 1.3, 1.7)],
@@ -310,7 +344,8 @@ export function mountWorld(
   const views = (): Record<StationId, View> => ({
     // Inside the kitchen, standing by the packing line, looking across the cooks to the stove.
     volunteer: { pos: [5.7, 2.15, -1.2], look: [-2.6, 1.05, -6.6], fov: 58 },
-    donate: { pos: [6.7, 1.75, 3.25], look: [5.4, .95, 1.45], fov: 34 },
+    // Close on the hand-off: the grandmother passing a meal to a mother with her baby, the jar in the corner.
+    donate: { pos: [2.55, 1.5, 1.95], look: [4.3, 1.18, 1.68], fov: 38 },
     about: fitBoard('about'),
     resources: { pos: [seatEye.x, 1.3, seatEye.z + .38], look: [friendAt.x, .92, friendAt.z - .1], fov: 54 },
     contact: fitBoard('contact'),
@@ -335,7 +370,8 @@ export function mountWorld(
     const v = views()[id];
     // Phones: the card covers the lower part of the screen, so aim lower and the subject sits in the visible top band.
     if (narrow && id === 'volunteer') return { pos: [5.0, 3.5, -1.4], look: [-2.0, -2.4, -6.6], fov: 66 };
-    if (narrow && (id === 'resources' || id === 'donate')) return { ...v, look: [v.look[0], v.look[1] - 1, v.look[2]], fov: (v.fov ?? 36) + 12 };
+    if (narrow && id === 'donate') return { pos: [3.0, 1.9, 3.5], look: [4.25, .55, 1.85], fov: 56 };
+    if (narrow && id === 'resources') return { ...v, look: [v.look[0], v.look[1] - 1, v.look[2]], fov: (v.fov ?? 36) + 12 };
     return v;
   };
   let goal = overview();
@@ -441,10 +477,9 @@ export function mountWorld(
         }
       }
     }
-    if (server) {
-      server.update(dt);
-      if (serveFlash > 0 && (serveFlash -= dt) <= 0) server.set('idle');
-    }
+    donateMix?.update(dt);
+    // Bags hang straight down from the hand, whatever the arm is doing.
+    if (crowd) for (const n of crowd.npcs) for (const c of n.f.hand.children) if (c.userData.carried) { c.parent!.getWorldQuaternion(qTmp); c.quaternion.copy(qTmp.invert()); }
     friend?.update(dt);
     steam.forEach((s, i) => {
       const p = s.userData.pot as [number, number, number], age = (t * .28 + i / steam.length) % 1;

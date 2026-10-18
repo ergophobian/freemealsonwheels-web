@@ -9,6 +9,7 @@ export interface Baked {
   anchors: Record<string, THREE.Object3D>;
   boards: Record<string, { obj: THREE.Object3D; w: number; h: number }>;
   steel: THREE.MeshBasicMaterial[];
+  glass: THREE.MeshStandardMaterial[];
 }
 
 export async function loadBaked(dir: string, renderer: THREE.WebGLRenderer): Promise<Baked> {
@@ -28,7 +29,7 @@ export async function loadBaked(dir: string, renderer: THREE.WebGLRenderer): Pro
     }));
     return lightmaps.get(name)!;
   };
-  const anchors: Baked['anchors'] = {}, boards: Baked['boards'] = {}, steel: THREE.MeshBasicMaterial[] = [];
+  const anchors: Baked['anchors'] = {}, boards: Baked['boards'] = {}, steel: THREE.MeshBasicMaterial[] = [], glass: THREE.MeshStandardMaterial[] = [];
   const jobs: Promise<void>[] = [];
 
   gltf.scene.traverse((o) => {
@@ -45,7 +46,9 @@ export async function loadBaked(dir: string, renderer: THREE.WebGLRenderer): Pro
       const src = m.material as THREE.MeshStandardMaterial;
       m.matrixAutoUpdate = false; m.updateMatrix();
       if (src.name === 'Glass' || /glass/.test(m.parent?.name ?? '') || /_glass/.test(o.name)) {
-        m.material = new THREE.MeshBasicMaterial({ color: '#d7e6ea', transparent: true, opacity: .14, depthWrite: false });
+        // Glass reflects the sky (set once the sky texture arrives) and lets the rooms behind show through.
+        const g = new THREE.MeshStandardMaterial({ color: '#dde8ee', metalness: 1, roughness: .04, transparent: true, opacity: .42, depthWrite: false, envMapIntensity: .9 });
+        glass.push(g); m.material = g;
         m.renderOrder = 2; continue;
       }
       if (kind === 'billboard') {
@@ -84,5 +87,5 @@ export async function loadBaked(dir: string, renderer: THREE.WebGLRenderer): Pro
     }
   });
   await Promise.all(jobs);
-  return { root: gltf.scene, anchors, boards, steel };
+  return { root: gltf.scene, anchors, boards, steel, glass };
 }

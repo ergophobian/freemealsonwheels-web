@@ -313,6 +313,9 @@ upper = box('FacadeUpper', BX0, BX1, H1, H2, -.32, 0, STUCCO, 0)
 UPW = [(-6.0, -4.2), (-3.4, -1.6), (-.8, 1.0), (1.8, 3.6), (4.4, 6.2)]
 cut(upper, *[cutter(a, b, H1 + 1.0, H1 + 2.9, -1, 1) for a, b in UPW])
 box('Cornice', BX0 - .25, BX1 + .25, H2, H2 + .28, -.55, .25, TRIM, .02)
+for k in range(int((H2 - H1 - .2) // .38)):
+    y0 = H1 + .15 + k * .38; wq = .55 if k % 2 else .38
+    for x0_, x1_ in ((BX0 - .02, BX0 + wq), (BX1 - wq, BX1 + .02)): box('Quoin', x0_, x1_, y0, y0 + .33, -.37, .03, TRIM, .015)
 box('CorniceBand', BX0 - .12, BX1 + .12, H1 - .1, H1 + .12, -.4, .14, TRIM, .02)
 box('Plinth', BX0 - .05, BX1 + .05, 0, .35, -.36, .06, CONCRETE, .01)
 box('SideL', BX0 - .32, BX0, 0, H2, BD, 0, BRICK_N, 0)
@@ -332,6 +335,8 @@ for a, b in UPW:
     box('UpHead', a - .1, b + .1, H1 + 2.9, H1 + 3.05, -.34, .04, TRIM, .01)
     for x in (a, b - .06): box('UpJamb', x, x + .06, H1 + 1.0, H1 + 2.9, -.22, -.14, TRIM)
     box('UpRail', a, b, H1 + 1.9, H1 + 1.95, -.22, -.14, TRIM)
+    for fx in (1 / 3, 2 / 3): xx = a + (b - a) * fx; box('UpMuntin', xx - .015, xx + .015, H1 + 1.0, H1 + 2.9, -.21, -.16, TRIM, 0)
+    for yy in (H1 + 1.45, H1 + 2.42): box('UpMuntinH', a, b, yy - .015, yy + .015, -.21, -.16, TRIM, 0)
 for x in (DOOR[0], DOOR[1] - .1): box('DoorJamb', x, x + .1, 0, 3.2, -.28, -.08, GREEN, .01)
 box('DoorHead', *DOOR, 3.1, 3.2, -.28, -.08, GREEN, .01)
 
@@ -370,7 +375,7 @@ if LOGO and os.path.exists(LOGO):
         p.rotation_euler.x = math.radians(90); p.data.materials.append(lm); GROUPS.setdefault('logo', []).append(p)
 group('sign')
 KITCHEN_INK = mat('KitchenInk', '#1E5A3A', .5)
-text('Community kitchen  ·  San Jose', .3, 0, H1 + .6, .02, KITCHEN_INK, .02)
+text('Community kitchen  ·  San Jose', .3, 0, H1 + .6, .005, KITCHEN_INK, .004)
 
 # Blade sign by the door.
 group('sign')
@@ -485,8 +490,33 @@ box('PackShelf', 2.1, 6.3, .25, .28, -3.3, -2.5, STEEL, .005)
 CHICKEN = grime('Chicken', '#C98A4B', '#A86A32', .6, 20.)
 BROC = grime('Broccoli', '#4E8A3A', '#3A6E2B', .8, 30.)
 GRAIN = bpy.data.textures.new('grain', 'CLOUDS'); GRAIN.noise_scale = .012
-def meal(x, y, z, lid=True):
-    # An open kraft to-go box: tray walls, rice, chicken, greens, carrots, lid tipped back on its hinge.
+OWNUV = set()
+LABEL = tiled('MealLabel', 'meal_label', 1.0, rough=.8); OWNUV.add('MealLabel')
+def label(x, y, z, w, d, facing='up'):
+    # A printed Free Meals on Wheels label with its own 0..1 UVs (kept crisp: tiled texture + lightmap).
+    bpy.ops.mesh.primitive_plane_add(size=1, location=T(x, y, z)); o = bpy.context.object; o.name = 'Label'
+    o.scale = (w, d, 1)
+    if facing == 'front': o.rotation_euler = (math.radians(90), 0, 0)
+    bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+    return finish(o, LABEL)
+def food_mat(name, a, b, scale, bump=.4, rough=.6):
+    # Food surfaces: two tones broken up by fine Voronoi cells (grains, seeds, crumb) plus matching bump.
+    m = mat(name, a, rough); nt = m.node_tree; n = nt.nodes; L = nt.links; bs = principled(m)
+    vo = n.new('ShaderNodeTexVoronoi'); vo.inputs['Scale'].default_value = scale
+    ramp = n.new('ShaderNodeValToRGB'); L.new(vo.outputs['Distance'], ramp.inputs[0])
+    ramp.color_ramp.elements[0].color = (*srgb(b), 1); ramp.color_ramp.elements[1].color = (*srgb(a), 1); ramp.color_ramp.elements[1].position = .55
+    L.new(ramp.outputs[0], bs.inputs['Base Color'])
+    bp = n.new('ShaderNodeBump'); bp.inputs['Strength'].default_value = bump; L.new(vo.outputs['Distance'], bp.inputs['Height']); L.new(bp.outputs['Normal'], bs.inputs['Normal'])
+    return m
+RICE_M = food_mat('RiceGrain', '#F7F1E3', '#E6DBC4', 160, .35, .7)
+RAJMA_SAUCE = food_mat('RajmaSauce', '#73301A', '#4E1C0C', 60, .3, .3)
+BEAN = mat('KidneyBean', '#6B1E14', .3)
+ROTI = food_mat('Roti', '#E2BC80', '#9E6A33', 18, .6, .8)
+CUKE = mat('Cucumber', '#CFE3A8', .5); CUKE_SKIN = mat('CucumberSkin', '#3F7A2E', .4)
+TOM = mat('TomatoWedge', '#D2402E', .3)
+GRAIN = bpy.data.textures.new('grain', 'VORONOI'); GRAIN.noise_scale = .0045; GRAIN.distance_metric = 'DISTANCE'
+def meal(x, y, z, lid=True, sticker=True):
+    # An open kraft to-go box: rice, rajma (kidney bean curry), roti and a little salad, lid tipped back.
     w, d, h, t = .34, .26, .065, .006
     box('MealTray', x - w / 2, x + w / 2, y, y + t, z - d / 2, z + d / 2, KRAFT, 0)
     box('MealWall', x - w / 2, x + w / 2, y, y + h, z - d / 2, z - d / 2 + t, KRAFT, 0)
@@ -494,18 +524,35 @@ def meal(x, y, z, lid=True):
     box('MealWall', x - w / 2, x - w / 2 + t, y, y + h, z - d / 2, z + d / 2, KRAFT, 0)
     box('MealWall', x + w / 2 - t, x + w / 2, y, y + h, z - d / 2, z + d / 2, KRAFT, 0)
     box('MealDivider', x - .02, x - .014, y, y + h * .8, z - d / 2, z + d / 2, KRAFT, 0)
-    r = ball('Rice', x - .085, y + .035, z, .1, RICE, 3, .32); r.scale.y = 1.2
-    rd = r.modifiers.new('grain', 'DISPLACE'); rd.texture = GRAIN; rd.strength = .008
-    for k in range(4): ball('Chicken', x + .05 + (k % 2) * .06, y + .045, z - .06 + (k // 2) * .07, .035, CHICKEN, 2, .7)
-    for k in range(3): ball('Broccoli', x + .12 - k * .03, y + .05, z + .08 - (k % 2) * .03, .026, BROC, 2)
-    for k in range(4): box('CarrotDice', x + .02 + k * .025, x + .038 + k * .025, y + .04, y + .058, z + .09, z + .108, CARROT, 0)
+    box('MealDivider2', x - .014, x + w / 2 - t, y, y + h * .7, z - .003, z + .003, KRAFT, 0)
+    r = ball('Rice', x - .088, y + .028, z, .1, RICE_M, 5, .36); r.scale = (.78, 1.18, 1)
+    # Only the mound above the tray floor: hidden underside faces bake dark and bleed into the visible rice.
+    import bmesh as _bmr
+    bmr = _bmr.new(); bmr.from_mesh(r.data)
+    _bmr.ops.delete(bmr, geom=[v for v in bmr.verts if v.co.z < -.004], context='VERTS'); bmr.to_mesh(r.data); bmr.free()
+    rd = r.modifiers.new('grain', 'DISPLACE'); rd.texture = GRAIN; rd.strength = .004; rd.texture_coords = 'GLOBAL'
+    # Rajma in the back right: glossy sauce with beans sitting in it.
+    s_ = cyl('Sauce', x + .075, y + t, y + .042, z - .062, .062, RAJMA_SAUCE, 24); s_.scale = (1.15, .95, 1)
+    for k in range(9):
+        a = k * 2.39; rr = .02 + (k % 3) * .015
+        b_ = ball('Bean', x + .075 + math.cos(a) * rr, y + .043, z - .062 + math.sin(a) * rr * .8, .011, BEAN, 2, .6); b_.scale.x = 1.6; b_.rotation_euler.z = a
+    # Roti folded in quarters, and salad, in the front right.
+    ro = cyl('Roti', x + .06, y + .02, y + .03, z + .06, .058, ROTI, 24); ro.scale = (1, .72, 1); ro.rotation_euler.x = -.25
+    for k in range(3):
+        cu = cyl('Cuke', x + .125, y + .012 + k * .004, y + .02 + k * .004, z + .045 + k * .022, .016, CUKE, 14)
+        cyl('CukeSkin', x + .125, y + .011 + k * .004, y + .019 + k * .004, z + .045 + k * .022, .0175, CUKE_SKIN, 14)
+    for k in range(2): ball('Tomato', x + .1 + k * .025, y + .022, z + .1, .013, TOM, 2, .8)
+    if sticker: label(x, y + h * .5, z + d / 2 + .0012, .16, .05, 'front')
     if lid:
         lo = box('MealLid', x - w / 2, x + w / 2, y + h - .003, y + h + .003, z - d, z, KRAFT, 0)
         lo.location = T(x, y + h + d / 2 * .94, z - d / 2 - d / 2 * .34); lo.rotation_euler.x = math.radians(70)
+group('meals')
 for r in range(2):
     for c in range(7):
         meal(2.3 + c * .56, .94, -3.15 + r * .48, lid=(r + c) % 3 != 0)
+group('kitchen')
 for k in range(4): box('Lids', 6.0, 6.35, .94 + k * .03, .965 + k * .03, -3.3, -3.0, KRAFT, .005)
+label(6.175, .94 + 4 * .03 - .004, -3.15, .3, .25)
 for k, x in enumerate((2.4, 3.1, 3.8)):
     for s in range(1 + k % 2): box('DeliveryBag', x, x + .55, s * .42, s * .42 + .4, -1.5, -.9, BAG, .04)
 
@@ -539,9 +586,12 @@ box('HandoutTop', 2.6, 6.0, .76, .8, 1.15, 1.95, CLOTH, .02)
 box('HandoutSkirt', 2.62, 5.98, .25, .78, 1.93, 1.95, AWNING, 0)
 for x in (2.7, 5.85):
     for z in (1.2, 1.85): box('HandoutLeg', x, x + .04, 0, .76, z, z + .04, BLACK, 0)
-for c in range(4):
-    for s in range(3 - c % 2): box('HandoutBox', 3.4 + c * .42, 3.74 + c * .42, .8 + s * .07, .866 + s * .07, 1.37, 1.63, KRAFT, .004)
-meal(4.95, .8, 1.75); meal(4.45, .8, 1.78, False)
+# Stacks of packed meals at the right end, leaving the middle clear where the meal is handed over.
+for c in range(3):
+    n_ = 3 - c % 2
+    for s in range(n_): box('HandoutBox', 4.85 + c * .36, 5.19 + c * .36, .8 + s * .07, .866 + s * .07, 1.37, 1.63, KRAFT, .004)
+    label(5.02 + c * .36, .8 + n_ * .07 - .0035, 1.5, .3, .225)
+group('meals'); meal(5.3, .8, 1.8); meal(5.7, .8, 1.82, False); group('props')
 for k in range(2): prop('wooden_crate_01', 5.3, k * .33, 2.55, 0, parts=['01'], width=.8, maxtris=1200)
 pile('food_apple_01', 5.3, .66, 2.55, 7, .25, .1, .09)
 prop('wicker_basket_01', 2.95, .8, 1.75, -10, width=.4, maxtris=1500)
@@ -577,8 +627,9 @@ def bistro(x, z, ry=0.):
     prop('outdoor_table_chair_set_01', x, 0, z, ry, height=.86, maxtris=4000)
 for x, z, r in ((-5.4, 3.6, 10), (-2.6, 5.2, -15), (-5.8, 6.6, 25), (.4, 6.4, 0)): bistro(x, z, r)
 # Dinner on the tables: the reserved one (your seat and a friend's) and one plate on each of the others.
-meal(.32, .726, 6.62, False); meal(.30, .726, 6.26, False)
-for x, z in ((-5.47, 3.62), (-2.68, 5.22), (-5.88, 6.62)): meal(x, .726, z + .12, False)
+group('meals'); meal(.32, .726, 6.62, False, False); meal(.30, .726, 6.26, False, False)
+for x, z in ((-5.47, 3.62), (-2.68, 5.22), (-5.88, 6.62)): meal(x, .726, z + .12, False, False)
+group('props')
 empty('anchor_meal', -2.6, .8, 5.2)
 
 CLOUDS = bpy.data.textures.new('clouds', 'CLOUDS'); CLOUDS.noise_scale = .35
@@ -652,6 +703,7 @@ def slope(name, x0, x1, y0, y1, z1, m):
     o = bpy.data.objects.new(name, me); scene.collection.objects.link(o)
     sol = o.modifiers.new('sol', 'SOLIDIFY'); sol.thickness = .025
     finish(o, m); box(name + 'Valance', x0, x1, y1 - .22, y1, z1 - .01, z1 + .01, m, 0)
+SIGN_INK_D = mat('SignInkDark', '#1F4A33', .5); SIGN_INK_L = mat('SignInkLight', '#F4ECDC', .5)
 def neighbour(x0, x1, h, wall, awn, name, frame=None):
     frame = frame or TRIM
     box('NWall', x0, x1, 0, h, BD + 1, -.3, wall, 0)
@@ -680,10 +732,12 @@ def neighbour(x0, x1, h, wall, awn, name, frame=None):
             box('NRoom', cx - .55, cx + .55, y, y + 1.8, -.33, -.31, SHOP_GLOW if random.random() < .3 else CURTAIN, 0)
             box('NWinGlass', cx - .55, cx + .55, y, y + 1.8, -.27, -.26, GLASS, 0)
             for xx in (cx - .62, cx + .55): box('NWinJamb', xx, xx + .07, y, y + 1.8, -.3, -.2, TRIM, .005)
-            box('NWinRail', cx - .55, cx + .55, y + 1.1, y + 1.14, -.28, -.22, TRIM, 0)
+            box('NWinRail', cx - .55, cx + .55, y + .88, y + .92, -.28, -.22, TRIM, 0)
+            box('NMuntin', cx - .012, cx + .012, y, y + 1.8, -.275, -.235, TRIM, 0)
+            for yy in (y + .44, y + 1.34): box('NMuntinH', cx - .55, cx + .55, yy - .012, yy + .012, -.275, -.235, TRIM, 0)
             box('NSill', cx - .7, cx + .7, y - .12, y, -.42, -.16, TRIM, .01)
             box('NLintel', cx - .7, cx + .7, y + 1.8, y + 1.98, -.38, -.2, TRIM, .01)
-    text(name, .3, (x0 + x1) / 2, 3.87, .03, GREEN_D if wall is not BRICK_N else TRIM, .015)
+    text(name, .3, (x0 + x1) / 2, 3.87, .025, SIGN_INK_D if wall is not BRICK_N else SIGN_INK_L, .004)
 AWN_RED = tiled('AwningRed', stripe_tex('awning_red', '#B4443A', '#F3E8D6'), 1.2, rough=.85)
 AWN_NAVY = mat('AwningNavy', '#2D4A6B', .85)
 AWN_MUSTARD = tiled('AwningMustard', stripe_tex('awning_mustard', '#D9A33A', '#F5ECD8'), 1.0, rough=.85)
@@ -701,21 +755,17 @@ for x in range(-28, 30, 4):
 
 # =====================================================================
 # Sun, sky, render settings.
-sun = bpy.data.lights.new('sun', 'SUN'); sun.energy = 2.6; sun.angle = math.radians(3); sun.color = srgb('#FFD3A1')
+sun = bpy.data.lights.new('sun', 'SUN'); sun.energy = 4.6; sun.angle = math.radians(3); sun.color = srgb('#FFD3A1')
 so = bpy.data.objects.new('sun', sun); scene.collection.objects.link(so)
 so.rotation_euler = Vector((-.55, .8, -.36)).to_track_quat('-Z', 'Y').to_euler()
 world = bpy.data.worlds.new('sky'); scene.world = world; world.use_nodes = True
 bg = world.node_tree.nodes['Background']
-try:
-    sky = world.node_tree.nodes.new('ShaderNodeTexSky')
-    for t in ('MULTIPLE_SCATTERING', 'NISHITA', 'HOSEK_WILKIE'):
-        try: sky.sky_type = t; break
-        except Exception: pass
-    try: sky.sun_elevation = math.radians(20); sky.sun_rotation = math.radians(210)
-    except Exception: pass
-    world.node_tree.links.new(sky.outputs['Color'], bg.inputs['Color']); bg.inputs['Strength'].default_value = .22
-except Exception:
-    bg.inputs['Color'].default_value = (*srgb('#BFD8EE'), 1); bg.inputs['Strength'].default_value = 1.
+env = world.node_tree.nodes.new('ShaderNodeTexEnvironment')
+env.image = bpy.data.images.load(os.environ.get('SKY', r'C:\fmow\sky.hdr'))
+mp = world.node_tree.nodes.new('ShaderNodeMapping'); tc = world.node_tree.nodes.new('ShaderNodeTexCoord')
+world.node_tree.links.new(tc.outputs['Generated'], mp.inputs['Vector']); world.node_tree.links.new(mp.outputs['Vector'], env.inputs['Vector'])
+mp.inputs['Rotation'].default_value[2] = math.radians(float(os.environ.get('SKY_ROT', '200')))
+world.node_tree.links.new(env.outputs['Color'], bg.inputs['Color']); bg.inputs['Strength'].default_value = float(os.environ.get('SKY_STR', '1.1'))
 
 scene.render.engine = 'CYCLES'
 prefs = bpy.context.preferences.addons['cycles'].preferences
@@ -724,7 +774,7 @@ for d in prefs.devices: d.use = d.type == 'OPTIX'
 scene.cycles.device = 'GPU'
 try: scene.view_settings.view_transform = 'AgX'; scene.view_settings.look = 'AgX - Punchy'
 except Exception as e: print('view', e)
-scene.view_settings.exposure = float(os.environ.get('EXPO', '-0.6'))
+scene.view_settings.exposure = float(os.environ.get('EXPO', '0'))
 
 def look(cam, pos, target, fov=40):
     cam.location = T(*pos)
@@ -749,6 +799,7 @@ def finalize():
         if o.type != 'MESH': continue
         if o.modifiers:
             me = bpy.data.meshes.new_from_object(o.evaluated_get(dg)); o.modifiers.clear(); o.data = me
+        if any(m and m.name in OWNUV for m in o.data.materials): continue
         tiles = [TILE[m.name] for m in o.data.materials if m and m.name in TILE]
         if tiles: box_uv(o, tiles[0])
 finalize()
@@ -764,6 +815,7 @@ if MODE == 'render':
         'handout': ((1.2, 1.7, 5.4), (4.2, 1.0, 1.4), 50),
         'street': ((-9, 1.7, 11), (0, 2.5, 0), 55),
         'meals': ((4.0, 1.6, -1.6), (4.0, .9, -3.2), 50),
+        'handout2': ((4.6, 1.45, 3.0), (4.6, .85, 1.6), 45),
     }
     pick = ARGS[4].split(',') if len(ARGS) > 4 else list(shots)
     for name in pick:
@@ -811,12 +863,12 @@ if MODE == 'bake':
         for o in hidden: o.hide_render = False
         scene.camera, scene.render.film_transparent, scene.render.resolution_x, scene.render.resolution_y, scene.cycles.samples = old
         bpy.data.objects.remove(cam)
-        return path, max(w, h), (c.z - lo.z) / max(w, h)
+        return path, max(w, h), c.z - lo.z, h
 
     # Classify and join into buckets.
     def area(o):
         return sum(p_.area for p_ in o.data.polygons) * (o.scale.x * o.scale.y)
-    EMISSIVE = {'Bulb', 'SignLetters', 'ShopGlow'}
+    EMISSIVE = {'Bulb', 'SignLetters', 'ShopGlow', 'KitchenInk', 'SignInkDark', 'SignInkLight'}
     buckets = {}
     for gname, objs in GROUPS.items():
         for o in objs:
@@ -829,7 +881,8 @@ if MODE == 'bake':
             elif any(has_alpha(m) for m in mats): kind = 'leaf'
             elif any(m.name in ('Steel', 'SteelDark') for m in mats): kind = 'steel'
             elif gname == 'logo': kind = 'logo'
-            elif max(o.dimensions) < .36 and gname in ('kitchen', 'props'): kind = 'vcol'
+            elif max(o.dimensions) < .36 and gname in ('kitchen', 'props'): kind = 'vcol'  # meals get a sharp atlas instead
+            elif o.name.startswith('Rice'): kind = 'vcol'  # dense, smooth mound: vertex colour bakes cleanly, an atlas speckles
             else: kind = 'color'
             buckets.setdefault((gname, kind), []).append(o)
 
@@ -931,7 +984,7 @@ if MODE == 'bake':
             o['bake'] = 'vcol'; o['scale'] = 1 / k
             report.append((name, kind, 0, len(o.data.polygons), round(1 / k, 3)))
             exported.append(o); continue
-        dens = (LM_DENSITY if kind in ('tile', 'leaf') else COLOR_DENSITY) * {'ground': 1.8, 'props': 1.7, 'kitchen': 1.4, 'shell': 1.2}.get(gname, 1.)
+        dens = (LM_DENSITY if kind in ('tile', 'leaf') else COLOR_DENSITY) * {'ground': 1.8, 'props': 1.7, 'kitchen': 1.4, 'shell': 1.2, 'meals': 7.}.get(gname, 1.)
         size = lm_uv(o, dens)
         img = bake_into(o, size, kind)
         out, scale = save(img, name)
@@ -964,8 +1017,8 @@ if MODE == 'bake':
     for i, (x, y, z, h) in enumerate(TREES):
         src = next(o for o in scene.objects if o.get('bakeonly') and abs(o.location.x - x) < .01)
         if 'tree' not in imp_cache: imp_cache['tree'] = impostor(src, 'tree_billboard')
-        path, size_, base = imp_cache['tree']
-        k = h / size_ if size_ else 1
+        path, size_, below, th = imp_cache['tree']
+        k = h / th if th else 1  # this tree's height over the rendered tree's height
         img = bpy.data.images.load(path, check_existing=True)
         m = bpy.data.materials.get('Leaf_tree') or bpy.data.materials.new('Leaf_tree')
         if not m.get('built'):
@@ -974,7 +1027,7 @@ if MODE == 'bake':
         for r in (0, 90):
             bpy.ops.mesh.primitive_plane_add(size=1); pl = bpy.context.object; pl.name = f'Tree{i}_{r}'
             pl.scale = (size_ * k, size_ * k, 1); pl.rotation_euler = (math.radians(90), 0, math.radians(r))
-            pl.location = T(x, y + size_ * k / 2 - .1, z); pl.data.materials.append(m); pl['billboard'] = 1
+            pl.location = T(x, y + below * k - .05, z); pl.data.materials.append(m); pl['billboard'] = 1
             exported.append(pl)
 
     for o in list(scene.objects):

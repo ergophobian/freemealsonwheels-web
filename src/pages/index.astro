@@ -17,7 +17,7 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
         <button data-open="volunteer">Volunteer</button>
         <button data-open="resources">Get a meal</button>
         <button data-open="contact">Contact</button>
-        <button data-shifts>My shifts</button>
+        <button data-shifts class="login">Log in</button>
         <button class="hud-give" data-open="donate">Donate</button>
       </nav>
     </header>
@@ -413,6 +413,9 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
     history.replaceState(null, '', '#shifts');
   }
   document.querySelectorAll<HTMLElement>('[data-shifts]').forEach((b) => (b.onclick = openShifts));
+  // Signed-out visitors see Log in; once signed in it reads My shifts.
+  const syncLogin = () => { let on = false; try { on = !!localStorage.getItem(SKEY); } catch {} document.querySelectorAll<HTMLElement>('button.login').forEach((b) => (b.textContent = on ? 'My shifts' : 'Log in')); };
+  syncLogin(); addEventListener('storage', syncLogin); setInterval(syncLogin, 2000);
   body.addEventListener('submit', (e) => {
     const f = e.target as HTMLFormElement, kind = f.dataset.s; if (!kind) return;
     e.preventDefault(); e.stopImmediatePropagation();
@@ -479,7 +482,7 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   .swiper .count { font: 500 .8rem ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; color: rgb(10 30 50 / .7); min-width: 170px; text-align: center; }
   .swiper .count i { font-family: 'Instrument Serif', Georgia, serif; font-size: 1.05rem; letter-spacing: 0; color: #16231c; }
   /* After a swipe, one clear button opens the station you're looking at. */
-  .credits { position: absolute; left: 0; right: 0; bottom: 6px; margin: 0; text-align: center; font: 400 11px Inter, system-ui, sans-serif; color: rgb(60 36 18 / .7); }
+  .credits { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); margin: 0; padding: 3px 10px; border-radius: 6px; background: rgb(255 253 246 / .85); white-space: nowrap; font: 400 11px Inter, system-ui, sans-serif; color: #5f6b64; }
   .quick .go[hidden] { display: none; }
   .quick.peek .btn:not(.go) { display: none; }
   .quick.peek .go { flex: 1; }
@@ -611,8 +614,7 @@ const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
   .pinned > *:nth-child(3n + 1) { transform: rotate(-1.6deg); } .pinned > *:nth-child(3n + 2) { transform: rotate(1.2deg); } .pinned > *:nth-child(3n) { transform: rotate(-.6deg); }
   .pinned > *:hover { transform: rotate(0) translateY(-3px); }
   .pinned :global(.pin) { position: absolute; top: 8px; left: 50%; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ff9a6a, #d2501a); box-shadow: 0 3px 4px rgb(0 0 0 / .35); }
-  .pinned .title { grid-column: span 2; background: transparent; box-shadow: none; padding-top: 6px; cursor: default; color: #3b2412; }
-  .pinned .title .pin { display: none; }
+  .pinned .title { grid-column: span 2; cursor: default; color: #3b2412; padding: 30px 30px 26px; }
   .pinned .title h2 { font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-size: clamp(2.6rem, 5vw, 3.8rem); color: #2a1a0c; margin: 0; letter-spacing: 0; }
   .pinned .title p { margin: 0; font-size: 1.05rem; max-width: 40ch; }
   .pinned small { color: var(--muted); }
