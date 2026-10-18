@@ -166,7 +166,7 @@ export function mountWorld(
 
   // ——— Donation jar on the hand-out table: tap an amount and coins drop in while hearts rise.
   const giving = new THREE.Group(); scene.add(giving);
-  const jar = new THREE.Group(); jar.scale.setScalar(1.15); giving.add(jar);
+  const jar = new THREE.Group(); jar.scale.setScalar(.95); giving.add(jar);
   jar.add(new THREE.Mesh(new THREE.CylinderGeometry(.14, .13, .34, 40, 1, true), new THREE.MeshStandardMaterial({ color: '#EAF4F2', roughness: .05, metalness: .1, transparent: true, opacity: .3, side: THREE.DoubleSide, depthWrite: false })).translateY(.17));
   { const rim = new THREE.Mesh(new THREE.TorusGeometry(.14, .01, 8, 40), lit('#ffffff', { roughness: .1, transparent: true, opacity: .6 })); rim.rotation.x = Math.PI / 2; rim.position.y = .34; jar.add(rim); }
   { const ribbon = new THREE.Mesh(new THREE.TorusGeometry(.142, .014, 8, 40), lit('#1F7A4A')); ribbon.rotation.x = Math.PI / 2; ribbon.position.y = .25; jar.add(ribbon); }
@@ -223,8 +223,8 @@ export function mountWorld(
     if (!alive) return;
     scene.add(w.root);
     glassMats = w.glass; skyGlass();
-    // The jar sits at the front corner of the hand-out table, beside the moment the meal changes hands.
-    giving.position.set(3.55, .8, 1.42);
+    // The jar stands back on the table behind the meal boxes, in view for the coins but clear of the hand-off.
+    giving.position.set(5.15, .8, 1.25);
     for (const [id, key, tex, pw] of [['about', 'story', storyTex, 1600], ['contact', 'contact', corkTex, 1760]] as const) {
       const b = w.boards[key]; if (!b) continue;
       // Not tone mapped, so the board in the world matches the page that takes over exactly.
@@ -241,8 +241,8 @@ export function mountWorld(
     const fix = (o: THREE.Object3D) => o.traverse((c) => {
       const m = c as THREE.Mesh; if (!m.isMesh) return; m.frustumCulled = false;
       for (const mat of [m.material].flat() as THREE.MeshStandardMaterial[]) {
-        const cut = /hair|bun|ponytail|short|eyebrow|eyelash/i.test(mat.name);
-        mat.transparent = false; mat.depthWrite = true; mat.alphaTest = cut ? .45 : 0; mat.side = cut ? THREE.DoubleSide : THREE.FrontSide; mat.roughness = .65;
+        const cut = /hair|bun|ponytail|short|eyebrow|eyelash|high-poly|eye/i.test(mat.name);
+        mat.transparent = false; mat.depthWrite = true; mat.alphaTest = cut ? .45 : 0; mat.side = cut ? THREE.DoubleSide : THREE.FrontSide; mat.roughness = .65; if (/high-poly/i.test(mat.name)) mat.color.multiplyScalar(.8);
         const pm = mat as THREE.MeshPhysicalMaterial; if (pm.clearcoat !== undefined) pm.clearcoat = 0;
       }
     });
@@ -251,15 +251,16 @@ export function mountWorld(
       if (!alive) return; fix(g.scene); scene.add(g.scene);
       if (g.animations[0]) donateMix!.clipAction(g.animations[0], g.scene).play();
     }).catch(() => {});
-    const handoff = mealBox(); handoff.position.set(4.32, .99, 1.6); handoff.rotation.y = .08; scene.add(handoff);
+    const handoff = mealBox(); handoff.position.set(4.32, .99, 1.66); handoff.rotation.y = .08; scene.add(handoff);
   }
 
   // ——— People: volunteers cooking and packing inside, one handing out meals at the door, neighbours outside.
   // Realistic MakeHuman cast: volunteers in green tees and neighbours of every age. Lighter devices load fewer.
   const CREW: Kind[] = tier > 1 ? [...VOLUNTEERS] : ['v-maya', 'v-james', 'v-linda'];
-  const FOLK: Kind[] = tier > 1 ? [...NEIGHBOURS] : ['n-chen', 'n-amara', 'n-marcus', 'n-ruth'];
+  const FOLK: Kind[] = tier > 1 ? [...NEIGHBOURS] : ['n-chen', 'n-amara', 'n-marcus', 'n-ruth', 'n-sofia', 'n-kenji'];
   const KINDS: Kind[] = [...CREW, ...FOLK];
   type Station = { x: number; z: number; ry: number; pose: Pose; aisle: number };
+  const TOOL = (new URLSearchParams(location.search).get('tool') ?? '0,.085,.025,0,0,0').split(',').map(Number);
   // Two aisles run left to right through the kitchen (behind the island, and between island and packing line),
   // joined at either end of the island. Volunteers walk the aisles, so nobody passes through a counter.
   const AISLE = [-6.95, -4.0], LINKS = [-5.85, .7];
@@ -271,6 +272,20 @@ export function mountWorld(
     { x: -3.0, z: -4.05, ry: Math.PI, pose: 'chop', aisle: 1 }, { x: 2.9, z: -3.95, ry: 0, pose: 'pack', aisle: 1 }, { x: 4.5, z: -3.95, ry: 0, pose: 'pack', aisle: 1 },
   ];
   type Crew = { p: Person; at: number; path: THREE.Vector3[]; timer: number };
+  // Hand tools for the kitchen work, in the right hand's own frame (fingers along +y, grip across the palm along x).
+  const steelM = lit('#C9CDD1', { metalness: .9, roughness: .3 }), woodM = lit('#5B3B25', { roughness: .7 });
+  const tool = (kind: 'knife' | 'ladle') => {
+    const g = new THREE.Group(); g.userData.tool = kind;
+    const grip = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, .11, 8), woodM); grip.rotation.z = Math.PI / 2; g.add(grip);
+    if (kind === 'knife') { const b = new THREE.Mesh(new THREE.BoxGeometry(.17, .035, .003), steelM); b.position.set(.14, -.008, 0); g.add(b); }
+    else {
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.006, .006, .3, 6), steelM); shaft.rotation.z = Math.PI / 2; shaft.position.x = .2; g.add(shaft);
+      const bowl = new THREE.Mesh(new THREE.SphereGeometry(.04, 12, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), steelM); bowl.position.x = .35; g.add(bowl);
+    }
+    g.position.set(TOOL[0], TOOL[1], TOOL[2]); g.rotation.set(TOOL[3], TOOL[4], TOOL[5]);
+    return g;
+  };
+  const work = (c: Crew, pose: Pose) => { c.p.set(pose); c.p.carry(pose === 'chop' ? tool('knife') : pose === 'stir' ? tool('ladle') : null); };
   const crew: Crew[] = [];
   const taken = new Set<number>();
   let mover: Crew | null = null;
@@ -290,8 +305,8 @@ export function mountWorld(
     const starts = [0, 2, 8, 7, 9, 6];
     crewKinds.forEach((k, i) => {
       const p = grounded(cast.make(k));
-      const st = STATIONS[starts[i]]; p.obj.position.set(st.x, 0, st.z); p.obj.rotation.y = st.ry; scene.add(p.obj); p.set(st.pose);
-      crew.push({ p, at: starts[i], path: [], timer: 2 + Math.random() * 6 }); taken.add(starts[i]);
+      const st = STATIONS[starts[i]]; p.obj.position.set(st.x, 0, st.z); p.obj.rotation.y = st.ry; scene.add(p.obj);
+      const c: Crew = { p, at: starts[i], path: [], timer: 2 + Math.random() * 6 }; crew.push(c); work(c, st.pose); taken.add(starts[i]);
     });
     const fp = setPoint(reserved, CHAIRS[1]), top = setPoint(reserved, TABLE_TOP);
     friend = cast.make(FOLK.includes('n-amara') ? 'n-amara' : FOLK[0]); friend.obj.position.copy(fp); friend.obj.rotation.y = Math.atan2(top.x - fp.x, top.z - fp.z); scene.add(friend.obj); friend.set('sit');
@@ -314,7 +329,7 @@ export function mountWorld(
       meal: mealBag,
       onOrder: () => {},
       onServe: () => {},
-      make: () => grounded(cast.make(FOLK[Math.floor(Math.random() * FOLK.length)])),
+      make: () => grounded(cast.make(cast.fresh(FOLK))),
     });
     partDone('people');
   }).catch((e) => { console.error(e); partDone('people'); });
@@ -369,7 +384,7 @@ export function mountWorld(
     if (peek) { const a = ANCHORS[id]; return { pos: [a[0] + .6, a[1] + 1.6, a[2] + 8.5], look: [a[0], a[1] - 1.2, a[2]] }; }
     const v = views()[id];
     // Phones: the card covers the lower part of the screen, so aim lower and the subject sits in the visible top band.
-    if (narrow && id === 'volunteer') return { pos: [5.0, 3.5, -1.4], look: [-2.0, -2.4, -6.6], fov: 66 };
+    if (narrow && id === 'volunteer') return { pos: [1.0, 3.6, -1.6], look: [-3.6, -2.2, -6.4], fov: 66 }; // clear of the pendant lamps
     if (narrow && id === 'donate') return { pos: [3.0, 1.9, 3.5], look: [4.25, .55, 1.85], fov: 56 };
     if (narrow && id === 'resources') return { ...v, look: [v.look[0], v.look[1] - 1, v.look[2]], fov: (v.fov ?? 36) + 12 };
     return v;
@@ -458,7 +473,7 @@ export function mountWorld(
       const o = c.p.obj;
       if (c.path.length) {
         const tgt = c.path[0], d = v.subVectors(tgt, o.position); d.y = 0; const dist = d.length();
-        if (dist < .04) { c.path.shift(); if (!c.path.length) { if (mover === c) mover = null; c.p.carry(null); c.p.set(STATIONS[c.at].pose); c.timer = 4 + Math.random() * 7; } }
+        if (dist < .04) { c.path.shift(); if (!c.path.length) { if (mover === c) mover = null; work(c, STATIONS[c.at].pose); c.timer = 4 + Math.random() * 7; } }
         else { o.position.addScaledVector(d.normalize(), Math.min(dist, dt * .95)); const yaw = Math.atan2(d.x, d.z); o.rotation.y += Math.atan2(Math.sin(yaw - o.rotation.y), Math.cos(yaw - o.rotation.y)) * Math.min(1, dt * 8); }
         continue;
       }
@@ -466,13 +481,13 @@ export function mountWorld(
       o.rotation.y += Math.atan2(Math.sin(st.ry - o.rotation.y), Math.cos(st.ry - o.rotation.y)) * Math.min(1, dt * 4);
       c.timer -= dt;
       if (c.timer <= 0) {
-        if (Math.random() < .4 || mover) { c.p.set(Math.random() < .6 ? st.pose : 'idle'); c.timer = 3 + Math.random() * 5; }
+        if (Math.random() < .4 || mover) { work(c, Math.random() < .6 ? st.pose : 'idle'); c.timer = 3 + Math.random() * 5; }
         else {
           const free = STATIONS.map((_, i) => i).filter((i) => !taken.has(i));
           const to = free[Math.floor(Math.random() * free.length)];
           if (to !== undefined) {
             mover = c; c.path = route(o.position, st.aisle, STATIONS[to]); taken.delete(c.at); taken.add(to); c.at = to;
-            if (to >= 7) c.p.carry(mealBox()); c.p.set(to >= 7 ? 'carry' : 'walk');
+            c.p.carry(to >= 7 ? mealBox() : null); c.p.set(to >= 7 ? 'carry' : 'walk');
           } else c.timer = 2;
         }
       }

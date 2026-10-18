@@ -12,7 +12,13 @@ export const MEN = ['casual_2', 'casual_hoodie', 'farmer', 'suit', 'worker', 'be
 export const WOMEN = ['casual', 'formal', 'suit', 'worker', 'adventurer'] as const;
 // Realistic cast built with MakeHuman (tools/blender/people.py): each file carries its own retargeted clips.
 export const VOLUNTEERS = ['v-maya', 'v-james', 'v-linda', 'v-ravi', 'v-priya'] as const;
-export const NEIGHBOURS = ['n-chen', 'n-grace', 'n-amara', 'n-mei', 'n-marcus', 'n-tom', 'n-ruth'] as const;
+export const NEIGHBOURS = ['n-chen', 'n-grace', 'n-amara', 'n-mei', 'n-marcus', 'n-tom', 'n-ruth', 'n-sofia', 'n-diego', 'n-aisha', 'n-kenji', 'n-sam'] as const;
+// MakeHuman builds the bodies small, so each person is scaled to a real standing height (metres).
+const HEIGHT: Record<string, number> = {
+  'v-maya': 1.62, 'v-james': 1.8, 'v-linda': 1.65, 'v-ravi': 1.74, 'v-priya': 1.6,
+  'n-chen': 1.66, 'n-grace': 1.58, 'n-amara': 1.68, 'n-mei': 1.6, 'n-marcus': 1.82, 'n-tom': 1.78, 'n-ruth': 1.6,
+  'n-sofia': 1.66, 'n-diego': 1.76, 'n-aisha': 1.67, 'n-kenji': 1.73, 'n-sam': 1.72,
+};
 export type Kind = `m-${typeof MEN[number]}` | `w-${typeof WOMEN[number]}` | typeof VOLUNTEERS[number] | typeof NEIGHBOURS[number];
 const isMH = (k: string) => /^[vn]-/.test(k);
 
@@ -22,7 +28,7 @@ const HAIR = ['#2A211C', '#3B2C22', '#5A4030', '#8C6A4A', '#C9B49A', '#1B1612'];
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 const load = (u: string) => new Promise<{ scene: THREE.Group; animations: THREE.AnimationClip[] }>((res, rej) => loader.load(u, res, undefined, rej));
 
-export interface Cast { kinds: Kind[]; make(kind?: Kind, opts?: PersonOpts): Person }
+export interface Cast { kinds: Kind[]; make(kind?: Kind, opts?: PersonOpts): Person; fresh(from: readonly Kind[]): Kind }
 interface PersonOpts { height?: number; mobility?: Mobility; skin?: number; apron?: boolean; chair?: () => THREE.Object3D; seatTop?: number; mh?: boolean }
 
 export async function loadCast(base: string, kinds: Kind[]): Promise<Cast> {
@@ -30,11 +36,21 @@ export async function loadCast(base: string, kinds: Kind[]): Promise<Cast> {
   const empty = { scene: new THREE.Group(), animations: [] as THREE.AnimationClip[] };
   const [am, aw, ...models] = await Promise.all([needQ ? load(`${base}/anim-m.glb`) : empty, needQ ? load(`${base}/anim-w.glb`) : empty, ...kinds.map((k) => load(isMH(k) ? `${base}/mh/${k}.glb` : `${base}/${k}.glb`))]);
   for (const m of models) m.scene.traverse((c) => { const s = c as THREE.SkinnedMesh; if (s.isMesh) { s.castShadow = true; s.receiveShadow = false; s.frustumCulled = false; } });
+  const live = new Map<Kind, Person[]>();
   return {
     kinds,
+    // The person least seen on screen right now (ties broken at random), so the same face rarely appears twice.
+    fresh(from) {
+      const n = (k: Kind) => (live.get(k) ?? []).filter((p) => p.obj.parent).length;
+      const lo = Math.min(...from.map(n)), pool = from.filter((k) => n(k) === lo);
+      return pool[Math.floor(Math.random() * pool.length)];
+    },
     make(kind = kinds[Math.floor(Math.random() * kinds.length)], opts = {}) {
       const src = models[kinds.indexOf(kind)];
-      if (isMH(kind)) return new Person(cloneSkinned(src.scene) as THREE.Group, src.animations, { ...opts, mh: true });
+      if (isMH(kind)) {
+        const p = new Person(cloneSkinned(src.scene) as THREE.Group, src.animations, { height: HEIGHT[kind], ...opts, mh: true });
+        live.set(kind, [...(live.get(kind) ?? []).filter((q) => q.obj.parent), p]); return p;
+      }
       return new Person(cloneSkinned(src.scene) as THREE.Group, kind.startsWith('m') ? am.animations : aw.animations, opts);
     },
   };
@@ -86,9 +102,11 @@ export class Person {
         if (!o.mh && /hair|eyebrow|moustache|beard/i.test(n.name)) n.color.copy(hair);
         if (o.mh) {
           // MakeHuman exports everything as blended and double-sided; only hair, brows and lashes need cut-outs.
-          const cut = /hair|afro|bob|braid|ponytail|bun|eyebrow|eyelash|short|long/i.test(n.name);
+          // Eyes too: the cornea shell is see-through, and drawn solid it hides the iris behind a dark film.
+          const cut = /hair|afro|bob|braid|ponytail|bun|eyebrow|eyelash|short|long|high-poly|eye/i.test(n.name);
           n.transparent = false; n.depthWrite = true; n.alphaTest = cut ? .45 : 0;
           n.side = cut ? THREE.DoubleSide : THREE.FrontSide; n.roughness = .62;
+          if (/high-poly/i.test(n.name)) n.color.multiplyScalar(.8); // keep the whites of the eyes from glowing
           const cc = n as THREE.MeshPhysicalMaterial; if (cc.clearcoat !== undefined) cc.clearcoat = 0;
         }
         return n;
