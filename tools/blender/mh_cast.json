@@ -1,0 +1,230 @@
+[
+ {
+  "id": "mh_dadi",
+  "seed": 11,
+  "skin": [
+   0.55,
+   0.45
+  ],
+  "face_tex": 6,
+  "sculpt": 0.5,
+  "body": {
+   "height": 157,
+   "fat": 0.6,
+   "masculine/feminine": 0.85
+  },
+  "grooms": {
+   "Hair": "Hair_S_UpdoBuns",
+   "Eyebrows": "Eyebrows_M_Fine",
+   "Eyelashes": "Eyelashes_S_Sparse"
+  },
+  "hair_col": "#CFCAC2",
+  "top_col": "#6E8F7A",
+  "bottom_col": "#3B3836"
+ },
+ {
+  "id": "mh_mom",
+  "seed": 12,
+  "skin": [
+   0.4,
+   0.55
+  ],
+  "face_tex": 2,
+  "sculpt": 0.6,
+  "body": {
+   "height": 165,
+   "masculine/feminine": 0.9
+  },
+  "grooms": {
+   "Hair": "Hair_S_LowPonytail",
+   "Eyebrows": "Eyebrows_M_Natural",
+   "Eyelashes": "Eyelashes_L_SlightCurl"
+  },
+  "hair_col": "#2B1E16",
+  "top_col": "#5B7FA6",
+  "bottom_col": "#2F3440"
+ },
+ {
+  "id": "mh_james",
+  "seed": 13,
+  "skin": [
+   0.85,
+   0.5
+  ],
+  "face_tex": 4,
+  "sculpt": 0.6,
+  "body": {
+   "height": 181,
+   "masculine/feminine": 0.1,
+   "muscularity": 0.55
+  },
+  "grooms": {
+   "Hair": "Hair_S_AfroFade",
+   "Eyebrows": "Eyebrows_M_Dense",
+   "Eyelashes": "Eyelashes_S_Fine",
+   "Beard": "Beard_S_Stubble"
+  },
+  "hair_col": "#141110",
+  "top_col": "#2E7D4F",
+  "bottom_col": "#2B2E33"
+ },
+ {
+  "id": "mh_maya",
+  "seed": 14,
+  "skin": [
+   0.25,
+   0.5
+  ],
+  "face_tex": 1,
+  "sculpt": 0.6,
+  "body": {
+   "height": 161,
+   "masculine/feminine": 0.9
+  },
+  "grooms": {
+   "Hair": "Hair_M_BobStraight",
+   "Eyebrows": "Eyebrows_M_Thin",
+   "Eyelashes": "Eyelashes_S_Fine"
+  },
+  "hair_col": "#16120F",
+  "top_col": "#2E7D4F",
+  "bottom_col": "#33373D"
+ },
+ {
+  "id": "mh_ravi",
+  "seed": 15,
+  "skin": [
+   0.62,
+   0.5
+  ],
+  "face_tex": 5,
+  "sculpt": 0.6,
+  "body": {
+   "height": 174,
+   "masculine/feminine": 0.12,
+   "fat": 0.45
+  },
+  "grooms": {
+   "Hair": "Hair_S_Clean",
+   "Eyebrows": "Eyebrows_M_Thick",
+   "Eyelashes": "Eyelashes_S_Fine",
+   "Beard": "Beard_S_Full"
+  },
+  "hair_col": "#17130F",
+  "top_col": "#2E7D4F",
+  "bottom_col": "#3A3F47"
+ },
+ {
+  "id": "mh_ruth",
+  "seed": 16,
+  "skin": [
+   0.12,
+   0.45
+  ],
+  "face_tex": 7,
+  "sculpt": 0.5,
+  "body": {
+   "height": 160,
+   "masculine/feminine": 0.85,
+   "fat": 0.55
+  },
+  "grooms": {
+   "Hair": "Hair_S_BobLayered",
+   "Eyebrows": "Eyebrows_S_FlatThin",
+   "Eyelashes": "Eyelashes_S_Sparse"
+  },
+  "hair_col": "#BDB6AC",
+  "top_col": "#B5675A",
+  "bottom_col": "#4A4540"
+ },
+ {
+  "id": "mh_marcus",
+  "seed": 17,
+  "skin": [
+   0.18,
+   0.55
+  ],
+  "face_tex": 3,
+  "sculpt": 0.6,
+  "body": {
+   "height": 182,
+   "masculine/feminine": 0.08,
+   "muscularity": 0.5
+  },
+  "grooms": {
+   "Hair": "Hair_S_Casual",
+   "Eyebrows": "Eyebrows_M_Full",
+   "Eyelashes": "Eyelashes_S_Fine",
+   "Beard": "Beard_M_Stubble"
+  },
+  "hair_col": "#4A3526",
+  "top_col": "#3D4B5C",
+  "bottom_col": "#2A2D31"
+ },
+ {
+  "id": "mh_amara",
+  "seed": 18,
+  "skin": [
+   0.9,
+   0.5
+  ],
+  "face_tex": 0,
+  "sculpt": 0.6,
+  "body": {
+   "height": 168,
+   "masculine/feminine": 0.9
+  },
+  "grooms": {
+   "Hair": "Hair_M_TwistedBraids",
+   "Eyebrows": "Eyebrows_M_SlightArch",
+   "Eyelashes": "Eyelashes_L_Curl"
+  },
+  "hair_col": "#141110",
+  "top_col": "#D9A33A",
+  "bottom_col": "#2F2B28"
+ },
+ {
+  "id": "mh_kenji",
+  "seed": 19,
+  "skin": [
+   0.28,
+   0.48
+  ],
+  "face_tex": 8,
+  "sculpt": 0.6,
+  "body": {
+   "height": 173,
+   "masculine/feminine": 0.12
+  },
+  "grooms": {
+   "Hair": "Hair_S_SideSweptFringe",
+   "Eyebrows": "Eyebrows_M_Natural",
+   "Eyelashes": "Eyelashes_S_Fine"
+  },
+  "hair_col": "#15120F",
+  "top_col": "#6B6F73",
+  "bottom_col": "#2B2E33"
+ },
+ {
+  "id": "mh_sofia",
+  "seed": 20,
+  "skin": [
+   0.45,
+   0.55
+  ],
+  "face_tex": 2,
+  "sculpt": 0.6,
+  "body": {
+   "height": 166,
+   "masculine/feminine": 0.88
+  },
+  "grooms": {
+   "Hair": "Hair_L_Straight",
+   "Eyebrows": "Eyebrows_M_SlightArch",
+   "Eyelashes": "Eyelashes_L_SlightCurl"
+  },
+  "hair_col": "#3A2618",
+  "top_col": "#E6DCCB",
+  "bottom_col": "#3B4A66"
+ }
+]

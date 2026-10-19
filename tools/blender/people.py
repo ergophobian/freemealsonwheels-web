@@ -205,7 +205,14 @@ def retarget(src, dst, clip):
             bone = dst.data.bones[d]; par = bone.parent
             rest_rel = par.matrix_local.inverted() @ bone.matrix_local if par else bone.matrix_local
             pw = world.get(par.name) if par else None
-            if pw is None: pw = ref['rest'][par.name] if par else Matrix()
+            if pw is None and par:
+                # Parent isn't driven (e.g. MetaHuman's extra spine_04/05 and neck_02): carry it along from its
+                # nearest driven ancestor with its rest offset, so children follow the bent spine instead of the rest pose.
+                chain = []; a_ = par
+                while a_ is not None and a_.name not in world: chain.append(a_); a_ = a_.parent
+                pw = world[a_.name] if a_ is not None else ref['rest'][chain.pop().name]
+                for cb in reversed(chain): pw = pw @ (cb.parent.matrix_local.inverted() @ cb.matrix_local)
+            if pw is None: pw = Matrix()
             if d == 'pelvis':
                 head = ref['rest'][d].translation + (spb.matrix.translation - ref['s'][s].translation) * k
             else:

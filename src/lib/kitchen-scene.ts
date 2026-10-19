@@ -8,8 +8,13 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { CSS3DRenderer, CSS3DObject } from 'three/examples/jsm/renderers/CSS3DRenderer.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { loadBaked } from './world/baked';
-import { loadCast, VOLUNTEERS, NEIGHBOURS, type Person, type Kind, type Pose } from './world/people';
+import { loadCast, VOLUNTEERS, NEIGHBOURS, META_CREW, META_FOLK, type Person, type Kind, type Pose } from './world/people';
 import { Crowd, type Seat } from './world/crowd';
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
@@ -66,17 +71,21 @@ export function mountWorld(
   // Lighting is baked, so the only per-frame cost is drawing: phones can afford a sharp pixel ratio.
   const applyTier = () => renderer.setPixelRatio(Math.min(devicePixelRatio, [1, coarse ? 1.75 : 1.25, 1.5][tier]));
   applyTier();
-  renderer.toneMapping = THREE.AgXToneMapping; renderer.toneMappingExposure = Number(new URLSearchParams(location.search).get("exp") ?? 1.35);
+  renderer.toneMapping = THREE.AgXToneMapping; renderer.toneMappingExposure = Number(new URLSearchParams(location.search).get("exp") ?? 1.15);
 
   const scene = new THREE.Scene();
+  const pmrem = new THREE.PMREMGenerator(renderer);
   // A real sky (Poly Haven CC0, the same one the street was lit with in Blender).
   scene.background = new THREE.Color('#9BB5D3');
   let sky: THREE.Texture | null = null, glassMats: THREE.MeshStandardMaterial[] = [];
   const skyGlass = () => { if (sky) for (const g of glassMats) { g.envMap = sky; g.needsUpdate = true; } };
-  new THREE.TextureLoader().load(`${BASE}tex/sky.webp`, (t) => { t.mapping = THREE.EquirectangularReflectionMapping; t.colorSpace = THREE.SRGBColorSpace; scene.background = t; scene.backgroundRotation.y = 2.2; sky = t; skyGlass(); });
+  new THREE.TextureLoader().load(`${BASE}tex/sky.webp`, (t) => {
+    t.mapping = THREE.EquirectangularReflectionMapping; t.colorSpace = THREE.SRGBColorSpace; scene.background = t; scene.backgroundRotation.y = 2.2; sky = t; skyGlass();
+    // Light people and coins with the same sky the street was baked under, instead of a studio room.
+    scene.environment = pmrem.fromEquirectangular(t).texture; scene.environmentRotation.y = 2.2; scene.environmentIntensity = .9;
+  });
   scene.fog = new THREE.Fog('#C9D3DD', 55, 140);
   // A small generated room for reflections on coins, the jar and people (baked surfaces ignore it).
-  const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(), .04).texture; scene.environmentIntensity = .6;
   // People are the only lit objects: a warm late-afternoon sun from the same direction as the bake, and sky fill.
   scene.add(new THREE.HemisphereLight('#D6E6F4', '#B9A285', 1.5));
@@ -224,7 +233,7 @@ export function mountWorld(
     scene.add(w.root);
     glassMats = w.glass; skyGlass();
     // The jar stands back on the table behind the meal boxes, in view for the coins but clear of the hand-off.
-    giving.position.set(5.15, .8, 1.25);
+    giving.position.set(3.55, .8, 1.3);
     for (const [id, key, tex, pw] of [['about', 'story', storyTex, 1600], ['contact', 'contact', corkTex, 1760]] as const) {
       const b = w.boards[key]; if (!b) continue;
       // Not tone mapped, so the board in the world matches the page that takes over exactly.
@@ -247,7 +256,8 @@ export function mountWorld(
       }
     });
     donateMix = new THREE.AnimationMixer(scene);
-    for (const f of ['d-dadi', 'd-mom', 'd-baby']) gl.loadAsync(`${BASE}models/people/mh/${f}.glb`).then((g) => {
+    // With the MetaHuman cast the hand-off is played live by cast members (placed once the cast loads).
+    if (new URLSearchParams(location.search).get('cast') !== 'mh') for (const f of ['d-dadi', 'd-mom', 'd-baby']) gl.loadAsync(`${BASE}models/people/mh/${f}.glb`).then((g) => {
       if (!alive) return; fix(g.scene); scene.add(g.scene);
       if (g.animations[0]) donateMix!.clipAction(g.animations[0], g.scene).play();
     }).catch(() => {});
@@ -256,9 +266,13 @@ export function mountWorld(
 
   // ——— People: volunteers cooking and packing inside, one handing out meals at the door, neighbours outside.
   // Realistic MakeHuman cast: volunteers in green tees and neighbours of every age. Lighter devices load fewer.
-  const CREW: Kind[] = tier > 1 ? [...VOLUNTEERS] : ['v-maya', 'v-james', 'v-linda'];
-  const FOLK: Kind[] = tier > 1 ? [...NEIGHBOURS] : ['n-chen', 'n-amara', 'n-marcus', 'n-ruth', 'n-sofia', 'n-kenji'];
-  const KINDS: Kind[] = [...CREW, ...FOLK];
+  // Preview the MetaHuman cast with ?cast=mh (or ?cast=test for the single test build).
+  const castQ = new URLSearchParams(location.search).get('cast');
+  const CREW: Kind[] = castQ === 'test' ? ['test_a'] : castQ === 'mh' ? [...META_CREW] : tier > 1 ? [...VOLUNTEERS] : ['v-maya', 'v-james', 'v-linda'];
+  const FOLK: Kind[] = castQ === 'test' ? ['test_a'] : castQ === 'mh' ? [...META_FOLK] : tier > 1 ? [...NEIGHBOURS] : ['n-chen', 'n-amara', 'n-marcus', 'n-ruth', 'n-sofia', 'n-kenji'];
+  const KINDS: Kind[] = [...new Set([...CREW, ...FOLK])];
+  // The donate pair stay at the table, so they don't also wander the plaza.
+  const CROWD: Kind[] = FOLK.filter((k) => k !== 'mh_dadi' && k !== 'mh_mom');
   type Station = { x: number; z: number; ry: number; pose: Pose; aisle: number };
   const TOOL = (new URLSearchParams(location.search).get('tool') ?? '0,.085,.025,0,0,0').split(',').map(Number);
   // Two aisles run left to right through the kitchen (behind the island, and between island and packing line),
@@ -299,6 +313,7 @@ export function mountWorld(
     return pts;
   };
   let friend: Person | null = null;
+  const handoff: Person[] = [];
   loadCast(`${BASE}models/people`, KINDS).then((cast) => {
     if (!alive) return;
     const crewKinds: Kind[] = CREW;
@@ -308,8 +323,15 @@ export function mountWorld(
       const st = STATIONS[starts[i]]; p.obj.position.set(st.x, 0, st.z); p.obj.rotation.y = st.ry; scene.add(p.obj);
       const c: Crew = { p, at: starts[i], path: [], timer: 2 + Math.random() * 6 }; crew.push(c); work(c, st.pose); taken.add(starts[i]);
     });
+    if (castQ === 'mh') {
+      // The donate moment: the grandmother packs a meal across the table for a mother waiting on the street side.
+      for (const [k, z, ry, pose] of [['mh_dadi', 1.08, 0, 'pack'], ['mh_mom', 2.3, Math.PI, 'idle']] as const) {
+        if (!KINDS.includes(k)) continue;
+        const p = grounded(cast.make(k)); p.obj.position.set(4.32, 0, z); p.obj.rotation.y = ry; p.set(pose); scene.add(p.obj); handoff.push(p);
+      }
+    }
     const fp = setPoint(reserved, CHAIRS[1]), top = setPoint(reserved, TABLE_TOP);
-    friend = cast.make(FOLK.includes('n-amara') ? 'n-amara' : FOLK[0]); friend.obj.position.copy(fp); friend.obj.rotation.y = Math.atan2(top.x - fp.x, top.z - fp.z); scene.add(friend.obj); friend.set('sit');
+    friend = cast.make(CROWD.includes('n-amara') ? 'n-amara' : CROWD.includes('mh_amara') ? 'mh_amara' : CROWD[0]); friend.obj.position.copy(fp); friend.obj.rotation.y = Math.atan2(top.x - fp.x, top.z - fp.z); scene.add(friend.obj); friend.set('sit');
     crowd = new Crowd(scene, {
       y: 0, minZ: .55, maxZ: 8.2,
       // The line starts just behind the mother at the table and bends away along the plaza.
@@ -329,7 +351,7 @@ export function mountWorld(
       meal: mealBag,
       onOrder: () => {},
       onServe: () => {},
-      make: () => grounded(cast.make(cast.fresh(FOLK))),
+      make: () => grounded(cast.make(cast.fresh(CROWD))),
     });
     partDone('people');
   }).catch((e) => { console.error(e); partDone('people'); });
@@ -360,7 +382,7 @@ export function mountWorld(
     // Inside the kitchen, standing by the packing line, looking across the cooks to the stove.
     volunteer: { pos: [5.7, 2.15, -1.2], look: [-2.6, 1.05, -6.6], fov: 58 },
     // Close on the hand-off: the grandmother passing a meal to a mother with her baby, the jar in the corner.
-    donate: { pos: [2.55, 1.5, 1.95], look: [4.3, 1.18, 1.68], fov: 38 },
+    donate: { pos: [.6, 1.75, 7.4], look: [4.1, 1.05, 1.7], fov: 30 },
     about: fitBoard('about'),
     resources: { pos: [seatEye.x, 1.3, seatEye.z + .38], look: [friendAt.x, .92, friendAt.z - .1], fov: 54 },
     contact: fitBoard('contact'),
@@ -374,7 +396,10 @@ export function mountWorld(
   let narrow = false, peeking = false, focused: StationId | null = null, flying = true, shift = 0, fovGoal = 36, arrivedFor: StationId | null = null;
   const baseFov = () => (narrow ? 44 : 36);
   // The opening view fits the whole street front (community board on the left to the hand-out table on the right).
+  // Dev aid for screenshots: ?cam=px,py,pz,lx,ly,lz[,fov] pins the opening view anywhere.
+  const camQ = new URLSearchParams(location.search).get('cam')?.split(',').map(Number);
   const overview = (): View => {
+    if (camQ && camQ.length >= 6) return { pos: [camQ[0], camQ[1], camQ[2]], look: [camQ[3], camQ[4], camQ[5]], fov: camQ[6] };
     const half = narrow ? 4.4 : 9.4, look: V3 = narrow ? [1.4, 1.5, 2.6] : [-1.4, 2.4, 1.5];
     const t = Math.tan(THREE.MathUtils.degToRad(baseFov() / 2)), dist = Math.max(half / (t * camera.aspect), (narrow ? 3.4 : 4.6) / t) * 1.04;
     const dir = new THREE.Vector3(.16, narrow ? .5 : .3, 1).normalize().multiplyScalar(dist);
@@ -402,7 +427,7 @@ export function mountWorld(
     const w = canvas.clientWidth, h = canvas.clientHeight; if (!w || !h) return;
     renderer.setSize(w, h, false); css.setSize(w, h);
     camera.aspect = w / h; narrow = w / h < 1;
-    if (!focused) { goal = overview(); flying = true; fovGoal = baseFov(); } else if (!peeking) goal = station(focused);
+    if (!focused) { goal = overview(); flying = true; fovGoal = goal.fov ?? baseFov(); } else if (!peeking) goal = station(focused);
     camera.updateProjectionMatrix();
   }
   const ro = new ResizeObserver(resize); ro.observe(canvas); resize();
@@ -467,7 +492,7 @@ export function mountWorld(
     camera.setViewOffset(w, h, shift * w, 0, w, h);
 
     crowd?.update(dt);
-    if (crowd) for (const n of crowd.npcs) n.f.obj.visible = !focused || peeking || n.f.obj.position.distanceTo(camera.position) > 1.6;
+    if (crowd) for (const n of crowd.npcs) n.f.obj.visible = !focused || peeking || n.f.obj.position.distanceTo(camera.position) > (focused === 'donate' ? 6 : 1.6); // keep the hand-off clear of passers-by
     for (const c of crew) {
       c.p.update(dt);
       const o = c.p.obj;
@@ -496,6 +521,7 @@ export function mountWorld(
     // Bags hang straight down from the hand, whatever the arm is doing.
     if (crowd) for (const n of crowd.npcs) for (const c of n.f.hand.children) if (c.userData.carried) { c.parent!.getWorldQuaternion(qTmp); c.quaternion.copy(qTmp.invert()); }
     friend?.update(dt);
+    for (const p of handoff) p.update(dt);
     steam.forEach((s, i) => {
       const p = s.userData.pot as [number, number, number], age = (t * .28 + i / steam.length) % 1;
       s.position.set(p[0] + Math.sin(age * 5 + i) * .12, p[1] + age * 1.1, p[2] + Math.cos(i) * .08);
@@ -539,7 +565,8 @@ export function mountWorld(
   return {
     surfaces(m) { Object.assign(pendingSurfaces, m); mountSurfaces(); },
     focus(id, peek = false) {
-      focused = id; peeking = peek; arrivedFor = null; goal = id ? station(id, peek) : overview(); flying = true;
+      focused = id; peeking = peek; arrivedFor = null;
+      const flat = !peek && (id === 'about' || id === 'contact'); canvas.classList.toggle('flat', flat); canvas.parentElement?.classList.toggle('flat', flat); goal = id ? station(id, peek) : overview(); flying = true;
       fovGoal = (id && !peek && goal.fov) || baseFov();
       if (reduce) { camera.fov = fovGoal; camera.updateProjectionMatrix(); frame(8); }
     },

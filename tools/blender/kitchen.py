@@ -86,6 +86,44 @@ def grime(name, a, b, rough=.7, scale=5., metal=0.):
     nt.links.new(noise_mix(nt, None, a, b, scale), principled(m).inputs['Base Color'])
     return m
 
+def weather_fac(nt, amount=1.):
+    # World-space weathering: dirt rising from the ground, rain streaks under ledges, broad blotches. 1 = clean.
+    n = nt.nodes; L = nt.links
+    g = n.new('ShaderNodeNewGeometry'); sp = n.new('ShaderNodeSeparateXYZ'); L.new(g.outputs['Position'], sp.inputs[0])
+    def op(kind, a, b=None, clamp=False):
+        m = n.new('ShaderNodeMath'); m.operation = kind; m.use_clamp = clamp
+        for i, v in enumerate((a, b)):
+            if v is None: continue
+            if isinstance(v, (int, float)): m.inputs[i].default_value = v
+            else: L.new(v, m.inputs[i])
+        return m.outputs[0]
+    def noise(vec, scale, detail=4.):
+        z = n.new('ShaderNodeTexNoise'); z.inputs['Scale'].default_value = scale; z.inputs['Detail'].default_value = detail
+        if vec is not None: L.new(vec, z.inputs['Vector'])
+        return z.outputs['Fac']
+    # Ground dirt: darkest at the base, gone by ~0.9 m, with a ragged edge.
+    rise = op('ADD', sp.outputs[2], op('MULTIPLY', op('SUBTRACT', noise(None, 2.5), .5), .35))
+    ground = op('SUBTRACT', 1., op('MULTIPLY', op('SUBTRACT', 1., op('DIVIDE', rise, 1.1, True)), .42))
+    # Rain streaks: noise stretched vertically.
+    st = n.new('ShaderNodeVectorMath'); st.operation = 'MULTIPLY'; L.new(g.outputs['Position'], st.inputs[0]); st.inputs[1].default_value = (7., 7., .35)
+    streak = op('ADD', .9, op('MULTIPLY', op('SUBTRACT', noise(st.outputs[0], 1., 6.), .3), .25, False))
+    streak = op('MINIMUM', 1., op('MAXIMUM', .82, streak))
+    blot = op('MINIMUM', 1., op('ADD', .9, op('MULTIPLY', noise(None, .35, 3.), .2)))
+    f = op('MULTIPLY', op('MULTIPLY', ground, streak), blot)
+    return op('ADD', op('MULTIPLY', op('SUBTRACT', f, 1.), amount), 1.)
+
+def weather(m, amount=1.):
+    # Multiply the base colour by the weathering factor (shows in renders and colour atlases);
+    # tile-textured surfaces also get it multiplied into their lightmap at bake time.
+    nt = m.node_tree; b = principled(m); inp = b.inputs['Base Color']; L = nt.links
+    mix = nt.nodes.new('ShaderNodeMix'); mix.data_type = 'RGBA'; mix.blend_type = 'MULTIPLY'; mix.inputs['Factor'].default_value = 1.
+    if inp.is_linked: src = inp.links[0].from_socket; L.remove(inp.links[0]); L.new(src, mix.inputs['A'])
+    else: mix.inputs['A'].default_value = inp.default_value
+    f = weather_fac(nt, amount); c = nt.nodes.new('ShaderNodeCombineColor'); [L.new(f, c.inputs[i]) for i in range(3)]
+    L.new(c.outputs[0], mix.inputs['B']); L.new(mix.outputs['Result'], inp)
+    m['weather'] = amount; m['weather_node'] = c.name
+    return m
+
 def stripe_tex(name, a, b):
     # A crisp two-colour stripe image, used as a tiling photo-style texture so awnings stay sharp on the web.
     import numpy as np
@@ -180,6 +218,13 @@ SHOP_GLOW = mat('ShopGlow', '#B89A74', .8, emit='#FFD79A', strength=.45)
 CURTAIN = grime('Curtain', '#E8D9BC', '#D7C4A2', .9, 8.)
 GLASS = mat('Glass', '#A9C7D2', .05)
 CAN_FRONT = mat('Fridge', '#DADDDF', .35)
+
+for _m, _a in ((BRICK, 1.), (BRICK_N, 1.), (STUCCO, 1.), (STUCCO2, 1.), (STUCCO3, 1.), (TRIM, .8), (CONCRETE, .9), (CURB, 1.), (PAVER, .5), (GREEN, .5), (GREEN_D, .5)):
+    weather(_m, _a)
+METAL_D = mat('DrainIron', '#2E3A33', .45)
+STONE = tiled('Stone', 'concrete_floor_02', 1.5, '#E4DCCB')
+weather(STONE, .9)
+LANTERN = mat('LanternGlass', '#FFF1D2', .2, emit='#FFD08A', strength=6)
 
 def glassify(m):
     nt = m.node_tree; n = nt.nodes; L = nt.links
@@ -339,6 +384,32 @@ for a, b in UPW:
     for yy in (H1 + 1.45, H1 + 2.42): box('UpMuntinH', a, b, yy - .015, yy + .015, -.21, -.16, TRIM, 0)
 for x in (DOOR[0], DOOR[1] - .1): box('DoorJamb', x, x + .1, 0, 3.2, -.28, -.08, GREEN, .01)
 box('DoorHead', *DOOR, 3.1, 3.2, -.28, -.08, GREEN, .01)
+
+# Weathered detail: stone lintels, drainpipes with hopper heads, door lanterns, window boxes, chimneys.
+for a, b in WINS: box('Lintel', a - .14, b + .14, 3.45, 3.66, -.36, .05, STONE, .012)
+for x in (BX0 + .22, BX1 - .22):
+    cyl('Downpipe', x, .12, H2 - .25, .1, .045, METAL_D, 12)
+    box('Hopper', x - .09, x + .09, H2 - .42, H2 - .2, .02, .2, METAL_D, .01)
+    box('Shoe', x - .05, x + .05, .05, .2, .05, .26, METAL_D, .01)
+    for y in (1.2, 3.0, 5.0, 7.0): box('PipeClip', x - .06, x + .06, y, y + .04, .02, .16, METAL_D, 0)
+for x in (DOOR[0] - .38, DOOR[1] + .38):
+    box('LanternBack', x - .07, x + .07, 2.45, 2.75, -.02, .03, METAL_D, .005)
+    box('LanternArm', x - .02, x + .02, 2.6, 2.64, .03, .16, METAL_D, 0)
+    group('emitlamp'); box('Lantern', x - .07, x + .07, 2.38, 2.62, .14, .28, LANTERN, .01); group('shell')
+    box('LanternCap', x - .09, x + .09, 2.62, 2.67, .12, .3, METAL_D, .005)
+for a, b in UPW:
+    # Window boxes sit on the sills, planted with real (scanned) foliage rather than spheres.
+    box('WindowBox', a + .05, b - .05, H1 + 1.02, H1 + 1.2, .06, .26, WOOD_D, .01)
+    n_ = max(2, int((b - a) / .45))
+    for i in range(n_):
+        prop('shrub_sorrel_01', a + .25 + i * (b - a - .5) / max(1, n_ - 1), H1 + 1.18, .16, random.uniform(0, 360), height=.32, maxtris=700)
+for cx in (-4.6, 3.8):
+    box('Chimney', cx - .45, cx + .45, H2, H2 + 1.5, -4.4, -3.6, BRICK_N, .01)
+    box('ChimneyCap', cx - .52, cx + .52, H2 + 1.5, H2 + 1.62, -4.47, -3.53, STONE, .01)
+    for k in (-.18, .18): cyl('ChimneyPot', cx + k, H2 + 1.62, H2 + 1.95, -4.0, .08, BRICK, 10, 0, .065)
+box('Parapet', BX0, BX1, H2 + .28, H2 + .55, -.5, -.22, STUCCO, .01)
+box('ParapetCap', BX0 - .05, BX1 + .05, H2 + .55, H2 + .62, -.56, -.16, STONE, .01)
+box('MeterBox', BX1 - .9, BX1 - .5, .7, 1.25, -.02, .1, METAL_D, .01)
 
 group('glass')
 for a, b in WINS: box('Glass', a, b, .55, 3.45, -.19, -.17, GLASS, 0)
@@ -737,6 +808,11 @@ def neighbour(x0, x1, h, wall, awn, name, frame=None):
             for yy in (y + .44, y + 1.34): box('NMuntinH', cx - .55, cx + .55, yy - .012, yy + .012, -.275, -.235, TRIM, 0)
             box('NSill', cx - .7, cx + .7, y - .12, y, -.42, -.16, TRIM, .01)
             box('NLintel', cx - .7, cx + .7, y + 1.8, y + 1.98, -.38, -.2, TRIM, .01)
+    cyl('NDownpipe', x1 - .12, .1, h - .1, .05, .04, METAL_D, 10)
+    box('NHopper', x1 - .2, x1 - .04, h - .32, h - .12, -.02, .14, METAL_D, .01)
+    for k in range(random.choice((1, 2))):
+        cx = random.uniform(x0 + 1, x1 - 1)
+        box('NChimney', cx - .35, cx + .35, h + .3, h + 1.3 + random.uniform(0, .5), BD + 3, BD + 3.7, BRICK_N, .01)
     text(name, .3, (x0 + x1) / 2, 3.87, .025, SIGN_INK_D if wall is not BRICK_N else SIGN_INK_L, .004)
 AWN_RED = tiled('AwningRed', stripe_tex('awning_red', '#B4443A', '#F3E8D6'), 1.2, rough=.85)
 AWN_NAVY = mat('AwningNavy', '#2D4A6B', .85)
@@ -755,9 +831,9 @@ for x in range(-28, 30, 4):
 
 # =====================================================================
 # Sun, sky, render settings.
-sun = bpy.data.lights.new('sun', 'SUN'); sun.energy = 4.6; sun.angle = math.radians(3); sun.color = srgb('#FFD3A1')
+sun = bpy.data.lights.new('sun', 'SUN'); sun.energy = float(os.environ.get('SUN_E', '4.6')); sun.angle = math.radians(float(os.environ.get('SUN_ANGLE', '3'))); sun.color = srgb(os.environ.get('SUN_COL', '#FFD3A1'))
 so = bpy.data.objects.new('sun', sun); scene.collection.objects.link(so)
-so.rotation_euler = Vector((-.55, .8, -.36)).to_track_quat('-Z', 'Y').to_euler()
+so.rotation_euler = Vector([float(v) for v in os.environ.get('SUN_DIR', '-.55,.8,-.36').split(',')]).to_track_quat('-Z', 'Y').to_euler()
 world = bpy.data.worlds.new('sky'); scene.world = world; world.use_nodes = True
 bg = world.node_tree.nodes['Background']
 env = world.node_tree.nodes.new('ShaderNodeTexEnvironment')
@@ -832,7 +908,7 @@ if MODE == 'bake':
     scene.cycles.samples = int(os.environ.get('BAKE_SAMPLES', '384'))
     scene.render.bake.margin = 16
     WEB = os.path.join(OUT, 'web'); os.makedirs(WEB, exist_ok=True)
-    LM_DENSITY = float(os.environ.get('LM_DENSITY', '22'))     # lightmap texels per metre
+    LM_DENSITY = float(os.environ.get('LM_DENSITY', '32'))     # lightmap texels per metre
     COLOR_DENSITY = float(os.environ.get('COLOR_DENSITY', '90'))
 
     for m in bpy.data.materials:
@@ -868,7 +944,7 @@ if MODE == 'bake':
     # Classify and join into buckets.
     def area(o):
         return sum(p_.area for p_ in o.data.polygons) * (o.scale.x * o.scale.y)
-    EMISSIVE = {'Bulb', 'SignLetters', 'ShopGlow', 'KitchenInk', 'SignInkDark', 'SignInkLight'}
+    EMISSIVE = {'Bulb', 'SignLetters', 'ShopGlow', 'KitchenInk', 'SignInkDark', 'SignInkLight', 'LanternGlass'}
     buckets = {}
     for gname, objs in GROUPS.items():
         for o in objs:

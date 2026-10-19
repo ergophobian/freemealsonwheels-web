@@ -19,8 +19,12 @@ const HEIGHT: Record<string, number> = {
   'n-chen': 1.66, 'n-grace': 1.58, 'n-amara': 1.68, 'n-mei': 1.6, 'n-marcus': 1.82, 'n-tom': 1.78, 'n-ruth': 1.6,
   'n-sofia': 1.66, 'n-diego': 1.76, 'n-aisha': 1.67, 'n-kenji': 1.73, 'n-sam': 1.72,
 };
-export type Kind = `m-${typeof MEN[number]}` | `w-${typeof WOMEN[number]}` | typeof VOLUNTEERS[number] | typeof NEIGHBOURS[number];
-const isMH = (k: string) => /^[vn]-/.test(k);
+// MetaHuman cast (Unreal Engine 5.8, tools/blender/mh_*.py): built at real heights, materials finished in tools/run/mpack.mjs.
+export const META_CREW = ['mh_james', 'mh_maya', 'mh_ravi'] as const;
+export const META_FOLK = ['mh_mom', 'mh_ruth', 'mh_marcus', 'mh_amara', 'mh_kenji', 'mh_sofia', 'mh_dadi'] as const;
+export type Kind = `m-${typeof MEN[number]}` | `w-${typeof WOMEN[number]}` | typeof VOLUNTEERS[number] | typeof NEIGHBOURS[number] | typeof META_CREW[number] | typeof META_FOLK[number] | 'test_a';
+const isMeta = (k: string) => /^mh_|^test_a$/.test(k);
+const isMH = (k: string) => /^[vn]-/.test(k) || isMeta(k);
 
 const SKINS = ['#F1C7A5', '#D9A47E', '#B87B57', '#8E5A3B', '#6A412B', '#4B2E20'];
 const HAIR = ['#2A211C', '#3B2C22', '#5A4030', '#8C6A4A', '#C9B49A', '#1B1612'];
@@ -29,12 +33,12 @@ const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 const load = (u: string) => new Promise<{ scene: THREE.Group; animations: THREE.AnimationClip[] }>((res, rej) => loader.load(u, res, undefined, rej));
 
 export interface Cast { kinds: Kind[]; make(kind?: Kind, opts?: PersonOpts): Person; fresh(from: readonly Kind[]): Kind }
-interface PersonOpts { height?: number; mobility?: Mobility; skin?: number; apron?: boolean; chair?: () => THREE.Object3D; seatTop?: number; mh?: boolean }
+interface PersonOpts { height?: number; mobility?: Mobility; skin?: number; apron?: boolean; chair?: () => THREE.Object3D; seatTop?: number; mh?: boolean; meta?: boolean }
 
 export async function loadCast(base: string, kinds: Kind[]): Promise<Cast> {
   const needQ = kinds.some((k) => !isMH(k));
   const empty = { scene: new THREE.Group(), animations: [] as THREE.AnimationClip[] };
-  const [am, aw, ...models] = await Promise.all([needQ ? load(`${base}/anim-m.glb`) : empty, needQ ? load(`${base}/anim-w.glb`) : empty, ...kinds.map((k) => load(isMH(k) ? `${base}/mh/${k}.glb` : `${base}/${k}.glb`))]);
+  const [am, aw, ...models] = await Promise.all([needQ ? load(`${base}/anim-m.glb`) : empty, needQ ? load(`${base}/anim-w.glb`) : empty, ...kinds.map((k) => load(isMeta(k) ? `${base}/meta/${k}.glb` : isMH(k) ? `${base}/mh/${k}.glb` : `${base}/${k}.glb`))]);
   for (const m of models) m.scene.traverse((c) => { const s = c as THREE.SkinnedMesh; if (s.isMesh) { s.castShadow = true; s.receiveShadow = false; s.frustumCulled = false; } });
   const live = new Map<Kind, Person[]>();
   return {
@@ -48,7 +52,7 @@ export async function loadCast(base: string, kinds: Kind[]): Promise<Cast> {
     make(kind = kinds[Math.floor(Math.random() * kinds.length)], opts = {}) {
       const src = models[kinds.indexOf(kind)];
       if (isMH(kind)) {
-        const p = new Person(cloneSkinned(src.scene) as THREE.Group, src.animations, { height: HEIGHT[kind], ...opts, mh: true });
+        const p = new Person(cloneSkinned(src.scene) as THREE.Group, src.animations, { height: HEIGHT[kind], ...opts, mh: true, meta: isMeta(kind) });
         live.set(kind, [...(live.get(kind) ?? []).filter((q) => q.obj.parent), p]); return p;
       }
       return new Person(cloneSkinned(src.scene) as THREE.Group, kind.startsWith('m') ? am.animations : aw.animations, opts);
@@ -97,7 +101,8 @@ export class Person {
     model.traverse((c) => {
       const m = c as THREE.Mesh; if (!m.isMesh) return;
       const mats = (Array.isArray(m.material) ? m.material : [m.material]).map((mat) => {
-        const n = (mat as THREE.MeshStandardMaterial).clone(); n.roughness = Math.max(.55, n.roughness ?? .8); n.metalness = 0;
+        const n = (mat as THREE.MeshStandardMaterial).clone();
+        if (o.meta) { n.metalness = 0; return n; } // MetaHumans arrive with finished materials (mpack.mjs) n.roughness = Math.max(.55, n.roughness ?? .8); n.metalness = 0;
         if (!o.mh && /^skin/i.test(n.name)) n.color.copy(skin);
         if (!o.mh && /hair|eyebrow|moustache|beard/i.test(n.name)) n.color.copy(hair);
         if (o.mh) {
