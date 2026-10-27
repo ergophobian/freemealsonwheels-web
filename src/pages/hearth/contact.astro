@@ -1,0 +1,29 @@
+---
+import HearthLayout from '../../layouts/HearthLayout.astro';
+const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const H = `${B}hearth`;
+const MAIL = 'mailto:info@freemealsonwheels.com';
+---
+<HearthLayout title="Contact" description="Email Free Meals on Wheels, follow along, or bring your team to cook with us on a Saturday." active="contact">
+  <section class="wrap ph rv">
+    <p class="kicker">Contact</p>
+    <h1>We would love to <em>hear from you.</em></h1>
+    <p class="lede">The quickest way to reach us is email. For a meal or a shift, the pages below are faster.</p>
+  </section>
+
+  <section class="wrap sec">
+    <ul class="rows ct-rows">
+      <li class="row"><h3>Email</h3><p><a class="link" href={MAIL}>info@freemealsonwheels.com</a></p></li>
+      <li class="row"><h3>Follow along</h3><p><a class="link" href="https://www.instagram.com/freemealsonwheels/">Instagram</a> &middot; <a class="link" href="https://www.facebook.com/Freemeals20/">Facebook</a></p></li>
+      <li class="row"><h3>Bring your team</h3><p>Cook and pack together on a Saturday. Great for companies, schools and clubs. <a class="link" href={`${MAIL}?subject=Corporate%20team%20day`}>Corporate team days</a></p></li>
+      <li class="row"><h3>Coming as a group?</h3><p>Pick your group size when you sign up. For 7 or more, <a class="link" href={`${MAIL}?subject=Group%20volunteering`}>email us</a>.</p></li>
+      <li class="row"><h3>Need a meal?</h3><p>Use the <a class="link" href={`${H}/get-a-meal`}>meal request page</a>. Can&rsquo;t get out? Dial <a class="link" href="tel:211">211</a> for food, housing and health services near you.</p></li>
+      <li class="row"><h3>Want to help?</h3><p><a class="link" href={`${H}/volunteer`}>Pick a Saturday shift</a> or <a class="link" href={`${H}/donate`}>make a donation</a>.</p></li>
+    </ul>
+  </section>
+</HearthLayout>
+
+<style>
+  .ct-rows .row { grid-template-columns: 240px 1fr; }
+  @media (max-width: 860px) { .ct-rows .row { grid-template-columns: 1fr; } }
+</style>

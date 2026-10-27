@@ -1,0 +1,142 @@
+---
+import HearthLayout from '../../layouts/HearthLayout.astro';
+---
+<HearthLayout title="My shifts" description="Look up your Saturday shifts, add them to your calendar, reschedule or cancel." active="my-shifts">
+  <section class="wrap ph rv">
+    <p class="kicker">Your Saturdays</p>
+    <h1>My <em>shifts.</em></h1>
+    <p class="lede">Find your shifts with the email you signed up with. Reschedule or cancel any time, so your spot can go to someone on the waitlist.</p>
+  </section>
+
+  <section class="wrap ms">
+    <form id="ms-form" class="ms-find" novalidate>
+      <div class="field" id="ms-field">
+        <label for="ms-email">Your email</label>
+        <div class="ms-inline">
+          <input id="ms-email" type="email" autocomplete="email" inputmode="email" placeholder="name@example.com" />
+          <button class="btn dark" type="submit">Find my shifts</button>
+        </div>
+        <p class="err" id="ms-err"></p>
+      </div>
+    </form>
+    <p class="fine ms-demo">Preview only: for now your shifts are kept in this browser. A real sign-in comes with the backend.</p>
+    <div id="ms-out" aria-live="polite"></div>
+  </section>
+
+</HearthLayout>
+
+<script>
+  import { allSignupsFor, cancel, type Signup } from '../../lib/store';
+  import { $, esc, fmtDate, kitchenName, roleOf, getMe, setMe, validEmail, downloadIcs, todayISO } from '../../lib/hearth-ui';
+
+  const B = (import.meta.env.BASE_URL as string).replace(/\/?$/, '/');
+  const out = $('ms-out'), input = $<HTMLInputElement>('ms-email');
+  let email = '', notice = '', open = '';
+  const REASONS = ['My plans changed', 'I am not feeling well', 'I have a work or school conflict', 'I lost my ride', 'Something else'];
+
+  function row(s: Signup, past: boolean) {
+    const r = roleOf(s.role), dead = s.status === 'cancelled';
+    const badge = dead ? '<span class="badge grey">Cancelled</span>' : s.status === 'waitlist' ? '<span class="badge">On the waitlist</span>' : past ? '<span class="badge grey">Completed</span>' : '<span class="badge green">Confirmed</span>';
+    const q = new URLSearchParams({ kitchen: s.kitchen, date: s.date, role: s.role, reschedule: s.id });
+    const actions = past || dead ? '' : `<div class="ms-actions">
+        ${s.status === 'booked' ? `<button type="button" class="textbtn" data-ics="${s.id}">Add to calendar</button>` : ''}
+        <a class="textbtn" href="${B}hearth/volunteer?${q}">Reschedule</a>
+        <button type="button" class="textbtn quiet" data-cancel="${s.id}" aria-expanded="${open === s.id}">Cancel</button>
+      </div>`;
+    const form = open === s.id ? `<form class="ms-cancel" data-form="${s.id}">
+        <p><b>Cancel this shift?</b> Telling us why helps us plan.</p>
+        <div class="field"><label for="why-${s.id}">Reason</label><select id="why-${s.id}">${REASONS.map((x) => `<option>${x}</option>`).join('')}</select></div>
+        <div class="field"><label for="more-${s.id}">Anything to add (optional)</label><input id="more-${s.id}" /></div>
+        <div class="ms-cbtns"><button type="submit" class="btn dark sm">Cancel my shift</button><button type="button" class="btn ghost sm" data-keep="1">Keep it</button></div>
+      </form>` : '';
+    return `<li class="ms-row${dead ? ' dead' : ''}">
+      <div class="ms-date"><span>${fmtDate(s.date, { month: 'short' })}</span><b>${fmtDate(s.date, { day: 'numeric' })}</b></div>
+      <div class="ms-info">
+        <h3>${r.name}</h3>
+        <p>${esc(fmtDate(s.date, { weekday: 'long' }))}, ${r.time}</p>
+        <p class="soft">${esc(kitchenName(s.kitchen))} kitchen${s.party > 1 ? `, group of ${s.party}` : ''}${dead && s.cancelReason ? `. Reason: ${esc(s.cancelReason)}` : ''}</p>
+      </div>
+      <div class="ms-side">${badge}${actions}</div>
+      ${form}
+    </li>`;
+  }
+
+  function render() {
+    if (!email) { out.innerHTML = ''; return; }
+    const today = todayISO(), all = allSignupsFor(email);
+    const up = all.filter((s) => s.status !== 'cancelled' && s.date >= today);
+    const past = all.filter((s) => s.status === 'cancelled' || s.date < today).reverse();
+    out.innerHTML = `${notice ? `<p class="note ms-notice" role="status">${notice}</p>` : ''}
+      <h2 class="ms-h">Upcoming</h2>
+      ${up.length ? `<ul class="ms-list">${up.map((s) => row(s, false)).join('')}</ul>` : `<div class="ms-empty"><p>No upcoming shifts under <b>${esc(email)}</b>.</p><a class="btn dark" href="${B}hearth/volunteer">Sign up for a Saturday</a></div>`}
+      <h2 class="ms-h">Past and cancelled</h2>
+      ${past.length ? `<ul class="ms-list">${past.map((s) => row(s, true)).join('')}</ul>` : '<p class="ms-none">Your past shifts will appear here after a Saturday with us.</p>'}
+      ${up.length ? `<p class="fine ms-more"><a class="link" href="${B}hearth/volunteer">Sign up for another Saturday</a></p>` : ''}`;
+  }
+
+  function lookup(v: string) {
+    const f = $('ms-field');
+    if (!validEmail(v)) { f.classList.add('bad'); $('ms-err').textContent = 'Please enter the email you signed up with.'; input.setAttribute('aria-invalid', 'true'); return; }
+    f.classList.remove('bad'); $('ms-err').textContent = ''; input.setAttribute('aria-invalid', 'false');
+    email = v.trim(); notice = ''; open = ''; setMe({ email });
+    history.replaceState(null, '', location.pathname + '?email=' + encodeURIComponent(email));
+    render();
+  }
+
+  $('ms-form').addEventListener('submit', (e) => { e.preventDefault(); lookup(input.value); });
+  out.addEventListener('click', (e) => {
+    const t = e.target as HTMLElement;
+    const ics = t.closest<HTMLElement>('[data-ics]'), c = t.closest<HTMLElement>('[data-cancel]');
+    if (ics) { const s = allSignupsFor(email).find((x) => x.id === ics.dataset.ics); if (s) downloadIcs(s); }
+    if (c) { open = open === c.dataset.cancel ? '' : c.dataset.cancel!; render(); (document.getElementById('why-' + open) as HTMLElement | null)?.focus(); }
+    if (t.closest('[data-keep]')) { open = ''; render(); }
+  });
+  out.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const f = (e.target as HTMLElement).closest<HTMLElement>('[data-form]'); if (!f) return;
+    const id = f.dataset.form!, s = allSignupsFor(email).find((x) => x.id === id)!;
+    const why = (document.getElementById('why-' + id) as HTMLSelectElement).value, more = (document.getElementById('more-' + id) as HTMLInputElement).value.trim();
+    cancel(id, more ? `${why}. ${more}` : why);
+    notice = `<b>Your ${esc(roleOf(s.role).name.toLowerCase())} shift on ${esc(fmtDate(s.date, { month: 'long', day: 'numeric' }))} is cancelled.</b> Thank you for letting us know. We hope to see you on another Saturday.`;
+    open = ''; render();
+  });
+
+  const q = new URLSearchParams(location.search).get('email') || getMe().email || '';
+  if (q) { input.value = q; lookup(q); }
+</script>
+
+<style is:global>
+  .ms { padding-bottom: 8px; }
+  .ms > * { max-width: 820px; }
+  .ms-find { max-width: 560px; }
+  .ms-inline { display: flex; gap: 10px; }
+  .ms-inline input { flex: 1; min-width: 0; }
+  .ms-demo { margin: 10px 0 0; }
+  #ms-out { margin-top: 36px; }
+  .ms-h { font-size: clamp(26px, 3vw, 34px); font-weight: 350; margin: 44px 0 16px; }
+  .ms-notice { margin-bottom: 6px; }
+  .ms-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+  .ms-row { display: grid; grid-template-columns: 78px 1fr auto; gap: 8px 26px; padding: 24px 0; border-bottom: 1px solid var(--rule); align-items: start; }
+  .ms-row.dead .ms-info h3, .ms-row.dead .ms-info p { color: var(--soft); }
+  .ms-date { text-align: center; border-right: 1px solid var(--rule); padding-right: 18px; }
+  .ms-date span { display: block; font-size: 14.5px; color: var(--soft); }
+  .ms-date b { display: block; font-family: var(--serif); font-weight: 350; font-size: 44px; line-height: 1; letter-spacing: -0.03em; }
+  .ms-info h3 { font-size: 24px; }
+  .ms-info p { color: var(--mid); font-size: 15.5px; }
+  .ms-info p.soft { color: var(--soft); }
+  .ms-side { display: grid; gap: 12px; justify-items: end; }
+  .ms-actions { display: flex; gap: 18px; flex-wrap: wrap; justify-content: flex-end; }
+  .ms-cancel { grid-column: 1 / -1; display: grid; gap: 14px; background: var(--card); border: 1px solid var(--rule2); border-radius: 10px; padding: 20px; margin-top: 10px; }
+  .ms-cbtns { display: flex; gap: 10px; flex-wrap: wrap; }
+  .ms-empty { border: 1px dashed var(--rule2); border-radius: 10px; padding: 28px; display: grid; gap: 16px; justify-items: start; color: var(--mid); }
+  .ms-none { color: var(--soft); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); padding: 22px 0; }
+  .ms-more { margin-top: 20px; }
+  @media (max-width: 700px) {
+    .ms-inline { flex-direction: column; }
+    .ms-row { grid-template-columns: 62px 1fr; gap: 10px 16px; }
+    .ms-date { padding-right: 12px; }
+    .ms-date b { font-size: 36px; }
+    .ms-side { grid-column: 1 / -1; justify-items: start; }
+    .ms-actions { justify-content: flex-start; }
+  }
+</style>

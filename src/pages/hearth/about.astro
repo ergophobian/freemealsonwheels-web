@@ -1,0 +1,77 @@
+---
+import HearthLayout from '../../layouts/HearthLayout.astro';
+const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const H = `${B}hearth`;
+const values = [
+  { h: 'Dignity first', p: 'We believe in the innate dignity of the human spirit, regardless of circumstances.' },
+  { h: 'Fresh, not frozen', p: 'Meals are cooked the same morning they are delivered.' },
+  { h: 'Every dollar counts', p: 'Every penny of every donation goes directly to meals.' },
+];
+const programs = [
+  { h: 'Saturday meals', p: 'Hot meals cooked and delivered every week, from our San Jose and San Ramon kitchens.' },
+  { h: 'Meal and a blanket', p: 'A winter drive for unhoused communities. When it turns cold we pair a hot meal with a warm blanket.' },
+  { h: 'Annual celebration gala', p: 'Our yearly evening to thank volunteers and donors.' },
+];
+---
+<HearthLayout title="About us" description="Free Meals on Wheels is a 501(c)(3) nonprofit founded by Japjot Sethi and Devinder Kumar. 400+ volunteers serve 300+ meals every week." active="about">
+  <section class="wrap ph rv">
+    <p class="kicker">About us</p>
+    <h1>A good meal is better <em>shared.</em></h1>
+    <p class="lede">Free Meals on Wheels is a 501(c)(3) nonprofit founded by Japjot Sethi and Devinder Kumar. From kitchens in San Jose and San Ramon, 400+ volunteers serve 300+ meals every week.</p>
+  </section>
+
+  <section class="wrap sec">
+    <div class="ab-two">
+      <div class="prose">
+        <p>A Saturday begins with a light in the kitchen and ends with more people at the table than there were at dawn. A fresh, hot meal is handed over, still warm, with no questions and no one asking why.</p>
+        <p>At Thanksgiving everyone gets a seat. We are all neighbors here.</p>
+      </div>
+      <dl class="ab-facts">
+        <div><dt>400+</dt><dd>volunteers cooking and packing</dd></div>
+        <div><dt>300+</dt><dd>meals every week</dd></div>
+        <div><dt>100%</dt><dd>of every donation goes to food</dd></div>
+      </dl>
+    </div>
+    <blockquote class="ab-quote">&ldquo;A fresh, hot, and nutritious meal is not just satiating, but more importantly, enabling and liberating.&rdquo;
+      <cite>Japjot Sethi and Devinder Kumar started cooking because no neighbor should go to bed hungry.</cite>
+    </blockquote>
+  </section>
+
+  <section class="wrap sec">
+    <h2>What we believe</h2>
+    <ul class="rows">
+      {values.map((v) => <li class="row"><h3>{v.h}</h3><p>{v.p}</p><span></span></li>)}
+    </ul>
+  </section>
+
+  <section class="wrap sec" id="programs">
+    <h2>Programs</h2>
+    <p class="lede ab-intro">Beyond our Saturday meals, we run seasonal drives and community events.</p>
+    <ul class="rows">
+      {programs.map((v) => <li class="row"><h3>{v.h}</h3><p>{v.p}</p><span></span></li>)}
+    </ul>
+  </section>
+
+  <section class="wrap sec">
+    <h2>Come to the table</h2>
+    <div class="ab-cta">
+      <a class="btn dark" href={`${H}/volunteer`}>Sign up to volunteer</a>
+      <a class="btn ghost" href={`${H}/get-a-meal`}>Get a meal</a>
+      <a class="btn ghost" href={`${H}/donate`}>Donate</a>
+    </div>
+  </section>
+</HearthLayout>
+
+<style>
+  .ab-two { display: grid; grid-template-columns: 1.35fr 1fr; gap: 72px; align-items: start; }
+  .ab-facts { margin: 4px 0 0; border-top: 1px solid var(--rule); }
+  .ab-facts > div { display: flex; align-items: baseline; gap: 18px; padding: 16px 0; border-bottom: 1px solid var(--rule); }
+  .ab-facts dt { font-family: var(--serif); font-size: 38px; font-weight: 350; min-width: 132px; letter-spacing: -0.02em; }
+  .ab-facts dd { margin: 0; color: var(--mid); font-size: 15.5px; line-height: 1.4; }
+  .ab-quote { margin: 72px auto 0; max-width: 780px; text-align: center; font-family: var(--serif); font-style: italic; font-weight: 300; font-size: clamp(24px, 2.8vw, 34px); line-height: 1.32; }
+  .ab-quote cite { display: block; margin-top: 16px; font-family: var(--sans); font-style: normal; color: var(--soft); font-size: 15px; }
+  .ab-intro { margin: -8px 0 28px; max-width: 34em; }
+  .ab-cta { display: flex; gap: 12px; flex-wrap: wrap; }
+  @media (max-width: 860px) { .ab-two { grid-template-columns: 1fr; gap: 36px; } }
+  @media (max-width: 700px) { .ab-facts dt { font-size: 32px; min-width: 104px; } .ab-quote { margin-top: 48px; } .ab-cta .btn { width: 100%; } }
+</style>

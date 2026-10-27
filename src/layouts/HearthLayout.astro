@@ -1,0 +1,234 @@
+---
+// Shared shell for the /hearth inner pages: same fonts, colours, nav and footer as src/pages/hearth.astro,
+// with the hatched grass and marigolds growing up behind the footer. The landing page itself does not use this.
+interface Props { title: string; description?: string; active?: 'about' | 'volunteer' | 'get-a-meal' | 'contact' | 'donate' | 'my-shifts' | '' }
+const { title, description = 'Free Meals on Wheels cooks and delivers fresh, free meals to neighbors every Saturday across San Jose and San Ramon.', active = '' } = Astro.props;
+const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const H = `${B}hearth`;
+const nav = [
+  ['about', 'Our story', `${H}/about`],
+  ['volunteer', 'Volunteer', `${H}/volunteer`],
+  ['get-a-meal', 'Get a meal', `${H}/get-a-meal`],
+  ['contact', 'Contact', `${H}/contact`],
+];
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{title} · Free Meals on Wheels</title>
+  <meta name="description" content={description} />
+  <link rel="icon" href={`${B}logo.png`} />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..600&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <!-- hatch fills for the small role icons -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <pattern id="hx-gold" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="#f6e3b0" /><line x1="0" y1="0" x2="0" y2="5" stroke="#d9951a" stroke-width="2" /></pattern>
+      <pattern id="hx-green" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)"><rect width="5" height="5" fill="#dfe6d3" /><line x1="0" y1="0" x2="0" y2="5" stroke="#5a7d6a" stroke-width="2" /></pattern>
+      <pattern id="hx-paper" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="4" height="4" fill="#fbf6ea" /><line x1="0" y1="0" x2="0" y2="4" stroke="#b9ad98" stroke-width="1" /></pattern>
+    </defs>
+  </svg>
+
+  <header class="nav">
+    <a class="brand" href={H}>Free Meals on Wheels</a>
+    <nav aria-label="Main">
+      {nav.map(([id, label, href]) => <a href={href} aria-current={active === id ? 'page' : undefined}>{label}</a>)}
+    </nav>
+    <a class="donate" href={`${H}/donate`} aria-current={active === 'donate' ? 'page' : undefined}>Donate</a>
+  </header>
+
+  <main id="main"><slot /></main>
+
+  <footer class="foot">
+    <canvas id="h-foot" aria-hidden="true"></canvas>
+    <div class="wrap fgrid">
+      <div>
+        <p class="fb">Free Meals on Wheels</p>
+        <p>A 501(c)(3) nonprofit. Fresh meals every Saturday from San Jose and San Ramon.</p>
+      </div>
+      <ul>
+        <li><a href={`${H}/about`}>About</a></li>
+        <li><a href={`${H}/about#programs`}>Programs</a></li>
+        <li><a href={`${H}/get-a-meal`}>Resources</a></li>
+        <li><a href={`${H}/my-shifts`}>Log in</a></li>
+        <li><a href={`${H}/admin`}>Organizers</a></li>
+      </ul>
+    </div>
+  </footer>
+
+  <script>
+    import { paintFooter } from '../lib/hearth-ui';
+    paintFooter(document.getElementById('h-foot') as HTMLCanvasElement | null);
+  </script>
+</body>
+</html>
+
+<style is:global>
+  :root { --paper: #f6f1e6; --card: #fffcf5; --ink: #2a211c; --mid: #4b4038; --soft: #5f544b; --rule: rgba(42, 33, 28, 0.14); --rule2: rgba(42, 33, 28, 0.32); --red: #a8382b; --green: #2f5d46; --gold: #eba21e; --amber: #8a5300;
+    --serif: 'Fraunces', 'Iowan Old Style', Georgia, serif; --sans: Figtree, system-ui, -apple-system, 'Segoe UI', sans-serif; }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 17px; line-height: 1.65; -webkit-font-smoothing: antialiased; text-transform: none; }
+  main { flex: 1; }
+  [hidden] { display: none !important; }
+  a { color: inherit; }
+  h1, h2, h3, h4 { font-family: var(--serif); font-weight: 400; margin: 0; text-transform: none; letter-spacing: -0.015em; }
+  p { margin: 0; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; border-radius: 4px; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  .narrow { max-width: 760px; margin: 0 auto; padding: 0 28px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .skip { position: absolute; left: 12px; top: -60px; z-index: 50; background: var(--ink); color: var(--paper); padding: 8px 14px; border-radius: 6px; text-decoration: none; }
+  .skip:focus { top: 10px; }
+
+  /* nav and donate button, as on /hearth */
+  .nav { position: relative; z-index: 10; display: flex; align-items: center; gap: 28px; padding: 18px 36px; border-bottom: 1px solid var(--rule); }
+  .brand { font-family: var(--serif); font-size: 21px; font-weight: 500; text-decoration: none; letter-spacing: -0.01em; margin-right: auto; }
+  .nav nav { display: flex; gap: 28px; font-size: 15px; font-weight: 500; }
+  .nav nav a { text-decoration: none; color: var(--soft); transition: color 0.15s; padding: 4px 0; border-bottom: 1.5px solid transparent; }
+  .nav nav a:hover { color: var(--ink); }
+  .nav nav a[aria-current] { color: var(--ink); border-bottom-color: var(--red); }
+  .donate { background: var(--red); color: #fff7ea; text-decoration: none; padding: 9px 20px; border-radius: 7px; font-size: 15px; font-weight: 600; transition: background 0.15s; }
+  .donate:hover { background: #8f2d22; }
+
+  /* page heads */
+  .ph { padding-top: 72px; padding-bottom: 40px; }
+  .ph .kicker { font-family: var(--serif); font-style: italic; font-weight: 350; font-size: 19px; color: var(--soft); margin-bottom: 10px; }
+  .ph h1 { font-size: clamp(40px, 5.4vw, 70px); line-height: 1.05; font-weight: 350; font-variation-settings: 'opsz' 144; max-width: 14em; }
+  .ph h1 em { font-style: italic; font-weight: 300; }
+  .ph .lede { margin-top: 20px; max-width: 36em; }
+  .lede { font-family: var(--serif); font-size: clamp(19px, 1.9vw, 23px); line-height: 1.5; font-weight: 350; color: #3a2f28; }
+  .sec { padding-top: 56px; padding-bottom: 8px; }
+  .sec h2 { font-size: clamp(28px, 3.2vw, 40px); line-height: 1.12; font-weight: 350; margin-bottom: 26px; }
+  .prose p + p { margin-top: 1em; }
+  .prose p { color: var(--mid); max-width: 38em; }
+  .fine { font-size: 14.5px; color: var(--soft); }
+  .fine a, .prose a, .link { text-decoration-color: rgba(168, 56, 43, 0.55); text-underline-offset: 3px; }
+
+  /* buttons */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 26px; min-height: 46px; border-radius: 7px; font-size: 15.5px; font-weight: 600; text-decoration: none; border: 1px solid transparent; cursor: pointer; background: none; transition: transform 0.15s, background 0.15s, border-color 0.15s; }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.dark { background: #211a16; color: #f6f1e6; }
+  .btn.dark:hover { background: #3a2c24; }
+  .btn.red { background: var(--red); color: #fff7ea; }
+  .btn.red:hover { background: #8f2d22; }
+  .btn.ghost { border-color: rgba(42, 33, 28, 0.4); }
+  .btn.ghost:hover { background: rgba(42, 33, 28, 0.06); }
+  .btn[disabled] { opacity: 0.45; cursor: not-allowed; transform: none; }
+  .btn.sm { padding: 8px 16px; min-height: 38px; font-size: 14.5px; }
+  .textbtn { background: none; border: 0; padding: 4px 0; cursor: pointer; font-weight: 600; font-size: 15px; border-bottom: 1.5px solid var(--red); color: var(--ink); text-decoration: none; }
+  .textbtn:hover { color: var(--red); }
+  .textbtn.quiet { border-bottom-color: var(--rule2); font-weight: 500; color: var(--mid); }
+  .arrow { text-decoration: none; font-weight: 600; font-size: 15.5px; white-space: nowrap; border-bottom: 1.5px solid var(--red); padding-bottom: 2px; }
+
+  /* forms */
+  .field { display: grid; gap: 6px; align-content: start; }
+  .field > label, .legend { font-weight: 600; font-size: 15.5px; color: var(--ink); }
+  .hint { font-size: 14.5px; color: var(--soft); line-height: 1.45; }
+  .input, .field input:not([type=checkbox]):not([type=radio]), .field select, .field textarea, select.input { width: 100%; padding: 12px 14px; min-height: 48px; border-radius: 7px; border: 1px solid var(--rule2); background: #fffdf8; font-size: 16px; color: var(--ink); transition: border-color 0.15s, box-shadow 0.15s; }
+  .field textarea { min-height: 88px; resize: vertical; }
+  .field input:focus, .field select:focus, .field textarea:focus, select.input:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px rgba(235, 162, 30, 0.45); }
+  .field.bad input, .field.bad select, .field.bad textarea { border-color: var(--red); }
+  .err { color: #9a2f23; font-size: 14.5px; font-weight: 500; min-height: 0; }
+  .err:empty { display: none; }
+  .check { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; line-height: 1.45; }
+  .check input { width: 22px; height: 22px; margin: 1px 0 0; accent-color: #211a16; flex: none; }
+  .check span small { display: block; color: var(--soft); font-size: 14.5px; margin-top: 2px; }
+  fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+
+  /* choice cards (kitchen, date, role) */
+  .choice { position: relative; text-align: left; background: var(--card); border: 1px solid var(--rule2); border-radius: 10px; padding: 18px 20px; cursor: pointer; color: var(--ink); transition: border-color 0.15s, background 0.15s, transform 0.15s, box-shadow 0.15s; }
+  .choice:hover:not([disabled]) { border-color: var(--ink); transform: translateY(-1px); }
+  .choice[aria-checked=true], .choice[aria-pressed=true] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); background: repeating-linear-gradient(135deg, rgba(235, 162, 30, 0.17) 0 1px, transparent 1px 8px), #fff9ea; }
+
+  /* spots meter: a hairline track filled with hatching */
+  .meter { height: 8px; border-radius: 4px; background: rgba(42, 33, 28, 0.09); overflow: hidden; }
+  .meter i { display: block; height: 100%; border-radius: 4px; background: repeating-linear-gradient(135deg, #2f5d46 0 2px, #7fa08a 2px 4px); }
+  .meter.low i { background: repeating-linear-gradient(135deg, #8a5300 0 2px, #e0a23a 2px 4px); }
+  .meter.full i { background: repeating-linear-gradient(135deg, #5f544b 0 2px, #a79d92 2px 4px); }
+  .spots { font-size: 14.5px; font-weight: 600; color: var(--green); }
+  .spots.low { color: var(--amber); }
+  .spots.full { color: var(--soft); }
+
+  .badge { display: inline-block; font-size: 13px; font-weight: 600; line-height: 1; padding: 5px 9px; border-radius: 99px; background: #f3dc9f; color: #4d3200; white-space: nowrap; }
+  .badge.green { background: #dbe7d6; color: #1f4733; }
+  .badge.grey { background: rgba(42, 33, 28, 0.09); color: var(--mid); }
+
+  /* note with a hatched edge */
+  .note { padding: 14px 18px 14px 22px; border-radius: 4px 10px 10px 4px; background: #fbf6ea; font-size: 15.5px; color: var(--mid); background-image: repeating-linear-gradient(135deg, rgba(235, 162, 30, 0.55) 0 1.5px, transparent 1.5px 6px); background-size: 7px 100%; background-repeat: no-repeat; border: 1px solid var(--rule); }
+  .note b { color: var(--ink); font-weight: 600; }
+
+  /* editorial rows */
+  .rows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+  .row { display: grid; grid-template-columns: 240px 1fr auto; gap: 24px; align-items: baseline; padding: 26px 0; border-bottom: 1px solid var(--rule); }
+  .row h3 { font-size: 26px; }
+  .row p { color: var(--mid); max-width: 38em; }
+
+  /* shared by the sign-up, meal request and confirmation screens */
+  .vf-h { font-size: clamp(28px, 3.4vw, 42px); font-weight: 350; line-height: 1.12; outline: none; }
+  .vf-h.big { font-size: clamp(34px, 4.6vw, 56px); }
+  .vf-sub { color: var(--mid); margin: 10px 0 26px; max-width: 38em; }
+  .vf-stepper { display: inline-flex; align-items: center; border: 1px solid var(--rule2); border-radius: 7px; background: #fffdf8; justify-self: start; }
+  .vf-stepper button { width: 48px; height: 48px; border: 0; background: none; font-size: 22px; cursor: pointer; border-radius: 6px; }
+  .vf-stepper button:hover { background: rgba(42, 33, 28, 0.07); }
+  .vf-stepper output { min-width: 44px; text-align: center; font-family: var(--serif); font-size: 22px; }
+  .vf-tick { width: 72px; height: 72px; margin: 0 auto 16px; }
+  .vf-done .vf-sub { margin-inline: auto; }
+  .vf-ticket { text-align: left; background: var(--card); border: 1px solid var(--rule2); border-radius: 12px; padding: 8px 26px; margin: 8px 0 26px; background-image: repeating-linear-gradient(135deg, rgba(235, 162, 30, 0.5) 0 1.5px, transparent 1.5px 6px); background-size: 7px 100%; background-repeat: no-repeat; }
+  .vf-ticket dl { margin: 0; }
+  .vf-ticket dt { font-size: 14px; color: var(--soft); }
+  .vf-ticket dd { margin: 0; font-weight: 500; }
+  .vf-ticket dl > div { display: grid; grid-template-columns: 90px 1fr; gap: 12px; padding: 14px 0; border-bottom: 1px dashed var(--rule2); }
+  .vf-ticket dl > div:last-child { border-bottom: 0; }
+  .vf-ticket dd small { display: block; font-weight: 400; color: var(--soft); font-size: 14.5px; }
+  .vf-demo { margin-top: 26px; }
+  .hint.warn { color: var(--amber); font-weight: 500; }
+  .hint.warn:empty { display: none; }
+
+  /* footer: grass grows up from the bottom edge, behind the content */
+  .foot { position: relative; margin-top: 90px; padding: 48px 0 230px; overflow: hidden; }
+  #h-foot { position: absolute; left: 0; bottom: 0; width: 100%; height: 300px; opacity: 0; transition: opacity 1.2s ease; pointer-events: none; }
+  #h-foot.on { opacity: 1; }
+  .fgrid { position: relative; display: grid; grid-template-columns: 1fr auto; gap: 40px; align-items: start; }
+  .fb { font-family: var(--serif); font-size: 24px; margin: 0 0 6px; }
+  .foot p { color: var(--mid); max-width: 26em; font-size: 15.5px; }
+  .foot ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 26px; font-size: 15px; }
+  .foot ul a { text-decoration: none; color: var(--soft); }
+  .foot ul a:hover { color: var(--ink); }
+
+  .rv { animation: rise 0.7s ease both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+  @media (max-width: 860px) {
+    .row { grid-template-columns: 1fr; gap: 8px; }
+    .arrow { justify-self: start; margin-top: 8px; }
+  }
+  @media (max-width: 700px) {
+    body { font-size: 16.5px; }
+    .wrap, .narrow { padding: 0 20px; }
+    .nav { flex-wrap: wrap; gap: 6px 14px; padding: 12px 16px 8px; }
+    .nav nav { order: 3; width: 100%; gap: 20px; font-size: 14.5px; overflow-x: auto; white-space: nowrap; }
+    .brand { font-size: 19px; }
+    .donate { padding: 7px 16px; }
+    .ph { padding-top: 44px; padding-bottom: 26px; }
+    .sec { padding-top: 40px; }
+    .fgrid { grid-template-columns: 1fr; gap: 20px; }
+    .vf-ticket { padding: 4px 18px; }
+    .vf-ticket dl > div { grid-template-columns: 70px 1fr; }
+    .foot { padding-bottom: 200px; margin-top: 64px; }
+    #h-foot { height: 240px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .rv { animation: none; }
+    .btn:hover, .choice:hover { transform: none; }
+  }
+</style>

@@ -1,0 +1,133 @@
+---
+import HearthLayout from '../../layouts/HearthLayout.astro';
+---
+<HearthLayout title="Saturday roster" description="Organizer roster: who is coming on a Saturday, by role, plus meal requests." active="">
+  <section class="wrap ph rv">
+    <p class="kicker">For organizers</p>
+    <h1>Saturday <em>roster.</em></h1>
+    <p class="note ad-demo"><b>Demo, no sign-in yet.</b> Anyone with this link can open this page, and the data shown is kept in this browser only.</p>
+  </section>
+
+  <section class="wrap ad">
+    <div class="ad-bar">
+      <div class="ad-seg" role="radiogroup" aria-label="Kitchen" id="ad-kitchens"></div>
+      <div class="field"><label for="ad-date">Saturday</label><select id="ad-date"></select></div>
+      <div class="ad-btns">
+        <button type="button" class="btn ghost sm" id="ad-csv">Export volunteers CSV</button>
+        <button type="button" class="btn ghost sm" id="ad-mcsv">Export meal requests CSV</button>
+      </div>
+    </div>
+
+    <dl class="ad-totals" id="ad-totals"></dl>
+    <div class="ad-roles" id="ad-roles"></div>
+
+    <h2 class="ad-h">Meal requests</h2>
+    <p class="fine ad-sub" id="ad-msub"></p>
+    <div id="ad-meals"></div>
+
+    <p class="fine ad-reset"><button type="button" class="textbtn quiet" id="ad-reset">Reset all demo data</button> Brings back the sample volunteers and removes anything you added in this browser.</p>
+  </section>
+</HearthLayout>
+
+<script>
+  import { KITCHENS, ROLES, upcomingSaturdays, listSignups, listMealRequests, cancel, resetDemo, resetMealDemo, type Kitchen } from '../../lib/store';
+  import { $, esc, fmtDate, longDate, kitchenName, download, csvCell, SATURDAYS_SHOWN, ROLE_ICONS } from '../../lib/hearth-ui';
+
+  const sats = upcomingSaturdays(SATURDAYS_SHOWN);
+  let kitchen: Kitchen = 'san_jose', date = sats[0];
+  const dsel = $<HTMLSelectElement>('ad-date');
+  dsel.innerHTML = sats.map((d) => `<option value="${d}">${fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' })}</option>`).join('');
+  const q = new URLSearchParams(location.search);
+  if (q.get('kitchen') && q.get('kitchen')! in KITCHENS) kitchen = q.get('kitchen') as Kitchen;
+  if (q.get('date') && sats.includes(q.get('date')!)) { date = q.get('date')!; dsel.value = date; }
+
+  const meals = () => listMealRequests(date).filter((m) => m.area === kitchen || m.area === 'unsure');
+
+  function render() {
+    $('ad-kitchens').innerHTML = (Object.keys(KITCHENS) as Kitchen[]).map((k) => `<button type="button" role="radio" aria-checked="${k === kitchen}" data-k="${k}">${KITCHENS[k]}</button>`).join('');
+    const all = listSignups(kitchen, date);
+    const booked = all.filter((s) => s.status === 'booked'), wait = all.filter((s) => s.status === 'waitlist');
+    const filled = booked.reduce((n, s) => n + s.party, 0), cap = ROLES.reduce((n, r) => n + r.capacity, 0);
+    const first = booked.filter((s) => s.firstTime).length, m = meals();
+    $('ad-totals').innerHTML = [[`${filled}/${cap}`, 'spots filled'], [String(first), 'first-timers'], [String(wait.length), 'on waitlists'], [String(m.length), 'meal requests']]
+      .map(([n, l]) => `<div><dt>${n}</dt><dd>${l}</dd></div>`).join('');
+
+    $('ad-roles').innerHTML = ROLES.map((r) => {
+      const b = booked.filter((s) => s.role === r.id), w = wait.filter((s) => s.role === r.id), n = b.reduce((a, s) => a + s.party, 0);
+      const pct = Math.min(100, (n / r.capacity) * 100), cls = n >= r.capacity ? 'full' : n / r.capacity >= 0.8 ? 'low' : '';
+      const li = (s: typeof all[number]) => `<li><span class="ad-who"><b>${esc(s.name)}</b>${s.party > 1 ? ` <i>+${s.party - 1}</i>` : ''}${s.firstTime ? ' <span class="badge">First time</span>' : ''}<small>${esc(s.email)}${s.phone ? ' · ' + esc(s.phone) : ''}</small></span><button type="button" class="ad-x" data-id="${s.id}" aria-label="Remove ${esc(s.name)} from this shift">Remove</button></li>`;
+      return `<article class="ad-role">
+        <header><span class="vf-ico sm">${ROLE_ICONS[r.id]}</span><div><h3>${r.name}</h3><p>${r.time}</p></div><span class="ad-count ${cls}"><b>${n}</b>/${r.capacity}</span></header>
+        <div class="meter ${cls}" role="img" aria-label="${n} of ${r.capacity} spots filled"><i style="width:${pct}%"></i></div>
+        ${b.length ? `<ul>${b.map(li).join('')}</ul>` : '<p class="ad-none">No one yet.</p>'}
+        ${w.length ? `<h4>Waitlist</h4><ul>${w.map(li).join('')}</ul>` : ''}
+      </article>`;
+    }).join('');
+
+    $('ad-msub').textContent = `For ${longDate(date)}, from neighbors near ${kitchenName(kitchen)} or not sure which kitchen is closest.`;
+    $('ad-meals').innerHTML = m.length ? `<ul class="ad-meals">${m.map((r) => `<li>
+      <div><b>${esc(r.name)}</b><span class="badge ${r.mode === 'delivery' ? 'green' : 'grey'}">${r.mode === 'delivery' ? 'Delivery' : 'Pickup'}</span></div>
+      <p>${r.household} ${r.household === 1 ? 'person' : 'people'}${r.diet.length ? ' · ' + esc(r.diet.join(', ')) : ''}${r.allergies ? ' (' + esc(r.allergies) + ')' : ''} · ${esc(r.language)}</p>
+      <p class="soft">${r.mode === 'delivery' ? esc(r.address) + ' · ' : ''}${esc(r.phone)}</p></li>`).join('')}</ul>` : '<p class="ad-none ad-mnone">No meal requests for this Saturday yet.</p>';
+  }
+
+  $('ad-kitchens').addEventListener('click', (e) => { const b = (e.target as HTMLElement).closest<HTMLElement>('[data-k]'); if (b) { kitchen = b.dataset.k as Kitchen; render(); } });
+  dsel.addEventListener('change', () => { date = dsel.value; render(); });
+  $('ad-roles').addEventListener('click', (e) => { const b = (e.target as HTMLElement).closest<HTMLElement>('[data-id]'); if (b && confirm('Remove this person from the shift?')) { cancel(b.dataset.id!, 'Removed by organizer'); render(); } });
+  $('ad-csv').addEventListener('click', () => {
+    const rows = listSignups(kitchen, date).map((s) => [s.date, s.kitchen, s.role, s.status, s.name, s.email, s.phone, s.party, s.firstTime, s.hasCar ?? ''].map(csvCell).join(','));
+    download(`roster-${kitchen}-${date}.csv`, ['date,kitchen,role,status,name,email,phone,party,first_time,has_car', ...rows].join('\n'), 'text/csv');
+  });
+  $('ad-mcsv').addEventListener('click', () => {
+    const rows = meals().map((r) => [r.date, r.mode, r.name, r.phone, r.address, r.area, r.household, r.diet.join('; '), r.allergies, r.language].map(csvCell).join(','));
+    download(`meal-requests-${kitchen}-${date}.csv`, ['date,mode,name,phone,address,area,household,dietary,allergies,language', ...rows].join('\n'), 'text/csv');
+  });
+  $('ad-reset').addEventListener('click', () => { if (confirm('Reset all demo data in this browser?')) { resetDemo(); resetMealDemo(); render(); } });
+  render();
+</script>
+
+<style is:global>
+  .ad-demo { margin-top: 22px; max-width: 40em; }
+  .ad { padding-bottom: 8px; }
+  .ad-bar { display: flex; gap: 20px 28px; align-items: end; flex-wrap: wrap; padding-bottom: 22px; border-bottom: 1px solid var(--rule); }
+  .ad-bar .field select { min-width: 250px; }
+  .ad-seg { display: inline-flex; border: 1px solid var(--rule2); border-radius: 8px; padding: 3px; }
+  .ad-seg button { border: 0; background: none; padding: 9px 20px; min-height: 42px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 15px; color: var(--mid); }
+  .ad-seg button[aria-checked=true] { background: #211a16; color: #f6f1e6; }
+  .ad-btns { display: flex; gap: 10px; flex-wrap: wrap; margin-left: auto; }
+  .ad-totals { display: grid; grid-template-columns: repeat(4, 1fr); margin: 0; border-bottom: 1px solid var(--rule); }
+  .ad-totals > div { padding: 22px 0; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .ad-totals dt { font-family: var(--serif); font-size: 42px; font-weight: 350; letter-spacing: -0.02em; line-height: 1; }
+  .ad-totals dd { margin: 0; color: var(--mid); font-size: 15px; }
+  .ad-roles { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 28px; }
+  .ad-role { background: var(--card); border: 1px solid var(--rule2); border-radius: 12px; padding: 22px; }
+  .ad-role header { display: grid; grid-template-columns: 52px 1fr auto; gap: 14px; align-items: center; margin-bottom: 14px; }
+  .ad-role .vf-ico.sm { margin: 0; }
+  .ad-role h3 { font-size: 23px; }
+  .ad-role header p { color: var(--mid); font-size: 15px; }
+  .ad-count { font-family: var(--serif); font-size: 18px; color: var(--soft); }
+  .ad-count b { font-size: 32px; font-weight: 350; color: var(--ink); }
+  .ad-count.full b { color: var(--soft); }
+  .ad-role ul { list-style: none; margin: 14px 0 0; padding: 0; }
+  .ad-role li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--rule); }
+  .ad-who { display: grid; gap: 1px; font-size: 15.5px; }
+  .ad-who b { font-weight: 600; }
+  .ad-who i { font-style: normal; color: var(--soft); }
+  .ad-who small { color: var(--soft); font-size: 14px; word-break: break-word; }
+  .ad-who .badge { justify-self: start; margin: 3px 0; }
+  .ad-x { background: none; border: 0; color: var(--soft); font-size: 14px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; padding: 6px 2px; flex: none; }
+  .ad-x:hover { color: var(--red); }
+  .ad-role h4 { font-size: 19px; margin-top: 20px; }
+  .ad-none { color: var(--soft); margin-top: 14px; font-size: 15px; }
+  .ad-h { font-size: clamp(26px, 3vw, 36px); font-weight: 350; margin: 56px 0 6px; }
+  .ad-sub { margin-bottom: 14px; }
+  .ad-meals { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+  .ad-meals li { display: grid; grid-template-columns: 220px 1fr 1fr; gap: 6px 24px; padding: 16px 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
+  .ad-meals li > div { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .ad-meals p { font-size: 15.5px; color: var(--mid); }
+  .ad-meals p.soft { color: var(--soft); }
+  .ad-mnone { border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); padding: 20px 0; margin: 0; }
+  .ad-reset { margin-top: 44px; }
+  @media (max-width: 860px) { .ad-roles { grid-template-columns: 1fr; } .ad-totals { grid-template-columns: 1fr 1fr; } .ad-meals li { grid-template-columns: 1fr; } .ad-btns { margin-left: 0; } }
+  @media (max-width: 700px) { .ad-bar .field, .ad-bar .field select { width: 100%; } .ad-role { padding: 18px; } .ad-totals dt { font-size: 34px; } }
+</style>

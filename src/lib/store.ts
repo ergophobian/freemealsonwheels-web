@@ -9,6 +9,8 @@ export interface Signup {
   id: string; kitchen: Kitchen; date: string; role: RoleId;
   name: string; email: string; phone: string; party: number; firstTime: boolean;
   status: 'booked' | 'waitlist' | 'cancelled'; createdAt: string; cancelReason?: string;
+  // Added for the /hearth sign-up flow. Optional so the older pages keep working untouched.
+  hasCar?: boolean; waiverAcceptedAt?: string;
 }
 
 export const KITCHENS: Record<Kitchen, string> = { san_jose: 'San Jose', san_ramon: 'San Ramon' };
@@ -34,10 +36,16 @@ function seed(): Signup[] {
   upcomingSaturdays(4).forEach((date, w) => {
     (Object.keys(KITCHENS) as Kitchen[]).forEach((kitchen, k) => {
       ROLES.forEach((r, i) => {
-        const n = Math.max(0, r.capacity - 2 - ((w * 3 + k * 2 + i * 5) % (r.capacity + 1)));
+        // A few roles are deliberately full so the waitlist state is visible in the demo.
+        const full = (w * 2 + k + i) % 6 === 1;
+        const n = full ? r.capacity : Math.max(0, r.capacity - 2 - ((w * 3 + k * 2 + i * 5) % (r.capacity + 1)));
         for (let j = 0; j < n; j++) out.push({
           id: crypto.randomUUID(), kitchen, date, role: r.id, name: names[(j + i) % names.length],
-          email: 'demo@example.com', phone: '', party: 1, firstTime: false, status: 'booked', createdAt: new Date().toISOString(),
+          email: 'demo@example.com', phone: '', party: 1, firstTime: j % 4 === 3, status: 'booked', createdAt: new Date().toISOString(),
+        });
+        if (full) for (let j = 0; j < 2; j++) out.push({
+          id: crypto.randomUUID(), kitchen, date, role: r.id, name: names[(j + i + 4) % names.length],
+          email: 'demo@example.com', phone: '', party: 1, firstTime: j === 0, status: 'waitlist', createdAt: new Date().toISOString(),
         });
       });
     });
@@ -72,7 +80,24 @@ export function book(input: Omit<Signup, 'id' | 'status' | 'createdAt'>): Signup
   return s;
 }
 
-export function cancel(id: string, reason?: string) { save(load().map((s) => (s.id === id ? { ...s, status: 'cancelled', cancelReason: reason } : s))); }
+export function cancel(id: string, reason?: string) {
+  const all = load(), gone = all.find((s) => s.id === id);
+  const next = all.map((s) => (s.id === id ? { ...s, status: 'cancelled' as const, cancelReason: reason } : s));
+  save(next);
+  if (gone?.status === 'booked') promoteWaitlist(gone.kitchen, gone.date, gone.role);
+}
+
+/** Moves waitlisted people (oldest first) into any spots that have opened up. */
+export function promoteWaitlist(kitchen: Kitchen, date: string, role: RoleId) {
+  const all = load();
+  const cap = ROLES.find((r) => r.id === role)!.capacity;
+  let used = all.filter((s) => s.kitchen === kitchen && s.date === date && s.role === role && s.status === 'booked').reduce((n, s) => n + s.party, 0);
+  const queue = all.filter((s) => s.kitchen === kitchen && s.date === date && s.role === role && s.status === 'waitlist')
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const promoted = new Set<string>();
+  for (const w of queue) if (used + w.party <= cap) { used += w.party; promoted.add(w.id); }
+  if (promoted.size) save(all.map((s) => (promoted.has(s.id) ? { ...s, status: 'booked' as const } : s)));
+}
 
 export function listSignups(kitchen: Kitchen, date: string): Signup[] {
   return load().filter((s) => s.kitchen === kitchen && s.date === date && s.status !== 'cancelled');
@@ -94,3 +119,50 @@ export function reschedule(id: string, patch: Partial<Pick<Signup, 'kitchen' | '
   save(all.map((x) => (x.id === id ? next : x)));
   return next;
 }
+
+// ---- Added for the /hearth screens -------------------------------------------------------------------------
+
+export function getSignup(id: string): Signup | undefined { return load().find((s) => s.id === id); }
+
+/** Everything under this email, including cancelled shifts, newest date last (for the history list). */
+export function allSignupsFor(email: string): Signup[] {
+  const e = email.trim().toLowerCase();
+  return load().filter((s) => s.email.toLowerCase() === e).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// Meal requests. TEMPORARY: stored in this browser only, so nothing a neighbour submits actually reaches anyone yet.
+// Swap for the real backend (and a way for organisers to see requests) together with the volunteer functions above.
+export type MealMode = 'pickup' | 'delivery';
+export interface MealRequest {
+  id: string; name: string; phone: string; mode: MealMode; address: string; area: Kitchen | 'unsure';
+  household: number; diet: string[]; allergies: string; date: string; language: string; notes: string;
+  createdAt: string;
+}
+const MEAL_KEY = 'fmow.mealrequests.v1';
+
+function loadMeals(): MealRequest[] {
+  try { return JSON.parse(localStorage.getItem(MEAL_KEY) || 'null') ?? seedMeals(); } catch { return []; }
+}
+function saveMeals(all: MealRequest[]) { try { localStorage.setItem(MEAL_KEY, JSON.stringify(all)); } catch {} }
+
+function seedMeals(): MealRequest[] {
+  const date = upcomingSaturdays(1)[0], now = new Date().toISOString();
+  const mk = (name: string, mode: MealMode, area: Kitchen, household: number, diet: string[], language: string, address: string): MealRequest =>
+    ({ id: crypto.randomUUID(), name, phone: '(555) 010-0100', mode, address, area, household, diet, allergies: '', date, language, notes: '', createdAt: now });
+  const out = [
+    mk('Maria G.', 'delivery', 'san_jose', 4, ['Vegetarian'], 'Spanish', '123 Example St (demo)'),
+    mk('Tom H.', 'pickup', 'san_jose', 1, [], 'English', ''),
+    mk('Anh N.', 'delivery', 'san_ramon', 3, ['No pork'], 'Vietnamese', '456 Sample Ave (demo)'),
+  ];
+  saveMeals(out);
+  return out;
+}
+
+export function requestMeal(input: Omit<MealRequest, 'id' | 'createdAt'>): MealRequest {
+  const r: MealRequest = { ...input, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
+  saveMeals([...loadMeals(), r]);
+  return r;
+}
+export function getMealRequest(id: string): MealRequest | undefined { return loadMeals().find((r) => r.id === id); }
+export function listMealRequests(date?: string): MealRequest[] { return loadMeals().filter((r) => !date || r.date === date); }
+export function resetMealDemo() { try { localStorage.removeItem(MEAL_KEY); } catch {} }

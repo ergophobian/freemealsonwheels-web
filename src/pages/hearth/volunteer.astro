@@ -1,0 +1,503 @@
+---
+import HearthLayout from '../../layouts/HearthLayout.astro';
+const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+---
+<HearthLayout title="Volunteer" description="Pick a Saturday shift in San Jose or San Ramon. Choose a kitchen, a date and a role, and your spot is confirmed instantly." active="volunteer">
+  <section class="wrap ph vf-ph rv">
+    <p class="kicker">Every Saturday</p>
+    <h1>Pick a shift. <em>You&rsquo;re in.</em></h1>
+    <p class="lede">Choose a kitchen, a date and a role. Your spot is confirmed instantly, no waiting on an email back.</p>
+  </section>
+
+  <section class="wrap vf" id="flow" aria-label="Volunteer sign-up">
+    <ol class="vf-steps" id="vf-steps" aria-label="Progress"></ol>
+    <div class="vf-bar" aria-hidden="true"><i id="vf-fill"></i></div>
+    <div id="vf-chips" class="vf-chips"></div>
+    <div id="vf-panel" class="vf-panel" tabindex="-1" aria-live="polite">
+      <noscript><p class="note">The sign-up needs JavaScript. Or email <a href="mailto:info@freemealsonwheels.com?subject=Volunteer%20sign-up">info@freemealsonwheels.com</a> and we will book you in.</p></noscript>
+    </div>
+  </section>
+
+  <section class="wrap sec" id="vf-info">
+    <h2>Before you come</h2>
+    <ul class="rows">
+      <li class="row"><h3>First time?</h3><p>Wear closed-toe shoes, tie back long hair and arrive 10 minutes early. We&rsquo;ll show you everything.</p><span></span></li>
+      <li class="row"><h3>Coming as a group?</h3><p>Pick your group size when you sign up. For 7 or more, or a corporate day, <a class="link" href="mailto:info@freemealsonwheels.com?subject=Group%20volunteering">email us</a>.</p><span></span></li>
+      <li class="row"><h3>Can&rsquo;t make it?</h3><p>Cancel from <a class="link" href={`${B}hearth/my-shifts`}>My shifts</a> so we can give your spot to someone on the waitlist.</p><span></span></li>
+    </ul>
+  </section>
+</HearthLayout>
+
+<script>
+  import { KITCHENS, ROLES, upcomingSaturdays, spotsLeft, book, reschedule, getSignup, signupsFor, type Kitchen, type RoleId, type Signup } from '../../lib/store';
+  import { $, esc, fmtDate, longDate, kitchenName, roleOf, isKitchen, isRole, getMe, setMe, validEmail, validPhone, downloadIcs, ROLE_ICONS, SATURDAYS_SHOWN } from '../../lib/hearth-ui';
+
+  const BASE = (import.meta.env.BASE_URL as string).replace(/\/?$/, '/');
+  const STEPS = ['Kitchen', 'Date', 'Shift', 'Details'] as const;
+  const SATS = upcomingSaturdays(SATURDAYS_SHOWN);
+  const WAIVER_TEXT = 'The volunteer waiver text will appear here once the organization supplies it.';
+
+  type Form = { name: string; email: string; phone: string; party: number; firstTime: boolean; hasCar: boolean; waiver: boolean };
+  const me = getMe();
+  const S = {
+    kitchen: undefined as Kitchen | undefined, date: undefined as string | undefined, role: undefined as RoleId | undefined,
+    step: 1, resched: undefined as Signup | undefined, done: undefined as Signup | undefined, moved: false,
+    form: { name: me.name || '', email: me.email || '', phone: me.phone || '', party: 1, firstTime: false, hasCar: false, waiver: false } as Form,
+  };
+
+  const panel = $('vf-panel');
+  const label = (left: number, cap: number, noun = 'spots') => {
+    if (left === 0) return { cls: 'full', text: 'Full, join the waitlist' };
+    if (left <= 2 || left / cap <= 0.2) return { cls: 'low', text: `Only ${left} left` };
+    return { cls: '', text: `${left} ${noun} left` };
+  };
+  const dayTotals = (k: Kitchen, d: string) => ROLES.reduce((a, r) => ({ left: a.left + spotsLeft(k, d, r.id), cap: a.cap + r.capacity }), { left: 0, cap: 0 });
+  const maxStep = () => (S.done ? 5 : !S.kitchen ? 1 : !S.date ? 2 : !S.role ? 3 : 4);
+
+  // ---------- url, history ----------
+  function url() {
+    const q = new URLSearchParams();
+    if (S.kitchen) q.set('kitchen', S.kitchen);
+    if (S.date) q.set('date', S.date);
+    if (S.role) q.set('role', S.role);
+    if (S.resched) q.set('reschedule', S.resched.id);
+    const s = q.toString();
+    return location.pathname + (s ? '?' + s : '');
+  }
+  function go(step: number, push = true) {
+    S.step = Math.min(step, maxStep());
+    if (push) history.pushState({ step: S.step }, '', url()); else history.replaceState({ step: S.step, id: S.done?.id }, '', url());
+    draw(true);
+  }
+  window.addEventListener('popstate', (e) => {
+    const st = (e.state as { step?: number; id?: string } | null)?.step ?? 1;
+    if (st === 5) { if (S.done) S.step = 5; else S.step = 1; } else { S.done = undefined; S.moved = false; S.step = Math.min(st, maxStep()); }
+    draw(true);
+  });
+
+  // ---------- progress ----------
+  function drawProgress() {
+    const reach = maxStep();
+    $('vf-steps').innerHTML = STEPS.map((s, i) => {
+      const n = i + 1, cur = S.step === n, done = S.step === 5 || n < S.step;
+      const name = n === 4 && S.resched ? 'Confirm' : s;
+      const inner = `<span class="vf-n">${done && !cur ? '&#10003;' : n}</span><span class="vf-l">${name}</span>`;
+      const can = S.step !== 5 && n !== S.step && n <= reach;
+      return `<li class="${cur ? 'cur' : ''} ${done ? 'done' : ''}"${cur ? ' aria-current="step"' : ''}>${can ? `<button type="button" data-goto="${n}">${inner}</button>` : `<span class="vf-s">${inner}</span>`}</li>`;
+    }).join('');
+    ($('vf-fill') as HTMLElement).style.width = (S.step === 5 ? 100 : ((S.step - 1) / 4) * 100 + 8) + '%';
+  }
+  function drawChips() {
+    const c: string[] = [];
+    if (S.kitchen && S.step > 1 && S.step < 5) c.push(`<button type="button" data-goto="1">${kitchenName(S.kitchen)}</button>`);
+    if (S.date && S.step > 2 && S.step < 5) c.push(`<button type="button" data-goto="2">${fmtDate(S.date, { weekday: 'short', month: 'short', day: 'numeric' })}</button>`);
+    if (S.role && S.step > 3 && S.step < 5) c.push(`<button type="button" data-goto="3">${roleOf(S.role).name}</button>`);
+    $('vf-chips').innerHTML = c.length ? `<span class="vf-chips-l">Your pick</span>${c.join('')}` : '';
+  }
+  const reschedBanner = () => S.resched && S.step < 5
+    ? `<p class="note vf-resched"><b>Moving your shift.</b> You are currently booked for ${esc(roleOf(S.resched.role).name)} at ${esc(kitchenName(S.resched.kitchen))}, ${esc(longDate(S.resched.date))}. Pick the new details below. <a class="link" href="${BASE}hearth/my-shifts?email=${encodeURIComponent(S.resched.email)}">Keep it as it is</a></p>` : '';
+
+  // ---------- step panels ----------
+  function stepKitchen() {
+    const next = SATS[0];
+    return `<h2 class="vf-h" tabindex="-1">Where would you like to help?</h2>
+      <p class="vf-sub">Both kitchens cook on Saturday mornings.</p>
+      <div class="vf-kitchens" role="group" aria-label="Kitchen">
+        ${(Object.keys(KITCHENS) as Kitchen[]).map((k) => {
+          const t = dayTotals(k, next);
+          return `<button type="button" class="choice vf-kitchen" data-kitchen="${k}" aria-pressed="${S.kitchen === k}">
+            <span class="vf-city">${KITCHENS[k]}</span>
+            <span class="vf-meta">${t.left} spots open on ${fmtDate(next, { month: 'long', day: 'numeric' })}</span>
+            <span class="vf-meta soft">Saturday mornings</span>
+          </button>`;
+        }).join('')}
+      </div>`;
+  }
+
+  function stepDate() {
+    const k = S.kitchen!;
+    return `<h2 class="vf-h" tabindex="-1">Choose a Saturday</h2>
+      <p class="vf-sub">${kitchenName(k)} kitchen. Spots left are counted across all four shifts.</p>
+      <div class="vf-dates" role="group" aria-label="Saturday">
+        ${SATS.map((d) => {
+          const t = dayTotals(k, d), l = label(t.left, t.cap), pct = ((t.cap - t.left) / t.cap) * 100;
+          return `<button type="button" class="choice vf-date" data-date="${d}" aria-pressed="${S.date === d}" aria-label="${esc(longDate(d))}, ${l.text}">
+            <span class="vf-mon">${fmtDate(d, { month: 'long' })}</span>
+            <span class="vf-day">${fmtDate(d, { day: 'numeric' })}</span>
+            <span class="vf-dow">Saturday</span>
+            <span class="meter ${l.cls}"><i style="width:${Math.max(6, pct)}%"></i></span>
+            <span class="spots ${l.cls}">${t.left === 0 ? 'Full, waitlist open' : l.cls === 'low' ? l.text : `${t.left} spots left`}</span>
+          </button>`;
+        }).join('')}
+      </div>`;
+  }
+
+  function stepRole() {
+    const k = S.kitchen!, d = S.date!;
+    return `<h2 class="vf-h" tabindex="-1">Choose a shift</h2>
+      <p class="vf-sub">${esc(longDate(d))} at our ${kitchenName(k)} kitchen.</p>
+      <div class="vf-roles" role="group" aria-label="Shift">
+        ${ROLES.map((r) => {
+          const left = spotsLeft(k, d, r.id), l = label(left, r.capacity), pct = ((r.capacity - left) / r.capacity) * 100;
+          return `<button type="button" class="choice vf-role" data-role="${r.id}" aria-pressed="${S.role === r.id}">
+            <span class="vf-ico">${ROLE_ICONS[r.id]}</span>
+            <span class="vf-rbody">
+              <span class="vf-rname">${r.name}</span>
+              <span class="vf-time">${r.time}</span>
+              <span class="vf-note">${r.note}</span>
+              <span class="vf-rfoot"><span class="meter ${l.cls}"><i style="width:${Math.max(left === r.capacity ? 0 : 6, pct)}%"></i></span>
+              <span class="spots ${l.cls}">${l.text}</span></span>
+            </span>
+          </button>`;
+        }).join('')}
+      </div>`;
+  }
+
+  function summaryCard() {
+    const r = roleOf(S.role!);
+    return `<aside class="vf-sum" aria-label="Your shift">
+      <span class="vf-ico sm">${ROLE_ICONS[r.id]}</span>
+      <h3>${r.name}</h3>
+      <dl>
+        <div><dt>Kitchen</dt><dd>${kitchenName(S.kitchen!)}</dd></div>
+        <div><dt>Date</dt><dd>${esc(longDate(S.date!))}</dd></div>
+        <div><dt>Time</dt><dd>${r.time}</dd></div>
+      </dl>
+    </aside>`;
+  }
+
+  const stepper = (party: number) => `<div class="vf-stepper" role="group" aria-label="People in your group">
+      <button type="button" data-party="-1" aria-label="One fewer person">&minus;</button>
+      <output id="f-party-out" aria-live="polite">${party}</output>
+      <button type="button" data-party="1" aria-label="One more person">+</button>
+    </div>`;
+
+  function stepDetails() {
+    if (S.resched) return stepConfirmMove();
+    const f = S.form, r = roleOf(S.role!);
+    return `<h2 class="vf-h" tabindex="-1">A few details</h2>
+      <p class="vf-sub">So we can confirm your spot and reach you on the day.</p>
+      <div class="vf-two">
+      <form id="vf-form" novalidate>
+        <div class="vf-grid">
+          <div class="field" data-f="name"><label for="f-name">Full name</label><input id="f-name" name="name" autocomplete="name" value="${esc(f.name)}" required /><p class="err" id="e-name"></p></div>
+          <div class="field" data-f="email"><label for="f-email">Email</label><input id="f-email" name="email" type="email" autocomplete="email" inputmode="email" value="${esc(f.email)}" required /><p class="err" id="e-email"></p></div>
+          <div class="field" data-f="phone"><label for="f-phone">Phone</label><input id="f-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="For day-of updates" value="${esc(f.phone)}" required /><p class="err" id="e-phone"></p></div>
+          <div class="field"><span class="legend" id="lg-party">People in your group</span>${stepper(f.party)}<p class="hint">For 7 or more, <a class="link" href="mailto:info@freemealsonwheels.com?subject=Group%20volunteering">email us</a>.</p><p class="hint warn" id="party-note"></p></div>
+        </div>
+        <div class="vf-checks">
+          <label class="check"><input type="checkbox" id="f-first" ${f.firstTime ? 'checked' : ''} /><span>This is my first time volunteering</span></label>
+          <p class="note vf-first" id="first-note" ${f.firstTime ? '' : 'hidden'}><b>Welcome.</b> Wear closed-toe shoes, tie back long hair and arrive 10 minutes early. We&rsquo;ll show you everything.</p>
+          ${r.id === 'deliver' ? `<div class="field" data-f="car"><label class="check"><input type="checkbox" id="f-car" ${f.hasCar ? 'checked' : ''} /><span>I have a car and can drive meals to neighbors<small>Delivery needs a car.</small></span></label><p class="err" id="e-car"></p></div>` : ''}
+          <div class="field" data-f="waiver"><label class="check"><input type="checkbox" id="f-waiver" ${f.waiver ? 'checked' : ''} /><span>I have read and agree to the volunteer waiver</span></label>
+            <details class="vf-waiver"><summary>Read the waiver</summary><p>${WAIVER_TEXT}</p></details><p class="err" id="e-waiver"></p></div>
+        </div>
+        <div class="vf-actions">
+          <button type="button" class="btn ghost" data-goto="3">Back</button>
+          <button type="submit" class="btn dark" id="vf-submit">Confirm my spot</button>
+        </div>
+      </form>
+      ${summaryCard()}
+      </div>`;
+  }
+
+  function stepConfirmMove() {
+    const o = S.resched!, r = roleOf(S.role!);
+    return `<h2 class="vf-h" tabindex="-1">Confirm the change</h2>
+      <p class="vf-sub">Your details stay the same. Only the shift moves.</p>
+      <div class="vf-two"><div>
+        <div class="vf-move">
+          <div><span class="vf-ml">From</span><b>${esc(roleOf(o.role).name)}</b><span>${esc(kitchenName(o.kitchen))}, ${esc(longDate(o.date))}</span></div>
+          <span class="vf-arr" aria-hidden="true">&darr;</span>
+          <div><span class="vf-ml">To</span><b>${r.name}</b><span>${esc(kitchenName(S.kitchen!))}, ${esc(longDate(S.date!))}, ${r.time}</span></div>
+        </div>
+        <div class="field"><span class="legend">People in your group</span>${stepper(S.form.party)}<p class="hint warn" id="party-note"></p></div>
+        <div class="vf-actions">
+          <button type="button" class="btn ghost" data-goto="3">Back</button>
+          <button type="button" class="btn dark" id="vf-move">Move my shift</button>
+        </div>
+      </div>${summaryCard()}</div>`;
+  }
+
+  function stepDone() {
+    const s = S.done!, r = roleOf(s.role), booked = s.status === 'booked';
+    const when = `${longDate(s.date)}, ${r.time}`;
+    const first = s.name.split(' ')[0];
+    const head = S.moved ? (booked ? 'Your shift has moved.' : 'You are on the waitlist.') : booked ? `You&rsquo;re in, ${esc(first)}.` : 'You&rsquo;re on the waitlist.';
+    const text = booked
+      ? `${r.name} at our ${esc(kitchenName(s.kitchen))} kitchen, ${esc(when)}. We&rsquo;ll email a confirmation to ${esc(s.email)} and a reminder the day before.`
+      : `${r.name} is full for ${esc(when)}. We&rsquo;ll text and email you the moment a spot opens.`;
+    return `<div class="vf-done">
+      <div class="vf-tick" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="21" fill="url(#hx-gold)" stroke="#2a211c" stroke-width="1.6"/><path d="M14 25l7 7 14-16" stroke="#2a211c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <h2 class="vf-h big" tabindex="-1">${head}</h2>
+      <p class="vf-sub">${text}</p>
+      <div class="vf-ticket">
+        <dl>
+          <div><dt>Shift</dt><dd>${r.name}</dd></div>
+          <div><dt>When</dt><dd>${esc(when)}</dd></div>
+          <div><dt>Where</dt><dd>${esc(kitchenName(s.kitchen))} kitchen<small>Street address to be added. We&rsquo;ll send it with your confirmation.</small></dd></div>
+          <div><dt>Group</dt><dd>${s.party} ${s.party === 1 ? 'person' : 'people'}${booked ? '' : ' on the waitlist'}</dd></div>
+        </dl>
+      </div>
+      <div class="vf-actions center">
+        ${booked ? '<button type="button" class="btn dark" id="vf-ics">Add to calendar</button>' : ''}
+        <a class="btn ghost" href="${BASE}hearth/my-shifts?email=${encodeURIComponent(s.email)}">View my shifts</a>
+        <button type="button" class="btn ghost" id="vf-again">Book another shift</button>
+      </div>
+      <div class="vf-bring">
+        <h3>What to bring and wear</h3>
+        <ul>
+          <li>Closed-toe shoes</li>
+          <li>Long hair tied back</li>
+          <li>Arrive 10 minutes early. First time? We&rsquo;ll show you everything.</li>
+          ${s.role === 'deliver' ? '<li>Your car. Meals go out to neighbors between 11 AM and 1 PM.</li>' : ''}
+        </ul>
+        <p class="fine">Can&rsquo;t make it? Cancel from <a class="link" href="${BASE}hearth/my-shifts?email=${encodeURIComponent(s.email)}">My shifts</a> so your spot can go to someone on the waitlist.</p>
+      </div>
+      <p class="fine vf-demo">Preview only: this booking is saved in this browser and no email is sent yet.</p>
+    </div>`;
+  }
+
+  // ---------- draw ----------
+  function draw(focus = false) {
+    drawProgress(); drawChips();
+    $('vf-info').hidden = S.step === 5;
+    const html = S.step === 1 ? stepKitchen() : S.step === 2 ? stepDate() : S.step === 3 ? stepRole() : S.step === 4 ? stepDetails() : stepDone();
+    panel.innerHTML = reschedBanner() + html;
+    panel.classList.remove('in'); void panel.offsetWidth; panel.classList.add('in');
+    if (S.step === 4 && !S.resched) syncParty();
+    if (S.step === 4 && S.resched) syncParty();
+    if (focus) {
+      const top = $('flow').getBoundingClientRect().top + window.scrollY - 12;
+      if (Math.abs(window.scrollY - top) > 40 && window.scrollY > top) window.scrollTo({ top, behavior: 'smooth' });
+      (panel.querySelector('.vf-h') as HTMLElement | null)?.focus({ preventScroll: true });
+    }
+  }
+
+  function syncParty() {
+    const left = spotsLeft(S.kitchen!, S.date!, S.role!), p = S.form.party;
+    const own = S.resched && S.resched.kitchen === S.kitchen && S.resched.date === S.date && S.resched.role === S.role && S.resched.status === 'booked' ? S.resched.party : 0;
+    const wait = left + own < p;
+    const note = $('party-note'), out = document.getElementById('f-party-out');
+    if (out) out.textContent = String(p);
+    if (note) note.textContent = wait ? (left + own === 0 ? 'This shift is full, so you will join the waitlist.' : `Only ${left + own} ${left + own === 1 ? 'spot is' : 'spots are'} left, so a group of ${p} would join the waitlist.`) : '';
+    const sub = document.getElementById('vf-submit'); if (sub) sub.textContent = wait ? 'Join the waitlist' : 'Confirm my spot';
+    const mv = document.getElementById('vf-move'); if (mv) mv.textContent = wait ? 'Move to the waitlist' : 'Move my shift';
+  }
+
+  // ---------- validation ----------
+  function setErr(key: string, msg: string) {
+    const box = panel.querySelector(`[data-f="${key}"]`), e = document.getElementById('e-' + key);
+    box?.classList.toggle('bad', !!msg);
+    if (e) e.textContent = msg;
+    const inp = box?.querySelector('input'); inp?.setAttribute('aria-invalid', msg ? 'true' : 'false'); if (e && inp) inp.setAttribute('aria-describedby', e.id);
+  }
+  function readForm() {
+    const v = (id: string) => (document.getElementById(id) as HTMLInputElement | null);
+    const f = S.form;
+    f.name = v('f-name')!.value; f.email = v('f-email')!.value; f.phone = v('f-phone')!.value;
+    f.firstTime = v('f-first')!.checked; f.hasCar = !!v('f-car')?.checked; f.waiver = v('f-waiver')!.checked;
+  }
+  function check(key: string): string {
+    const f = S.form; let m = '';
+    if (key === 'name') m = f.name.trim().length < 2 ? 'Please tell us your name.' : '';
+    if (key === 'email') {
+      m = !validEmail(f.email) ? 'Please enter a valid email, like name@example.com.' : '';
+      if (!m && signupsFor(f.email).some((x) => x.kitchen === S.kitchen && x.date === S.date && x.role === S.role)) m = 'This email already has a spot on this shift. You can manage it in My shifts.';
+    }
+    if (key === 'phone') m = !validPhone(f.phone) ? 'Please enter a phone number with area code.' : '';
+    if (key === 'car') m = S.role === 'deliver' && !f.hasCar ? 'Delivery needs a car. If you do not have one, pick another shift.' : '';
+    if (key === 'waiver') m = !f.waiver ? 'Please agree to the waiver to continue.' : '';
+    setErr(key, m); return m;
+  }
+
+  function finish(s: Signup | null, moved = false) {
+    if (!s) return;
+    S.done = s; S.moved = moved; S.step = 5;
+    history.replaceState({ step: 5, id: s.id }, '', url());
+    draw(true);
+  }
+
+  // ---------- events ----------
+  panel.addEventListener('click', (e) => {
+    const t = e.target as HTMLElement;
+    const kb = t.closest<HTMLElement>('[data-kitchen]'), db = t.closest<HTMLElement>('[data-date]'), rb = t.closest<HTMLElement>('[data-role]');
+    if (kb) { S.kitchen = kb.dataset.kitchen as Kitchen; return go(2); }
+    if (db) { S.date = db.dataset.date; return go(3); }
+    if (rb) { S.role = rb.dataset.role as RoleId; return go(4); }
+    const g = t.closest<HTMLElement>('[data-goto]'); if (g) return go(Number(g.dataset.goto));
+    const pb = t.closest<HTMLElement>('[data-party]');
+    if (pb) { S.form.party = Math.max(1, Math.min(6, S.form.party + Number(pb.dataset.party))); return syncParty(); }
+    if (t.closest('#vf-ics') && S.done) return downloadIcs(S.done);
+    if (t.closest('#vf-again')) {
+      S.done = undefined; S.moved = false; S.role = undefined; S.date = undefined; S.resched = undefined; S.form.party = 1; S.form.waiver = false; S.form.firstTime = false;
+      history.pushState({ step: 1 }, '', location.pathname); S.kitchen = undefined; S.step = 1; return draw(true);
+    }
+    if (t.closest('#vf-move') && S.resched) {
+      const s = reschedule(S.resched.id, { kitchen: S.kitchen, date: S.date, role: S.role, party: S.form.party });
+      return finish(s, true);
+    }
+  });
+  panel.addEventListener('change', (e) => {
+    const t = e.target as HTMLInputElement;
+    if (t.id === 'f-first') { S.form.firstTime = t.checked; ($('first-note') as HTMLElement).hidden = !t.checked; }
+    if (t.id === 'f-car') { S.form.hasCar = t.checked; check('car'); }
+    if (t.id === 'f-waiver') { S.form.waiver = t.checked; check('waiver'); }
+  });
+  panel.addEventListener('focusout', (e) => {
+    const t = e.target as HTMLInputElement;
+    if (t.id === 'f-name' || t.id === 'f-email' || t.id === 'f-phone') { readForm(); check(t.id.slice(2)); }
+  });
+  panel.addEventListener('input', (e) => {
+    const t = e.target as HTMLInputElement;
+    if (t.id === 'f-name' || t.id === 'f-email' || t.id === 'f-phone') { S.form[t.id.slice(2) as 'name' | 'email' | 'phone'] = t.value; if (t.closest('.bad')) check(t.id.slice(2)); }
+  });
+  panel.addEventListener('submit', (e) => {
+    e.preventDefault();
+    readForm();
+    const bad = ['name', 'email', 'phone', ...(S.role === 'deliver' ? ['car'] : []), 'waiver'].filter((k) => check(k));
+    if (bad.length) {
+      const first = panel.querySelector<HTMLElement>(`[data-f="${bad[0]}"] input`); first?.focus();
+      return;
+    }
+    const f = S.form;
+    const s = book({ kitchen: S.kitchen!, date: S.date!, role: S.role!, name: f.name.trim(), email: f.email.trim(), phone: f.phone.trim(), party: f.party, firstTime: f.firstTime, hasCar: S.role === 'deliver' ? f.hasCar : undefined, waiverAcceptedAt: new Date().toISOString() });
+    setMe({ name: s.name, email: s.email, phone: s.phone });
+    finish(s);
+  });
+  document.getElementById('flow')!.addEventListener('click', (e) => {
+    const g = (e.target as HTMLElement).closest<HTMLElement>('#vf-steps [data-goto], #vf-chips [data-goto]');
+    if (g) go(Number(g.dataset.goto));
+  });
+
+  // ---------- start: deep links and reschedule ----------
+  (function init() {
+    const q = new URLSearchParams(location.search);
+    const rid = q.get('reschedule'), cur = rid ? getSignup(rid) : undefined;
+    if (cur && cur.status !== 'cancelled') {
+      S.resched = cur; S.kitchen = cur.kitchen; S.date = cur.date; S.role = cur.role; S.form.party = cur.party;
+      S.form.name = cur.name; S.form.email = cur.email; S.form.phone = cur.phone;
+      S.step = 2;
+    } else {
+      const k = q.get('kitchen'), d = q.get('date'), r = q.get('role');
+      if (isKitchen(k)) S.kitchen = k;
+      if (S.kitchen && d && SATS.includes(d)) S.date = d;
+      if (S.kitchen && S.date && isRole(r)) S.role = r;
+      S.step = maxStep();
+    }
+    history.replaceState({ step: S.step }, '', location.pathname + location.search);
+    draw(false);
+  })();
+</script>
+
+<style is:global>
+  .vf-ph { padding-bottom: 28px; }
+  .vf { padding-bottom: 8px; }
+  .vf-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .vf-steps li { min-width: 0; }
+  .vf-steps button, .vf-s { display: flex; align-items: center; gap: 10px; background: none; border: 0; padding: 6px 0; cursor: default; color: var(--soft); font-size: 15px; font-weight: 500; text-align: left; }
+  .vf-steps button { cursor: pointer; color: var(--ink); }
+  .vf-steps button:hover .vf-l { border-bottom-color: var(--ink); }
+  .vf-n { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--rule2); font-family: var(--serif); font-size: 15px; color: var(--soft); background: var(--paper); }
+  .vf-l { border-bottom: 1.5px solid transparent; }
+  .vf-steps li.cur .vf-n { background: #211a16; border-color: #211a16; color: #f6f1e6; }
+  .vf-steps li.cur .vf-l { color: var(--ink); font-weight: 600; }
+  .vf-steps li.done .vf-n { background: #f3dc9f; border-color: #c9a14a; color: #4d3200; }
+  .vf-bar { height: 3px; background: var(--rule); border-radius: 2px; margin: 8px 0 22px; overflow: hidden; }
+  .vf-bar i { display: block; height: 100%; width: 0; transition: width 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); background: repeating-linear-gradient(135deg, #a8382b 0 2px, #d98a62 2px 4px); }
+  .vf-chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-height: 0; margin-bottom: 8px; }
+  .vf-chips:empty { display: none; }
+  .vf-chips-l { font-size: 14.5px; color: var(--soft); margin-right: 4px; }
+  .vf-chips button { border: 1px solid var(--rule2); background: var(--card); border-radius: 99px; padding: 6px 14px; font-size: 14.5px; font-weight: 500; cursor: pointer; }
+  .vf-chips button:hover { border-color: var(--ink); }
+
+  .vf-panel { outline: none; padding: 20px 0 8px; }
+  .vf-panel.in { animation: rise 0.45s ease both; }
+  .vf-resched { margin-bottom: 22px; }
+
+  .vf-kitchens { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .vf-kitchen { display: grid; gap: 6px; padding: 30px 28px; min-height: 170px; align-content: end; }
+  .vf-city { font-family: var(--serif); font-size: clamp(32px, 4vw, 48px); font-weight: 350; line-height: 1.05; letter-spacing: -0.02em; }
+  .vf-meta { font-size: 15.5px; color: var(--green); font-weight: 600; }
+  .vf-meta.soft { color: var(--soft); font-weight: 400; }
+
+  .vf-dates { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .vf-date { display: grid; gap: 2px; padding: 16px 16px 14px; justify-items: start; }
+  .vf-mon { font-size: 14.5px; color: var(--soft); }
+  .vf-day { font-family: var(--serif); font-size: 50px; font-weight: 350; line-height: 1; letter-spacing: -0.03em; }
+  .vf-dow { font-size: 14.5px; color: var(--mid); margin-bottom: 10px; }
+  .vf-date .meter { width: 100%; margin-bottom: 6px; }
+
+  .vf-roles { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .vf-role { display: grid; grid-template-columns: 64px 1fr; gap: 18px; padding: 22px; align-items: start; }
+  .vf-ico { display: block; width: 64px; height: 64px; }
+  .vf-ico svg { width: 100%; height: 100%; }
+  .vf-ico.sm { width: 52px; height: 52px; margin-bottom: 8px; }
+  .vf-rbody { display: grid; gap: 3px; }
+  .vf-rname { font-family: var(--serif); font-size: 24px; line-height: 1.15; }
+  .vf-time { font-weight: 600; font-size: 15.5px; }
+  .vf-note { font-size: 15px; color: var(--mid); line-height: 1.45; }
+  .vf-rfoot { display: grid; gap: 6px; margin-top: 10px; }
+
+  .vf-two { display: grid; grid-template-columns: 1fr 290px; gap: 48px; align-items: start; }
+  .vf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 18px; }
+  .vf-grid .field:nth-child(2) { grid-column: auto; }
+  .vf-checks { display: grid; gap: 18px; margin: 26px 0 8px; }
+  .vf-first { margin-left: 34px; }
+  .vf-waiver { margin: 8px 0 0 34px; font-size: 14.5px; color: var(--mid); }
+  .vf-waiver summary { cursor: pointer; font-weight: 600; text-decoration: underline; text-decoration-color: rgba(168, 56, 43, 0.55); text-underline-offset: 3px; }
+  .vf-waiver p { margin-top: 8px; padding: 12px 14px; border: 1px dashed var(--rule2); border-radius: 6px; }
+  .vf-checks .err { margin-left: 34px; }
+  .vf-actions { display: flex; gap: 12px; margin-top: 26px; flex-wrap: wrap; }
+  .vf-actions.center { justify-content: center; }
+  .vf-actions .btn.dark { flex: 1; max-width: 320px; }
+
+  .vf-sum { position: sticky; top: 20px; background: var(--card); border: 1px solid var(--rule2); border-radius: 10px; padding: 22px; }
+  .vf-sum h3 { font-size: 23px; margin-bottom: 14px; }
+  .vf-sum dl { margin: 0; }
+  .vf-sum dt { font-size: 14px; color: var(--soft); }
+  .vf-sum dd { margin: 0; font-weight: 500; }
+  .vf-sum dl > div { padding: 10px 0; border-top: 1px solid var(--rule); }
+
+  .vf-move { display: grid; gap: 14px; margin-bottom: 26px; }
+  .vf-move > div:not(.vf-arr) { display: grid; gap: 2px; padding: 16px 18px; border: 1px solid var(--rule2); border-radius: 10px; background: var(--card); }
+  .vf-move b { font-family: var(--serif); font-weight: 400; font-size: 22px; }
+  .vf-move span { color: var(--mid); font-size: 15.5px; }
+  .vf-ml { font-size: 14px !important; color: var(--soft) !important; }
+  .vf-arr { text-align: center; font-size: 20px; color: var(--soft) !important; }
+
+  .vf-done { text-align: center; max-width: 640px; margin: 0 auto; padding-top: 10px; }
+  .vf-bring { text-align: left; margin-top: 44px; padding-top: 26px; border-top: 1px solid var(--rule); }
+  .vf-bring h3 { font-size: 26px; margin-bottom: 12px; }
+  .vf-bring ul { margin: 0 0 16px; padding-left: 20px; color: var(--mid); }
+  .vf-bring li { padding: 2px 0; }
+
+  @media (max-width: 860px) {
+    .vf-two { grid-template-columns: 1fr; gap: 28px; }
+    .vf-two > .vf-sum { order: -1; position: static; display: grid; grid-template-columns: 52px 1fr; column-gap: 14px; padding: 16px; }
+    .vf-sum .vf-ico.sm { grid-row: span 2; margin: 0; }
+    .vf-sum h3 { margin: 0; font-size: 20px; }
+    .vf-sum dl { grid-column: 1 / -1; margin-top: 8px; }
+    .vf-sum dl > div { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; }
+    .vf-sum dd { text-align: right; }
+    .vf-dates { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 700px) {
+    .vf-ph .lede { font-size: 18px; }
+    .vf-steps { gap: 2px; }
+    .vf-steps .vf-l { display: none; }
+    .vf-steps li.cur { grid-column: span 1; }
+    .vf-steps li.cur .vf-l { display: inline; font-size: 14px; }
+    .vf-steps { grid-template-columns: repeat(4, auto); justify-content: space-between; }
+    .vf-steps li:not(.cur) .vf-l { display: none; }
+    .vf-kitchens, .vf-roles { grid-template-columns: 1fr; }
+    .vf-kitchen { min-height: 130px; padding: 22px; }
+    .vf-dates { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .vf-day { font-size: 42px; }
+    .vf-role { grid-template-columns: 48px 1fr; gap: 14px; padding: 18px; }
+    .vf-ico { width: 48px; height: 48px; }
+    .vf-grid { grid-template-columns: 1fr; }
+    .vf-actions .btn { flex: 1; }
+    .vf-actions.center .btn { flex: 1 1 100%; max-width: none; }
+  }
+</style>

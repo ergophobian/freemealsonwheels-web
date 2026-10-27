@@ -1,0 +1,168 @@
+---
+import HearthLayout from '../../layouts/HearthLayout.astro';
+---
+<HearthLayout title="Get a meal" description="A fresh, hot meal, free for anyone who needs one. Request pickup or delivery for a Saturday." active="get-a-meal">
+  <section class="wrap ph rv">
+    <p class="kicker">For our neighbors</p>
+    <h1>A hot meal, <em>free for anyone who needs one.</em></h1>
+    <p class="lede">Tell us where to bring it and how many are at your table. No one will ask why.</p>
+  </section>
+
+  <section class="wrap gm" id="gm">
+    <div class="gm-grid">
+      <div id="gm-main">
+        <form id="gm-form" novalidate>
+          <fieldset class="gm-sec">
+            <legend class="gm-h">How would you like your meal?</legend>
+            <div class="gm-modes" role="radiogroup" aria-label="Pickup or delivery">
+              <button type="button" class="choice" role="radio" aria-checked="true" data-mode="delivery"><b>Delivery</b><span>Brought to your door and handed over, between 11 AM and 1 PM.</span></button>
+              <button type="button" class="choice" role="radio" aria-checked="false" data-mode="pickup"><b>Pickup</b><span>Collect it from our kitchen. We will confirm the place and time with you.</span></button>
+            </div>
+          </fieldset>
+
+          <fieldset class="gm-sec">
+            <legend class="gm-h">About you</legend>
+            <div class="gm-cols">
+              <div class="field" data-f="name"><label for="g-name">Name</label><input id="g-name" autocomplete="name" /><p class="err" id="e-name"></p></div>
+              <div class="field" data-f="phone"><label for="g-phone">Phone</label><input id="g-phone" type="tel" autocomplete="tel" inputmode="tel" /><p class="hint">Only to confirm your meal.</p><p class="err" id="e-phone"></p></div>
+              <div class="field"><label for="g-lang">Language you prefer</label>
+                <select id="g-lang"><option>English</option><option>Spanish</option><option>Hindi</option><option>Punjabi</option><option>Vietnamese</option><option>Chinese</option><option>Another language</option></select></div>
+              <div class="field"><label for="g-area">Nearest kitchen</label>
+                <select id="g-area"><option value="san_jose">San Jose</option><option value="san_ramon">San Ramon</option><option value="unsure">Not sure</option></select></div>
+            </div>
+            <div class="field" id="gm-addr" data-f="address"><label for="g-address">Delivery address</label><input id="g-address" autocomplete="street-address" placeholder="Street, unit or apartment, city" /><p class="hint">Add anything that helps the driver, like a gate code or where to leave the meal.</p><p class="err" id="e-address"></p></div>
+          </fieldset>
+
+          <fieldset class="gm-sec">
+            <legend class="gm-h">Your table</legend>
+            <div class="gm-cols">
+              <div class="field"><span class="legend" id="lg-hh">People in your household</span>
+                <div class="vf-stepper" role="group" aria-labelledby="lg-hh"><button type="button" data-hh="-1" aria-label="One fewer person">&minus;</button><output id="g-hh" aria-live="polite">1</output><button type="button" data-hh="1" aria-label="One more person">+</button></div></div>
+              <div class="field"><label for="g-date">Which Saturday</label><select id="g-date"></select></div>
+            </div>
+            <fieldset class="gm-diet">
+              <legend class="legend">Anything we should know about food?</legend>
+              <label class="check"><input type="checkbox" name="diet" value="Vegetarian" /><span>Vegetarian</span></label>
+              <label class="check"><input type="checkbox" name="diet" value="Halal" /><span>Halal</span></label>
+              <label class="check"><input type="checkbox" name="diet" value="No pork" /><span>No pork</span></label>
+              <label class="check"><input type="checkbox" name="diet" value="Allergies" id="g-allergy-cb" /><span>Allergies</span></label>
+              <div class="field" id="gm-allergy" hidden><label for="g-allergies">Which allergies?</label><input id="g-allergies" placeholder="For example, peanuts or shellfish" /></div>
+            </fieldset>
+          </fieldset>
+
+          <div class="gm-submit">
+            <button type="submit" class="btn dark" id="gm-go">Request my meal</button>
+            <p class="fine">No one will ask why you need a meal.</p>
+          </div>
+        </form>
+      </div>
+
+      <aside class="gm-side">
+        <h2>What to expect</h2>
+        <ul class="rows">
+          <li class="row"><h3>Free</h3><p>A fresh, hot meal for anyone who needs one.</p><span></span></li>
+          <li class="row"><h3>Hot</h3><p>Cooked the same morning and delivered by hand, still warm.</p><span></span></li>
+          <li class="row"><h3>Saturdays</h3><p>Meals go out from our San Jose and San Ramon kitchens.</p><span></span></li>
+        </ul>
+        <div class="note gm-211"><b>Can&rsquo;t wait until Saturday?</b> Dial <a class="link" href="tel:211">211</a> for food, housing and health services near you.</div>
+      </aside>
+    </div>
+  </section>
+</HearthLayout>
+
+<script>
+  import { upcomingSaturdays, requestMeal, KITCHENS, type MealMode, type Kitchen } from '../../lib/store';
+  import { $, esc, fmtDate, longDate, validPhone, SATURDAYS_SHOWN } from '../../lib/hearth-ui';
+
+  const form = $<HTMLFormElement>('gm-form');
+  const sats = upcomingSaturdays(SATURDAYS_SHOWN).slice(0, 5);
+  let mode: MealMode = 'delivery', hh = 1;
+  const v = (id: string) => $<HTMLInputElement>(id);
+  $('g-date').innerHTML = sats.map((d, i) => `<option value="${d}">${fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' })}${i === 0 ? ' (this week)' : ''}</option>`).join('');
+  const q = new URLSearchParams(location.search).get('date'); if (q && sats.includes(q)) v('g-date').value = q;
+
+  function paintMode() {
+    document.querySelectorAll<HTMLElement>('[data-mode]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === mode)));
+    ($('gm-addr') as HTMLElement).hidden = mode !== 'delivery';
+    $('gm-go').textContent = mode === 'delivery' ? 'Request delivery' : 'Request pickup';
+  }
+  function setErr(key: string, msg: string) {
+    const box = form.querySelector(`[data-f="${key}"]`); box?.classList.toggle('bad', !!msg);
+    $('e-' + key).textContent = msg; box?.querySelector('input')?.setAttribute('aria-invalid', msg ? 'true' : 'false');
+    return msg;
+  }
+  const rules: Record<string, () => string> = {
+    name: () => (v('g-name').value.trim().length < 2 ? 'Please tell us what to call you.' : ''),
+    phone: () => (!validPhone(v('g-phone').value) ? 'Please enter a phone number with area code.' : ''),
+    address: () => (mode === 'delivery' && v('g-address').value.trim().length < 6 ? 'Please enter the address for delivery.' : ''),
+  };
+  const check = (k: string) => setErr(k, rules[k]());
+
+  form.addEventListener('click', (e) => {
+    const t = e.target as HTMLElement;
+    const m = t.closest<HTMLElement>('[data-mode]'); if (m) { mode = m.dataset.mode as MealMode; paintMode(); if (mode === 'pickup') setErr('address', ''); }
+    const h = t.closest<HTMLElement>('[data-hh]'); if (h) { hh = Math.max(1, Math.min(12, hh + Number(h.dataset.hh))); $('g-hh').textContent = String(hh); }
+  });
+  form.addEventListener('focusout', (e) => { const id = (e.target as HTMLElement).id; if (id === 'g-name' || id === 'g-phone' || id === 'g-address') check(id.slice(2)); });
+  form.addEventListener('input', (e) => { const id = (e.target as HTMLElement).id; const k = id.slice(2); if (rules[k] && (e.target as HTMLElement).closest('.bad')) check(k); });
+  $('g-allergy-cb').addEventListener('change', (e) => { ($('gm-allergy') as HTMLElement).hidden = !(e.target as HTMLInputElement).checked; });
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const bad = Object.keys(rules).filter((k) => check(k));
+    if (bad.length) { v('g-' + bad[0]).focus(); return; }
+    const diet = [...form.querySelectorAll<HTMLInputElement>('input[name=diet]:checked')].map((x) => x.value);
+    const r = requestMeal({
+      name: v('g-name').value.trim(), phone: v('g-phone').value.trim(), mode, address: mode === 'delivery' ? v('g-address').value.trim() : '',
+      area: v('g-area').value as Kitchen | 'unsure', household: hh, diet, allergies: diet.includes('Allergies') ? v('g-allergies').value.trim() : '',
+      date: v('g-date').value, language: v('g-lang').value, notes: '',
+    });
+    const area = r.area === 'unsure' ? '' : `${KITCHENS[r.area]} kitchen`;
+    $('gm-main').innerHTML = `<div class="gm-done">
+      <div class="vf-tick" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="21" fill="url(#hx-gold)" stroke="#2a211c" stroke-width="1.6"/><path d="M14 25l7 7 14-16" stroke="#2a211c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <h2 class="vf-h big" tabindex="-1" id="gm-h">We have your request, ${esc(r.name.split(' ')[0])}.</h2>
+      <p class="vf-sub">We will add you to a route for ${esc(longDate(r.date))} and be in touch on ${esc(r.phone)} to confirm.</p>
+      <div class="vf-ticket"><dl>
+        <div><dt>Meal</dt><dd>${r.mode === 'delivery' ? 'Delivery, between 11 AM and 1 PM' : 'Pickup'}${r.mode === 'pickup' ? '<small>We will confirm the pickup place and time with you.</small>' : ''}</dd></div>
+        <div><dt>When</dt><dd>${esc(longDate(r.date))}</dd></div>
+        ${r.mode === 'delivery' ? `<div><dt>Where</dt><dd>${esc(r.address)}</dd></div>` : area ? `<div><dt>Kitchen</dt><dd>${esc(area)}</dd></div>` : ''}
+        <div><dt>Household</dt><dd>${r.household} ${r.household === 1 ? 'person' : 'people'}</dd></div>
+        ${r.diet.length ? `<div><dt>Food</dt><dd>${esc(r.diet.join(', '))}${r.allergies ? `<small>Allergies: ${esc(r.allergies)}</small>` : ''}</dd></div>` : ''}
+      </dl></div>
+      <div class="note gm-211"><b>Can&rsquo;t wait until Saturday?</b> Dial <a class="link" href="tel:211">211</a> for food, housing and health services near you.</div>
+      <p class="fine vf-demo">Preview only: this request is saved in this browser and does not reach anyone yet.</p>
+    </div>`;
+    document.getElementById('gm-h')!.focus();
+    $('gm').scrollIntoView({ behavior: 'smooth' });
+  });
+  paintMode();
+</script>
+
+<style is:global>
+  .gm-grid { display: grid; grid-template-columns: 1fr 340px; gap: 72px; align-items: start; }
+  .gm-sec { padding: 0 0 34px; margin: 0 0 34px; border-bottom: 1px solid var(--rule); }
+  .gm-sec > * + * { margin-top: 20px; }
+  .gm-h { font-family: var(--serif); font-size: clamp(24px, 2.6vw, 30px); font-weight: 350; padding: 0; margin: 0; }
+  .gm-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .gm-modes .choice { display: grid; gap: 4px; }
+  .gm-modes b { font-family: var(--serif); font-weight: 400; font-size: 25px; }
+  .gm-modes span { font-size: 15px; color: var(--mid); line-height: 1.45; }
+  .gm-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 18px; }
+  .gm-diet { display: grid; gap: 14px; }
+  .gm-diet .legend { margin-bottom: 2px; }
+  .gm-submit { display: grid; gap: 12px; justify-items: start; }
+  .gm-submit .btn { min-width: 260px; }
+  .gm-side { position: sticky; top: 24px; }
+  .gm-side h2 { font-size: clamp(24px, 2.6vw, 30px); font-weight: 350; margin-bottom: 14px; }
+  .gm-side .row { grid-template-columns: 1fr; gap: 4px; padding: 16px 0; }
+  .gm-side .row h3 { font-size: 22px; }
+  .gm-211 { margin-top: 22px; }
+  .gm-done { max-width: 600px; }
+  .gm-done .vf-tick { margin-left: 0; }
+  .gm-done .vf-ticket { margin-bottom: 22px; }
+  @media (max-width: 900px) { .gm-grid { grid-template-columns: 1fr; gap: 20px; } .gm-side { position: static; } }
+  @media (max-width: 700px) {
+    .gm-modes, .gm-cols { grid-template-columns: 1fr; }
+    .gm-submit .btn { width: 100%; }
+  }
+</style>

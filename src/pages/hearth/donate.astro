@@ -1,0 +1,98 @@
+---
+import HearthLayout from '../../layouts/HearthLayout.astro';
+// Replace with the live Stripe Payment Link (the same one the mobile app uses).
+const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
+const amounts = [10, 25, 50, 100, 250, 500];
+---
+<HearthLayout title="Donate" description="$10 covers a fresh, hot meal, and every penny goes to food. One-time or monthly, and tax-deductible." active="donate">
+  <section class="wrap ph rv">
+    <p class="kicker">100% to meals</p>
+    <h1>Feed a <em>neighbor.</em></h1>
+    <p class="lede">$10 covers a fresh, hot meal, and every penny of every donation goes directly to food.</p>
+  </section>
+
+  <section class="wrap sec dn-first">
+    <div class="dn-grid">
+      <div class="dn-card" id="dn-card">
+        <div class="dn-freq" role="radiogroup" aria-label="How often">
+          <button type="button" role="radio" class="on" aria-checked="true" data-f="once">One time</button>
+          <button type="button" role="radio" aria-checked="false" data-f="monthly">Monthly</button>
+        </div>
+
+        <fieldset>
+          <legend class="legend">Choose an amount</legend>
+          <div class="dn-amounts" id="dn-amounts">
+            {amounts.map((a, i) => <button type="button" class="choice" aria-pressed={i === 1 ? 'true' : 'false'} data-a={a}>${a}</button>)}
+          </div>
+        </fieldset>
+
+        <p class="dn-does" id="dn-does" aria-live="polite"></p>
+        <a class="btn red dn-go" id="dn-go" href={STRIPE_LINK} rel="noopener">Donate securely</a>
+        <p class="fine">Payments are handled by Stripe. We are a 501(c)(3), so your gift is tax-deductible.</p>
+      </div>
+
+      <aside class="dn-side">
+        <h2>Where it goes</h2>
+        <ul class="rows">
+          <li class="row"><h3>$10</h3><p>covers a fresh, hot meal</p><span></span></li>
+          <li class="row"><h3>100%</h3><p>of every donation goes to food</p><span></span></li>
+          <li class="row"><h3>Weekly</h3><p>cooked on Saturday mornings in San Jose and San Ramon</p><span></span></li>
+        </ul>
+      </aside>
+    </div>
+  </section>
+
+  <section class="wrap sec" id="winter">
+    <h2>Meal and a blanket</h2>
+    <div class="dn-winter">
+      <p class="prose">Our winter drive pairs a hot meal with a warm blanket for unhoused neighbors.</p>
+      <a class="btn ghost" href={STRIPE_LINK} rel="noopener">Give warmth</a>
+    </div>
+  </section>
+</HearthLayout>
+
+<script>
+  const card = document.getElementById('dn-card')!;
+  const does = document.getElementById('dn-does')!;
+  const go = document.getElementById('dn-go')!;
+  let freq: 'once' | 'monthly' = 'once', amt = 25;
+  const meals = (n: number) => `${n} fresh, hot ${n === 1 ? 'meal' : 'meals'}`;
+  function paint() {
+    const n = Math.floor(amt / 10);
+    does.innerHTML = freq === 'once'
+      ? `<b>$${amt}</b> covers ${meals(n)} at $10 each.`
+      : `<b>$${amt} a month</b> covers ${meals(n)} every month, ${n * 12} over a year.`;
+    go.textContent = freq === 'once' ? `Donate $${amt} securely` : `Donate $${amt} monthly`;
+    card.querySelectorAll<HTMLElement>('[data-a]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.a) === amt)));
+    card.querySelectorAll<HTMLElement>('[data-f]').forEach((b) => { const on = b.dataset.f === freq; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
+  }
+  card.addEventListener('click', (e) => {
+    const t = (e.target as HTMLElement).closest<HTMLElement>('button');
+    if (!t) return;
+    if (t.dataset.a) amt = Number(t.dataset.a);
+    if (t.dataset.f) freq = t.dataset.f as typeof freq;
+    paint();
+  });
+  paint();
+</script>
+
+<style is:global>
+  .dn-first { padding-top: 8px; }
+  .dn-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 64px; align-items: start; }
+  .dn-card { background: var(--card); border: 1px solid var(--rule2); border-radius: 12px; padding: 32px; display: grid; gap: 22px; }
+  .dn-freq { display: inline-flex; justify-self: start; border: 1px solid var(--rule2); border-radius: 8px; padding: 3px; }
+  .dn-freq button { border: 0; background: none; padding: 9px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 15px; color: var(--mid); min-height: 40px; }
+  .dn-freq button.on { background: #211a16; color: #f6f1e6; }
+  .dn-card fieldset { display: grid; gap: 12px; }
+  .dn-amounts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .dn-amounts .choice { text-align: center; font-family: var(--serif); font-size: 26px; padding: 14px 8px; }
+  .dn-does { font-size: 17px; color: var(--mid); min-height: 3.2em; }
+  .dn-does b { color: var(--ink); font-weight: 600; }
+  .dn-go { width: 100%; }
+  .dn-side h2 { font-size: clamp(26px, 2.8vw, 34px); font-weight: 350; margin-bottom: 18px; }
+  .dn-side .row { grid-template-columns: 120px 1fr; gap: 16px; padding: 18px 0; }
+  .dn-side .row h3 { font-size: 30px; }
+  .dn-winter { display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); padding: 26px 0; }
+  @media (max-width: 860px) { .dn-grid { grid-template-columns: 1fr; gap: 44px; } }
+  @media (max-width: 700px) { .dn-card { padding: 22px 18px; } .dn-side .row { grid-template-columns: 90px 1fr; } .dn-winter .btn { width: 100%; } }
+</style>
