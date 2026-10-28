@@ -2,7 +2,7 @@
 import HearthLayout from '../../layouts/HearthLayout.astro';
 ---
 <HearthLayout title="Get a meal" description="A fresh, hot meal, free for anyone who needs one. Request pickup or delivery for a Saturday." active="get-a-meal">
-  <section class="wrap ph rv">
+  <section class="wrap ph">
     <p class="kicker">For our neighbors</p>
     <h1>A hot meal, <em>free for anyone who needs one.</em></h1>
     <p class="lede">Tell us where to bring it and how many are at your table. No one will ask why.</p>
@@ -133,7 +133,7 @@ import HearthLayout from '../../layouts/HearthLayout.astro';
       <p class="fine vf-demo">Preview only: this request is saved in this browser and does not reach anyone yet.</p>
     </div>`;
     document.getElementById('gm-h')!.focus();
-    $('gm').scrollIntoView({ behavior: 'smooth' });
+    $('gm').scrollIntoView({ behavior: 'auto' });
   });
   paintMode();
 </script>

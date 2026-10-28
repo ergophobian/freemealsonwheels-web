@@ -1,14 +1,15 @@
 ---
-// /hearth: a calm, editorial landing page. The heart of it is one hand-drawn kitchen island, painted in
-// thousands of hatch strokes by src/lib/hearth, that turns through the four moments of one meal.
+// /hearth: a calm, editorial landing page built from static pictures. The pictures live in src/lib/hearth-art.ts
+// (files in src/assets/hearth/), so changing the art style means replacing those files only.
+import { Picture } from 'astro:assets';
+import { art, type HearthArtKey } from '../lib/hearth-art';
 const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
-const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
 const MAIL = 'mailto:info@freemealsonwheels.com';
-const stops = ['Cook', 'Pack', 'Deliver', 'Share'];
-const steps = [
-  { n: '1', h: 'We cook', p: 'On Saturday mornings volunteers cook fresh meals together in our San Jose and San Ramon kitchens.' },
-  { n: '2', h: 'We pack', p: 'Every meal is packed by hand and checked, so it is still hot when it leaves the kitchen.' },
-  { n: '3', h: 'We deliver', p: 'Meals are carried to neighbors across both cities and handed over at the door, between 11 AM and 1 PM.' },
+const steps: { n: string; art: HearthArtKey; h: string; cap: string; p: string }[] = [
+  { n: '1', art: 'cook', h: 'We cook', cap: 'Before the city wakes, a kitchen light comes on and the volunteers start cooking.', p: 'On Saturday mornings volunteers cook fresh meals together in our San Jose and San Ramon kitchens.' },
+  { n: '2', art: 'pack', h: 'We pack', cap: 'Every meal is packed by hand and checked, so it is still hot when it leaves the kitchen.', p: 'Every meal is packed by hand and checked, so it is still hot when it leaves the kitchen.' },
+  { n: '3', art: 'deliver', h: 'We deliver', cap: 'Someone is already waiting. A hot meal is handed over at the door, still warm.', p: 'Meals are carried to neighbors across both cities and handed over at the door, between 11 AM and 1 PM.' },
+  { n: '4', art: 'share', h: 'We share', cap: 'By night, there are more people at the table than there were at dawn.', p: 'Neighbors sit down together at the table, and a good meal is better shared. We are all neighbors here.' },
 ];
 const involved = [
   { id: 'volunteer', h: 'Volunteer', p: 'Pick a Saturday shift. Choose a kitchen, a date and a role, and your spot is confirmed instantly.', cta: 'Sign up to volunteer', href: `${B}hearth/volunteer` },
@@ -23,7 +24,6 @@ const involved = [
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Free Meals on Wheels: dignity starts with a full belly</title>
   <meta name="description" content="Free Meals on Wheels cooks and delivers fresh, free meals to neighbors every Saturday across San Jose and San Ramon." />
-  <script is:inline>document.documentElement.classList.add('js')</script>
   <link rel="icon" href={`${B}logo.png`} />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -43,7 +43,6 @@ const involved = [
 
   <main>
     <section class="hero" id="top">
-      <canvas id="h-sky" aria-hidden="true"></canvas>
       <div class="hero-copy">
         <h1>Dignity starts with <em>a full belly.</em></h1>
         <p class="sub">Fresh meals, cooked the same morning and delivered by hand, still warm.</p>
@@ -51,48 +50,25 @@ const involved = [
       </div>
 
       <figure class="stage">
-        <div id="h-island" class="island is-wash">
-          <div id="h-wash" aria-hidden="true"></div>
-          <canvas id="h-cv" role="img" aria-label="A hand-drawn community kitchen before dawn."></canvas>
-          <canvas id="h-act" aria-hidden="true"></canvas>
-          <canvas id="h-live" aria-hidden="true"></canvas>
-        </div>
-        <figcaption id="h-cap" class="cap" aria-live="polite">Before the city wakes, a kitchen light comes on and the first pot goes up.</figcaption>
-        <div class="turn">
-          <div id="h-scrub" class="scrub" role="slider" tabindex="0" aria-label="Turn through the story of one meal" aria-valuemin="1" aria-valuemax="4" aria-valuenow="1" aria-valuetext="Cook, step 1 of 4">
-            <span class="track"></span>
-            {stops.map((_, i) => <span class="tick" style={`left:${(i / 3) * 100}%`}></span>)}
-            <span id="h-handle" class="handle" style="--p:0"></span>
-          </div>
-          <ol class="stops">
-            {stops.map((s, i) => <li style={`left:${(i / 3) * 100}%`}><button type="button" class={`h-stop${i === 0 ? ' on' : ''}`} data-i={i}>{s}</button></li>)}
-          </ol>
-          <div class="turn-row">
-            <span class="hint">Drag to turn</span>
-            <span class="arrows">
-              <button id="h-prev" type="button" aria-label="Previous moment">&larr;</button>
-              <button id="h-next" type="button" aria-label="Next moment">&rarr;</button>
-            </span>
-          </div>
-        </div>
+        <Picture class="pic" src={art.cook.src} alt={art.cook.alt} formats={['avif', 'webp']} fallbackFormat="jpg" widths={[640, 1000, 1400, 2000]} sizes="(min-width: 1080px) 1080px, 100vw" loading="eager" fetchpriority="high" decoding="async" />
       </figure>
     </section>
 
     <section class="sec" id="story">
       <div class="wrap two">
-        <div class="rv">
+        <div>
           <h2>One Saturday, told slowly.</h2>
           <p class="lede">Free Meals on Wheels cooks and delivers fresh meals to neighbors every week. A Saturday begins with a light in the kitchen and ends with more people at the table than there were at dawn.</p>
           <p>No forms, no questions, no one asking why. A fresh, hot meal is handed over, still warm. At Thanksgiving everyone gets a seat. When it turns cold we pair a hot meal with a warm blanket. A good meal is better shared, and we are all neighbors here.</p>
         </div>
-        <dl class="facts rv">
+        <dl class="facts">
           <div><dt>400+</dt><dd>volunteers cooking and packing</dd></div>
           <div><dt>300+</dt><dd>meals every week</dd></div>
           <div><dt>100%</dt><dd>of every donation goes to food</dd></div>
           <div><dt class="sm">Saturdays</dt><dd>San Jose and San Ramon</dd></div>
         </dl>
       </div>
-      <div class="wrap quote rv">
+      <div class="wrap quote">
         <blockquote>&ldquo;A fresh, hot, and nutritious meal is not just satiating, but more importantly, enabling and liberating.&rdquo;</blockquote>
         <p>Japjot Sethi and Devinder Kumar started cooking because no neighbor should go to bed hungry.</p>
       </div>
@@ -100,10 +76,20 @@ const involved = [
 
     <section class="sec" id="how">
       <div class="wrap">
-        <h2 class="rv">How it works</h2>
-        <ol class="rows">
+        <h2>How it works</h2>
+        <ol class="steps">
           {steps.map((s) => (
-            <li class="row rv"><span class="num">{s.n}</span><h3>{s.h}</h3><p>{s.p}</p></li>
+            <li class="step">
+              <figure>
+                <Picture class="pic" src={art[s.art].src} alt={art[s.art].alt} formats={['avif', 'webp']} fallbackFormat="jpg" widths={[640, 1000, 1400, 2000]} sizes="(min-width: 1080px) 520px, 100vw" loading="lazy" decoding="async" />
+              </figure>
+              <div class="step-copy">
+                <span class="num">Step {s.n}</span>
+                <h3>{s.h}</h3>
+                {s.cap !== s.p && <p class="stepcap">{s.cap}</p>}
+                <p>{s.p}</p>
+              </div>
+            </li>
           ))}
         </ol>
       </div>
@@ -111,30 +97,30 @@ const involved = [
 
     <section class="sec" id="involved">
       <div class="wrap">
-        <h2 class="rv">Come to the table</h2>
+        <h2 >Come to the table</h2>
         <ul class="rows">
           {involved.map((c) => (
-            <li class="row act rv" id={c.id}><h3>{c.h}</h3><p>{c.p}</p><a class="arrow" href={c.href}>{c.cta}<span aria-hidden="true">&rarr;</span></a></li>
+            <li class="row act" id={c.id}><h3>{c.h}</h3><p>{c.p}</p><a class="arrow" href={c.href}>{c.cta}<span aria-hidden="true">&rarr;</span></a></li>
           ))}
         </ul>
-        <p class="fine rv">First time volunteering? Wear closed-toe shoes, tie back long hair and arrive 10 minutes early. Coming as a group of 7 or more? <a href={`${MAIL}?subject=Group%20volunteering`}>Email us</a>. Can&rsquo;t get out? Dial 211 for food, housing and health services near you. Payments by Stripe. We are a 501(c)(3).</p>
+        <p class="fine">First time volunteering? Wear closed-toe shoes, tie back long hair and arrive 10 minutes early. Coming as a group of 7 or more? <a href={`${MAIL}?subject=Group%20volunteering`}>Email us</a>. Can&rsquo;t get out? Dial 211 for food, housing and health services near you. Payments by Stripe. We are a 501(c)(3).</p>
       </div>
     </section>
 
     <section class="sec" id="contact">
       <div class="wrap">
-        <h2 class="rv">Contact</h2>
+        <h2 >Contact</h2>
         <ul class="rows">
-          <li class="row rv"><h3>Email</h3><p><a href={MAIL}>info@freemealsonwheels.com</a></p></li>
-          <li class="row rv"><h3>Follow along</h3><p><a href="https://www.instagram.com/freemealsonwheels/">Instagram</a> &middot; <a href="https://www.facebook.com/Freemeals20/">Facebook</a></p></li>
-          <li class="row rv"><h3>Bring your team</h3><p>Cook and pack together on a Saturday. Great for companies, schools and clubs. <a href={`${MAIL}?subject=Corporate%20team%20day`}>Corporate team days</a></p></li>
+          <li class="row"><h3>Email</h3><p><a href={MAIL}>info@freemealsonwheels.com</a></p></li>
+          <li class="row"><h3>Follow along</h3><p><a href="https://www.instagram.com/freemealsonwheels/">Instagram</a> &middot; <a href="https://www.facebook.com/Freemeals20/">Facebook</a></p></li>
+          <li class="row"><h3>Bring your team</h3><p>Cook and pack together on a Saturday. Great for companies, schools and clubs. <a href={`${MAIL}?subject=Corporate%20team%20day`}>Corporate team days</a></p></li>
         </ul>
       </div>
     </section>
   </main>
 
   <footer class="foot">
-    <canvas id="h-foot" aria-hidden="true"></canvas>
+    <Picture class="grass" src={art.grass.src} alt={art.grass.alt} formats={['avif', 'webp']} fallbackFormat="jpg" widths={[800, 1200, 1600, 2400]} sizes="100vw" loading="lazy" decoding="async" />
     <div class="wrap fgrid">
       <div>
         <p class="fb">Free Meals on Wheels</p>
@@ -149,25 +135,23 @@ const involved = [
     </div>
   </footer>
 
-  <script>
-    import { boot } from '../lib/hearth';
-    boot();
-  </script>
 </body>
 </html>
 
 <style is:global>
   :root { --paper: #f6f1e6; --ink: #2a211c; --soft: #4a3f36; --text: #35291f; --rule: rgba(42, 33, 28, 0.14); --red: #a8382b; --serif: 'Fraunces', 'Iowan Old Style', Georgia, serif; --sans: Figtree, system-ui, -apple-system, 'Segoe UI', sans-serif; }
   * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
   body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 17px; line-height: 1.65; -webkit-font-smoothing: antialiased; text-transform: none; }
   a { color: inherit; }
   h1, h2, h3 { font-family: var(--serif); font-weight: 400; margin: 0; text-transform: none; letter-spacing: -0.015em; }
-  button { font: inherit; color: inherit; }
   .wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
 
-  /* nav: plain HTML, visible at once */
-  .nav { position: absolute; z-index: 10; inset: 0 0 auto 0; background: linear-gradient(var(--paper) 0, rgba(246, 241, 230, 0.9) 60%, rgba(246, 241, 230, 0)); display: flex; align-items: center; gap: 28px; padding: 18px 36px; }
+  /* page-to-page crossfade (cross-document view transition, no JS) */
+  @view-transition { navigation: auto; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 200ms; animation-timing-function: ease; }
+
+  /* nav */
+  .nav { position: absolute; z-index: 10; inset: 0 0 auto 0; display: flex; align-items: center; gap: 28px; padding: 18px 36px; }
   .brand { font-family: var(--serif); font-size: 21px; font-weight: 500; text-decoration: none; letter-spacing: -0.01em; margin-right: auto; }
   .nav nav { display: flex; gap: 28px; font-size: 15.5px; font-weight: 500; }
   .nav nav a { text-decoration: none; color: var(--text); transition: color 0.15s; }
@@ -175,53 +159,20 @@ const involved = [
   .donate { background: var(--red); color: #fbf3e4; text-decoration: none; padding: 9px 20px; border-radius: 7px; font-size: 15px; font-weight: 600; transition: background 0.15s; }
   .donate:hover { background: #8f2d22; }
 
-  /* hero */
-  .hero { position: relative; padding: 92px 0 20px; background: linear-gradient(#eef0e8 0, #f2efe3 30%, var(--paper) 64%); overflow: hidden; isolation: isolate; }
-  #h-sky { position: absolute; left: 0; top: 0; width: 100%; height: min(95vh, 900px); min-height: 700px; z-index: -2; -webkit-mask-image: linear-gradient(rgba(0,0,0,0.1) 0, rgba(0,0,0,0.12) 30%, rgba(0,0,0,0.85) 50%, #000 64%, transparent 96%); mask-image: linear-gradient(rgba(0,0,0,0.1) 0, rgba(0,0,0,0.12) 30%, rgba(0,0,0,0.85) 50%, #000 64%, transparent 96%); opacity: 0; transition: opacity 1.4s ease; pointer-events: none; }
-  #h-sky.on { opacity: 1; }
-  .hero-copy { position: relative; text-align: center; padding: 0 24px; }
-  .hero-copy::before { content: ''; position: absolute; left: 50%; top: -48px; width: min(1180px, 100%); height: calc(100% + 96px); transform: translateX(-50%); background: radial-gradient(ellipse closest-side, rgba(246, 241, 230, 0.95) 58%, rgba(246, 241, 230, 0)); z-index: -1; pointer-events: none; }
+  /* hero: the Cook picture is painted on the page paper colour, so it sits flush with the page */
+  .hero { position: relative; padding: 108px 0 20px; background: var(--paper); }
+  .hero-copy { text-align: center; padding: 0 24px; }
   .hero h1 { font-size: clamp(38px, 5.6vw, 80px); line-height: 1.04; font-weight: 350; font-variation-settings: 'opsz' 144; max-width: 16em; margin: 0 auto; }
   .hero h1 em { font-style: italic; font-weight: 300; }
   .sub { font-size: clamp(16px, 1.5vw, 19px); color: var(--soft); margin: 14px auto 0; max-width: 40em; line-height: 1.55; text-wrap: balance; }
   .btns { display: flex; gap: 12px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
-  .btn { display: inline-flex; align-items: center; justify-content: center; padding: 12px 26px; border-radius: 7px; font-size: 15.5px; font-weight: 600; text-decoration: none; border: 1px solid transparent; transition: transform 0.15s, background 0.15s; }
-  .btn:hover { transform: translateY(-1px); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; padding: 12px 26px; border-radius: 7px; font-size: 15.5px; font-weight: 600; text-decoration: none; border: 1px solid transparent; transition: background 0.15s, border-color 0.15s; }
   .btn.dark { background: #211a16; color: #f6f1e6; }
   .btn.dark:hover { background: #3a2c24; }
   .btn.ghost { border-color: rgba(42, 33, 28, 0.35); }
   .btn.ghost:hover { background: rgba(42, 33, 28, 0.05); }
-
-  .stage { position: relative; margin: 0 auto; padding: 0; }
-  .island { position: relative; width: min(1080px, 100%); margin: 0 auto -10px; aspect-ratio: 1400 / 660; cursor: grab; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
-  .island.drag { cursor: grabbing; }
-  #h-cv, #h-act, #h-live { position: absolute; left: 0; top: 0; display: block; transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1); }
-  .island.drag #h-cv, .island.drag #h-act { transition: none; }
-  #h-live { mix-blend-mode: screen; pointer-events: none; }
-  #h-wash { position: absolute; inset: 6% 4% 2%; border-radius: 50%; pointer-events: none; transition: opacity 0.9s ease;
-    background: radial-gradient(60% 56% at 50% 56%, rgba(133, 160, 140, 0.34), rgba(214, 201, 160, 0.18) 55%, rgba(246, 241, 230, 0) 78%); animation: wash 2.6s ease-in-out infinite alternate; }
-  .island.is-painting #h-wash, .island.is-done #h-wash { opacity: 0; animation: none; }
-  @keyframes wash { from { transform: scale(0.97); opacity: 0.8; } to { transform: scale(1.02); opacity: 1; } }
-
-  .cap { position: relative; text-align: center; font-family: var(--serif); font-style: italic; font-weight: 350; font-size: clamp(18px, 1.55vw, 21px); color: #231a14; margin: 0 auto; padding: 0 24px; min-height: 1.5em; max-width: 60em; line-height: 1.4; transition: opacity 0.2s; }
-  .cap.swap { opacity: 0; }
-
-  .turn { width: min(520px, 86vw); margin: 8px auto 0; }
-  .scrub { position: relative; height: 26px; margin: 0 28px; cursor: pointer; touch-action: none; outline: none; }
-  .track { position: absolute; left: 0; right: 0; top: 12px; height: 2px; background: rgba(42, 33, 28, 0.5); }
-  .tick { position: absolute; top: 9px; width: 1.5px; height: 7px; background: rgba(42, 33, 28, 0.55); transform: translateX(-50%); }
-  .handle { position: absolute; top: 5px; left: calc(var(--p) * 100%); width: 12px; height: 16px; margin-left: -6px; border-radius: 6px; background: var(--red); transition: left 0.45s cubic-bezier(0.2, 0.8, 0.2, 1); box-shadow: 0 0 0 4px rgba(168, 56, 43, 0.12); }
-  .scrub.drag .handle { transition: none; }
-  .scrub:focus-visible .handle { box-shadow: 0 0 0 4px rgba(168, 56, 43, 0.35); }
-  .stops { list-style: none; margin: 0 28px; padding: 0; position: relative; height: 26px; }
-  .stops li { position: absolute; top: 0; transform: translateX(-50%); }
-  .h-stop { background: none; border: 0; padding: 2px 8px; cursor: pointer; font-size: 15px; color: var(--text); border-radius: 4px; transition: color 0.2s; }
-  .h-stop:hover { color: var(--ink); }
-  .h-stop.on { color: var(--ink); font-weight: 600; }
-  .turn-row { display: flex; justify-content: space-between; align-items: center; margin-top: 2px; font-size: 15px; color: var(--text); }
-  .arrows { display: flex; gap: 4px; }
-  .arrows button { background: none; border: 0; width: 38px; height: 34px; font-size: 18px; cursor: pointer; border-radius: 6px; color: var(--text); }
-  .arrows button:hover { color: var(--ink); background: rgba(42, 33, 28, 0.06); }
+  .stage { margin: 28px auto 0; padding: 0; width: min(1080px, 100%); }
+  .pic { display: block; width: 100%; height: auto; }
 
   /* editorial sections */
   .sec { padding: 96px 0 8px; }
@@ -237,27 +188,32 @@ const involved = [
   .quote { margin-top: 70px; text-align: center; max-width: 780px; }
   .quote blockquote { margin: 0; font-family: var(--serif); font-style: italic; font-weight: 300; font-size: clamp(24px, 2.8vw, 34px); line-height: 1.32; }
   .quote p { margin: 16px 0 0; color: var(--soft); font-size: 15px; }
+
+  /* how it works: four still pictures, each with its step */
+  .steps { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+  .step { display: grid; grid-template-columns: 1.15fr 1fr; gap: 48px; align-items: center; padding: 36px 0; border-bottom: 1px solid var(--rule); }
+  .step:nth-child(even) figure { order: 2; }
+  .step figure { margin: 0; }
+  .step-copy .num { font-family: var(--serif); font-style: italic; color: var(--red); font-size: 19px; }
+  .step-copy h3 { font-size: clamp(28px, 3vw, 38px); line-height: 1.12; margin: 4px 0 12px; }
+  .step-copy p { margin: 0; color: #35291f; max-width: 30em; }
+  .step-copy .stepcap { font-family: var(--serif); font-style: italic; font-weight: 350; font-size: 19px; line-height: 1.4; color: #231a14; margin-bottom: 12px; }
+
   .rows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
   .row { display: grid; grid-template-columns: 64px 240px 1fr; gap: 24px; align-items: baseline; padding: 26px 0; border-bottom: 1px solid var(--rule); }
   .row h3 { font-size: 26px; font-weight: 400; }
   .row p { margin: 0; color: #35291f; max-width: 38em; }
-  .row .num { font-family: var(--serif); color: var(--red); font-size: 22px; }
   .row.act, #contact .row { grid-template-columns: 240px 1fr auto; }
   #contact .row { grid-template-columns: 240px 1fr; }
-  .arrow { text-decoration: none; font-weight: 600; font-size: 15.5px; white-space: nowrap; border-bottom: 1.5px solid var(--red); padding-bottom: 2px; }
-  .arrow span { display: inline-block; margin-left: 8px; transition: transform 0.2s; }
-  .arrow:hover span { transform: translateX(4px); }
+  .arrow { text-decoration: none; font-weight: 600; font-size: 15.5px; white-space: nowrap; border-bottom: 1.5px solid var(--red); padding-bottom: 2px; transition: color 0.15s; }
+  .arrow span { display: inline-block; margin-left: 8px; }
+  .arrow:hover { color: var(--red); }
   .fine { font-size: 14.5px; color: var(--soft); margin: 22px 0 0; max-width: 46em; }
   .row p a, .fine a { text-decoration-color: rgba(168, 56, 43, 0.5); text-underline-offset: 3px; }
 
-  .rv { opacity: 1; }
-  .js .rv { opacity: 0; transform: translateY(12px); transition: opacity 0.8s ease, transform 0.8s ease; }
-  .js .rv.in { opacity: 1; transform: none; }
-
-  /* footer: grass grows up from the bottom edge, behind the content */
+  /* footer: a static strip of grass and marigolds sits behind the content */
   .foot { position: relative; margin-top: 110px; padding: 54px 0 250px; overflow: hidden; }
-  #h-foot { position: absolute; left: 0; bottom: 0; width: 100%; height: 350px; opacity: 0; transition: opacity 1.2s ease; pointer-events: none; }
-  #h-foot.on { opacity: 1; }
+  .foot .grass { position: absolute; left: 0; bottom: 0; width: 100%; height: 320px; object-fit: cover; object-position: center bottom; pointer-events: none; }
   .fgrid { position: relative; display: grid; grid-template-columns: 1fr auto; gap: 40px; align-items: start; }
   .fb { font-family: var(--serif); font-size: 24px; margin: 0 0 6px; }
   .foot p { margin: 0; color: #35291f; max-width: 26em; font-size: 15.5px; }
@@ -267,9 +223,10 @@ const involved = [
 
   @media (max-width: 860px) {
     .two { grid-template-columns: 1fr; gap: 36px; }
+    .step { grid-template-columns: 1fr; gap: 18px; padding: 28px 0; }
+    .step:nth-child(even) figure { order: 0; }
     .row, .row.act { grid-template-columns: 1fr; gap: 8px; }
     #contact .row { grid-template-columns: 1fr; gap: 6px; }
-    .row .num { display: none; }
     .arrow { justify-self: start; margin-top: 8px; }
   }
   @media (max-width: 700px) {
@@ -278,15 +235,13 @@ const involved = [
     .brand { font-size: 19px; }
     .donate { padding: 7px 16px; }
     .hero { padding-top: 108px; }
-    .island { aspect-ratio: 690 / 660; }
-    .cap { min-height: 4.2em; }
+    .stage { margin-top: 20px; }
     .sec { padding-top: 72px; }
     .fgrid { grid-template-columns: 1fr; gap: 20px; }
     .foot { padding-bottom: 230px; }
+    .foot .grass { height: 240px; }
   }
   @media (prefers-reduced-motion: reduce) {
-    html { scroll-behavior: auto; }
-    #h-wash { animation: none; }
-    .js .rv { transition: none; opacity: 1; transform: none; }
+    @view-transition { navigation: none; }
   }
 </style>

@@ -3,7 +3,7 @@ import HearthLayout from '../../layouts/HearthLayout.astro';
 const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 <HearthLayout title="Volunteer" description="Pick a Saturday shift in San Jose or San Ramon. Choose a kitchen, a date and a role, and your spot is confirmed instantly." active="volunteer">
-  <section class="wrap ph vf-ph rv">
+  <section class="wrap ph vf-ph">
     <p class="kicker">Every Saturday</p>
     <h1>Pick a shift. <em>You&rsquo;re in.</em></h1>
     <p class="lede">Choose a kitchen, a date and a role. Your spot is confirmed instantly, no waiting on an email back.</p>
@@ -264,12 +264,11 @@ const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     $('vf-info').hidden = S.step === 5;
     const html = S.step === 1 ? stepKitchen() : S.step === 2 ? stepDate() : S.step === 3 ? stepRole() : S.step === 4 ? stepDetails() : stepDone();
     panel.innerHTML = reschedBanner() + html;
-    panel.classList.remove('in'); void panel.offsetWidth; panel.classList.add('in');
     if (S.step === 4 && !S.resched) syncParty();
     if (S.step === 4 && S.resched) syncParty();
     if (focus) {
       const top = $('flow').getBoundingClientRect().top + window.scrollY - 12;
-      if (Math.abs(window.scrollY - top) > 40 && window.scrollY > top) window.scrollTo({ top, behavior: 'smooth' });
+      if (Math.abs(window.scrollY - top) > 40 && window.scrollY > top) window.scrollTo({ top, behavior: 'auto' });
       (panel.querySelector('.vf-h') as HTMLElement | null)?.focus({ preventScroll: true });
     }
   }
@@ -404,7 +403,7 @@ const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   .vf-steps li.cur .vf-l { color: var(--ink); font-weight: 600; }
   .vf-steps li.done .vf-n { background: #f3dc9f; border-color: #c9a14a; color: #4d3200; }
   .vf-bar { height: 3px; background: var(--rule); border-radius: 2px; margin: 8px 0 22px; overflow: hidden; }
-  .vf-bar i { display: block; height: 100%; width: 0; transition: width 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); background: repeating-linear-gradient(135deg, #a8382b 0 2px, #d98a62 2px 4px); }
+  .vf-bar i { display: block; height: 100%; width: 0; background: repeating-linear-gradient(135deg, #a8382b 0 2px, #d98a62 2px 4px); }
   .vf-chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-height: 0; margin-bottom: 8px; }
   .vf-chips:empty { display: none; }
   .vf-chips-l { font-size: 14.5px; color: var(--soft); margin-right: 4px; }
@@ -412,7 +411,6 @@ const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   .vf-chips button:hover { border-color: var(--ink); }
 
   .vf-panel { outline: none; padding: 20px 0 8px; }
-  .vf-panel.in { animation: rise 0.45s ease both; }
   .vf-resched { margin-bottom: 22px; }
 
   .vf-kitchens { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
