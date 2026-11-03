@@ -1,0 +1,44 @@
+---
+const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const MAIL = 'mailto:info@freemealsonwheels.com';
+---
+<div class="garland" aria-hidden="true"></div>
+<footer class="foot">
+  <div class="wrap fwrap">
+    <div class="fgrid">
+      <div>
+        <p class="fb">Free Meals on Wheels</p>
+        <p>A 501(c)(3) nonprofit. Fresh meals every Saturday from San Jose and San Ramon.</p>
+        <a class="btn gold" href={`${B}donate`}>Donate</a>
+      </div>
+      <div>
+        <h4>Organization</h4>
+        <ul>
+          <li><a href={`${B}about`}>About</a></li>
+          <li><a href={`${B}about#programs`}>Programs</a></li>
+          <li><a href={`${B}get-a-meal`}>Resources</a></li>
+          <li><a href={`${B}my-shifts`}>Log in</a></li>
+          <li><a href={`${B}admin`}>Organizers</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Get involved</h4>
+        <ul>
+          <li><a href={`${B}volunteer`}>Volunteer</a></li>
+          <li><a href={`${B}get-a-meal`}>Get a meal</a></li>
+          <li><a href={`${B}donate`}>Donate</a></li>
+          <li><a href={`${MAIL}?subject=Corporate%20team%20day`}>Corporate team days</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Contact</h4>
+        <ul>
+          <li><a href={MAIL}>info@freemealsonwheels.com</a></li>
+          <li><a href="https://www.instagram.com/freemealsonwheels/">Instagram</a></li>
+          <li><a href="https://www.facebook.com/Freemeals20/">Facebook</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="fbar"><span>&copy; 2026 Free Meals on Wheels. A 501(c)(3) nonprofit.</span><span>Payments by Stripe. San Jose and San Ramon, California.</span></div>
+  </div>
+</footer>

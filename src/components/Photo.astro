@@ -1,0 +1,23 @@
+---
+// One site photo from src/lib/hearth-art.ts, served as AVIF with a WebP fallback and a srcset.
+// Lazy by default; pass eager for the hero image (adds fetchpriority="high").
+import { Picture } from 'astro:assets';
+import { art, type ArtKey } from '../lib/hearth-art';
+interface Props { name: ArtKey; sizes: string; eager?: boolean; decorative?: boolean; pos?: string; class?: string; widths?: number[]; pictureClass?: string }
+const { name, sizes, eager = false, decorative = false, pos, class: cls, widths = [480, 720, 960, 1440], pictureClass } = Astro.props;
+const a = art[name];
+---
+<Picture
+  src={a.src}
+  alt={decorative ? '' : a.alt}
+  formats={['avif']}
+  fallbackFormat="webp"
+  widths={widths}
+  sizes={sizes}
+  class={cls}
+  pictureAttributes={pictureClass ? { class: pictureClass } : undefined}
+  style={`object-position: ${pos ?? a.pos}`}
+  loading={eager ? 'eager' : 'lazy'}
+  fetchpriority={eager ? 'high' : undefined}
+  decoding={eager ? 'sync' : 'async'}
+/>

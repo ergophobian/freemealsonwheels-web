@@ -1,0 +1,7 @@
+---
+// Signing in happens inside the 3D world now; keep this address working by sending people there.
+const target = `${import.meta.env.BASE_URL.replace(/\/?$/, '/')}#shifts`;
+---
+<meta http-equiv="refresh" content={`0; url=${target}`} />
+<script is:inline define:vars={{ target }}>location.replace(target);</script>
+<a href={target}>Go to My shifts</a>

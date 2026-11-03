@@ -1,4 +1,4 @@
-// Small shared helpers for the /hearth inner pages. Browser-side; the data itself always comes from store.ts.
+// Small shared helpers for the inner pages. Browser-side; the data itself always comes from store.ts.
 import { KITCHENS, ROLES, type Kitchen, type RoleId, type Signup } from './store';
 
 export const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
@@ -65,30 +65,14 @@ export function download(name: string, text: string, type: string) {
 export const downloadIcs = (s: Pick<Signup, 'kitchen' | 'date' | 'role' | 'id'>) => download(`free-meals-${s.date}-${s.role}.ics`, icsFor(s), 'text/calendar');
 export const csvCell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 
-// ---- small hatched role icons (the hatch patterns live in HearthLayout) ----
-const ink = 'stroke="#2a211c" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"';
+// ---- small line icons for the four shift roles (one colour, set by the surrounding .vf-ico) ----
+const ln = 'stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"';
 export const ROLE_ICONS: Record<RoleId, string> = {
-  cook: `<svg viewBox="0 0 64 64" aria-hidden="true" fill="none"><path d="M16 29h32v17a8 8 0 0 1-8 8H24a8 8 0 0 1-8-8z" fill="url(#hx-gold)" ${ink}/><path d="M12 29h40" ${ink}/><path d="M12 33H8M52 33h4" ${ink}/><path d="M26 22c-4-4 0-6-1-10M34 22c-4-4 0-6-1-10M42 22c-4-4 0-6-1-10" stroke="#5a7d6a" stroke-width="1.6" stroke-linecap="round"/></svg>`,
-  pack: `<svg viewBox="0 0 64 64" aria-hidden="true" fill="none"><path d="M10 24l22 10 22-10-22-10z" fill="url(#hx-paper)" ${ink}/><path d="M10 24v22l22 10V34z" fill="url(#hx-green)" ${ink}/><path d="M54 24v22L32 56V34z" fill="url(#hx-gold)" ${ink}/><path d="M21 19l22 10" ${ink}/></svg>`,
-  deliver: `<svg viewBox="0 0 64 64" aria-hidden="true" fill="none"><path d="M6 42v-9l9-2 8-11h20l10 11 7 2v9z" fill="url(#hx-gold)" ${ink}/><path d="M25 22l-5 9h12V22zM35 22v9h14l-8-9z" fill="url(#hx-paper)" ${ink}/><circle cx="20" cy="43" r="6" fill="#f6f1e6" ${ink}/><circle cx="46" cy="43" r="6" fill="#f6f1e6" ${ink}/></svg>`,
-  clean: `<svg viewBox="0 0 64 64" aria-hidden="true" fill="none"><path d="M15 30h34l-4 24H19z" fill="url(#hx-green)" ${ink}/><path d="M13 30h38" ${ink}/><path d="M20 30c0-14 24-14 24 0" ${ink}/><circle cx="27" cy="16" r="3" stroke="#5a7d6a" stroke-width="1.5"/><circle cx="37" cy="12" r="2" stroke="#5a7d6a" stroke-width="1.5"/><circle cx="44" cy="19" r="2.5" stroke="#5a7d6a" stroke-width="1.5"/></svg>`,
+  cook: `<svg viewBox="0 0 64 64" aria-hidden="true" fill="none" ${ln}><path d="M14 30h36v14a9 9 0 0 1-9 9H23a9 9 0 0 1-9-9z"/><path d="M10 30h44M14 36H8M50 36h6"/><path d="M25 22c-3-4 3-6 0-11M39 22c-3-4 3-6 0-11"/></svg>`,
+  pack: `<svg viewBox="0 0 64 64" aria-hidden="true" fill="none" ${ln}><path d="M10 22l22-10 22 10v22L32 54 10 44z"/><path d="M10 22l22 10 22-10M32 32v22"/></svg>`,
+  deliver: `<svg viewBox="0 0 64 64" aria-hidden="true" fill="none" ${ln}><path d="M6 42V20h30v22M36 28h11l11 11v3H36"/><circle cx="18" cy="46" r="5" fill="#fff"/><circle cx="46" cy="46" r="5" fill="#fff"/></svg>`,
+  clean: `<svg viewBox="0 0 64 64" aria-hidden="true" fill="none" ${ln}><path d="M15 30h34l-4 24H19z"/><path d="M13 30h38"/><path d="M22 30c0-12 20-12 20 0"/><circle cx="26" cy="15" r="2.5"/><circle cx="38" cy="11" r="2"/><circle cx="46" cy="19" r="2"/></svg>`,
 };
 
-// ---- grass and marigolds behind the footer: the same painter as /hearth, loaded after first paint ----
-export function paintFooter(cv: HTMLCanvasElement | null) {
-  if (!cv) return;
-  const go = async () => {
-    const [{ footJob }, { clock }] = await Promise.all([import('./hearth/backdrops'), import('./hearth/engine')]);
-    const r = cv.getBoundingClientRect(), w = Math.round(r.width) || 1200, h = Math.round(r.height) || 280, d = Math.min(window.devicePixelRatio || 1, 2);
-    cv.width = Math.ceil(w * d); cv.height = Math.ceil(h * d);
-    const job = footJob(cv, w, h, d);
-    const step = () => {
-      clock.deadline = performance.now() + 9;
-      if (job.next().done) { cv.classList.add('on'); return; }
-      requestAnimationFrame(step);
-    };
-    step();
-  };
-  const idle = (window as unknown as { requestIdleCallback?: (f: () => void) => void }).requestIdleCallback;
-  idle ? idle(go) : setTimeout(go, 120);
-}
+/** The round marigold tick shown on the sign-up and meal-request confirmations. */
+export const TICK_SVG = '<svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="24" cy="24" r="22" fill="#e8a317"/><path d="M14 25l7 7 14-16" stroke="#132a1d" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';

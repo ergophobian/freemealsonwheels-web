@@ -1,62 +1,135 @@
 ---
-import Base from '../layouts/Base.astro';
+import HearthLayout from '../layouts/HearthLayout.astro';
 ---
-<Base title="Staff roster" description="Who is coming this Saturday.">
-  <section class="wrap page-hero">
-    <span class="eyebrow">Staff only</span>
-    <h1>Saturday roster</h1>
-    <p class="lead">Everyone who signed up, by role. Demo data until Firebase is connected.</p>
-  </section>
-  <section class="wrap section" style="padding-top:16px">
-    <div class="bar card">
-      <select id="kitchen"><option value="san_jose">San Jose</option><option value="san_ramon">San Ramon</option></select>
-      <select id="date"></select>
-      <span class="spacer"></span>
-      <button class="btn ghost" id="csv" type="button">Download CSV</button>
-      <button class="btn ghost" id="reset" type="button">Reset demo data</button>
+<HearthLayout title="Saturday roster" description="Organizer roster: who is coming on a Saturday, by role, plus meal requests." active="">
+  <section class="ph"><div class="wrap">
+    <p class="kicker">For organizers</p>
+    <h1>Saturday <em>roster.</em></h1>
+    <p class="note ad-demo"><b>Demo, no sign-in yet.</b> Anyone with this link can open this page, and the data shown is kept in this browser only.</p>
+  </div></section>
+
+  <section class="wrap ad">
+    <div class="ad-bar">
+      <div class="ad-seg" role="radiogroup" aria-label="Kitchen" id="ad-kitchens"></div>
+      <div class="field"><label for="ad-date">Saturday</label><select id="ad-date"></select></div>
+      <div class="ad-btns">
+        <button type="button" class="btn ghost sm" id="ad-csv">Export volunteers CSV</button>
+        <button type="button" class="btn ghost sm" id="ad-mcsv">Export meal requests CSV</button>
+      </div>
     </div>
-    <div class="grid" id="roster"></div>
+
+    <dl class="ad-totals" id="ad-totals"></dl>
+    <div class="ad-roles" id="ad-roles"></div>
+
+    <h2 class="ad-h">Meal requests</h2>
+    <p class="fine ad-sub" id="ad-msub"></p>
+    <div id="ad-meals"></div>
+
+    <p class="fine ad-reset"><button type="button" class="textbtn quiet" id="ad-reset">Reset all demo data</button> Brings back the sample volunteers and removes anything you added in this browser.</p>
   </section>
-</Base>
+</HearthLayout>
 
 <script>
-  import { ROLES, upcomingSaturdays, listSignups, cancel, resetDemo, type Kitchen } from '../lib/store';
-  const k = document.getElementById('kitchen') as HTMLSelectElement;
-  const d = document.getElementById('date') as HTMLSelectElement;
-  const roster = document.getElementById('roster')!;
-  d.innerHTML = upcomingSaturdays().map((x) => `<option value="${x}">${new Date(x + 'T12:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</option>`).join('');
-  const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+  import { KITCHENS, ROLES, upcomingSaturdays, listSignups, listMealRequests, cancel, resetDemo, resetMealDemo, type Kitchen } from '../lib/store';
+  import { $, esc, fmtDate, longDate, kitchenName, download, csvCell, SATURDAYS_SHOWN, ROLE_ICONS } from '../lib/hearth-ui';
+
+  const sats = upcomingSaturdays(SATURDAYS_SHOWN);
+  let kitchen: Kitchen = 'san_jose', date = sats[0];
+  const dsel = $<HTMLSelectElement>('ad-date');
+  dsel.innerHTML = sats.map((d) => `<option value="${d}">${fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' })}</option>`).join('');
+  const q = new URLSearchParams(location.search);
+  if (q.get('kitchen') && q.get('kitchen')! in KITCHENS) kitchen = q.get('kitchen') as Kitchen;
+  if (q.get('date') && sats.includes(q.get('date')!)) { date = q.get('date')!; dsel.value = date; }
+
+  const meals = () => listMealRequests(date).filter((m) => m.area === kitchen || m.area === 'unsure');
 
   function render() {
-    const all = listSignups(k.value as Kitchen, d.value);
-    roster.innerHTML = ROLES.map((r) => {
-      const booked = all.filter((s) => s.role === r.id && s.status === 'booked');
-      const wait = all.filter((s) => s.role === r.id && s.status === 'waitlist');
-      const count = booked.reduce((n, s) => n + s.party, 0);
-      const row = (s: typeof all[number]) => `<li><span>${esc(s.name)}${s.party > 1 ? ` <em>+${s.party - 1}</em>` : ''}${s.firstTime ? ' <em>new</em>' : ''}</span><button data-id="${s.id}" title="Cancel">×</button></li>`;
-      return `<article class="card"><h3>${r.name}</h3><p class="muted small">${r.time} · ${count}/${r.capacity} filled</p>
-        <ul>${booked.map(row).join('') || '<li class="muted">No one yet</li>'}</ul>
-        ${wait.length ? `<p class="small"><b>Waitlist</b></p><ul>${wait.map(row).join('')}</ul>` : ''}</article>`;
+    $('ad-kitchens').innerHTML = (Object.keys(KITCHENS) as Kitchen[]).map((k) => `<button type="button" role="radio" aria-checked="${k === kitchen}" data-k="${k}">${KITCHENS[k]}</button>`).join('');
+    const all = listSignups(kitchen, date);
+    const booked = all.filter((s) => s.status === 'booked'), wait = all.filter((s) => s.status === 'waitlist');
+    const filled = booked.reduce((n, s) => n + s.party, 0), cap = ROLES.reduce((n, r) => n + r.capacity, 0);
+    const first = booked.filter((s) => s.firstTime).length, m = meals();
+    $('ad-totals').innerHTML = [[`${filled}/${cap}`, 'spots filled'], [String(first), 'first-timers'], [String(wait.length), 'on waitlists'], [String(m.length), 'meal requests']]
+      .map(([n, l]) => `<div><dt>${n}</dt><dd>${l}</dd></div>`).join('');
+
+    $('ad-roles').innerHTML = ROLES.map((r) => {
+      const b = booked.filter((s) => s.role === r.id), w = wait.filter((s) => s.role === r.id), n = b.reduce((a, s) => a + s.party, 0);
+      const pct = Math.min(100, (n / r.capacity) * 100), cls = n >= r.capacity ? 'full' : n / r.capacity >= 0.8 ? 'low' : '';
+      const li = (s: typeof all[number]) => `<li><span class="ad-who"><b>${esc(s.name)}</b>${s.party > 1 ? ` <i>+${s.party - 1}</i>` : ''}${s.firstTime ? ' <span class="badge">First time</span>' : ''}<small>${esc(s.email)}${s.phone ? ' · ' + esc(s.phone) : ''}</small></span><button type="button" class="ad-x" data-id="${s.id}" aria-label="Remove ${esc(s.name)} from this shift">Remove</button></li>`;
+      return `<article class="ad-role">
+        <header><span class="vf-ico sm">${ROLE_ICONS[r.id]}</span><div><h3>${r.name}</h3><p>${r.time}</p></div><span class="ad-count ${cls}"><b>${n}</b>/${r.capacity}</span></header>
+        <div class="meter ${cls}" role="img" aria-label="${n} of ${r.capacity} spots filled"><i style="width:${pct}%"></i></div>
+        ${b.length ? `<ul>${b.map(li).join('')}</ul>` : '<p class="ad-none">No one yet.</p>'}
+        ${w.length ? `<h4>Waitlist</h4><ul>${w.map(li).join('')}</ul>` : ''}
+      </article>`;
     }).join('');
+
+    $('ad-msub').textContent = `For ${longDate(date)}, from neighbors near ${kitchenName(kitchen)} or not sure which kitchen is closest.`;
+    $('ad-meals').innerHTML = m.length ? `<ul class="ad-meals">${m.map((r) => `<li>
+      <div><b>${esc(r.name)}</b><span class="badge ${r.mode === 'delivery' ? 'green' : 'grey'}">${r.mode === 'delivery' ? 'Delivery' : 'Pickup'}</span></div>
+      <p>${r.household} ${r.household === 1 ? 'person' : 'people'}${r.diet.length ? ' · ' + esc(r.diet.join(', ')) : ''}${r.allergies ? ' (' + esc(r.allergies) + ')' : ''} · ${esc(r.language)}</p>
+      <p class="soft">${r.mode === 'delivery' ? esc(r.address) + ' · ' : ''}${esc(r.phone)}</p></li>`).join('')}</ul>` : '<p class="ad-none ad-mnone">No meal requests for this Saturday yet.</p>';
   }
-  roster.addEventListener('click', (e) => { const b = (e.target as HTMLElement).closest('button'); if (b?.dataset.id) { cancel(b.dataset.id); render(); } });
-  k.onchange = d.onchange = render;
-  document.getElementById('reset')!.onclick = () => { resetDemo(); render(); };
-  document.getElementById('csv')!.onclick = () => {
-    const rows = listSignups(k.value as Kitchen, d.value).map((s) => [s.date, s.kitchen, s.role, s.status, s.name, s.email, s.phone, s.party, s.firstTime].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','));
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([['date,kitchen,role,status,name,email,phone,party,first_time', ...rows].join('\n')], { type: 'text/csv' }));
-    a.download = `roster-${k.value}-${d.value}.csv`; a.click();
-  };
+
+  $('ad-kitchens').addEventListener('click', (e) => { const b = (e.target as HTMLElement).closest<HTMLElement>('[data-k]'); if (b) { kitchen = b.dataset.k as Kitchen; render(); } });
+  dsel.addEventListener('change', () => { date = dsel.value; render(); });
+  $('ad-roles').addEventListener('click', (e) => { const b = (e.target as HTMLElement).closest<HTMLElement>('[data-id]'); if (b && confirm('Remove this person from the shift?')) { cancel(b.dataset.id!, 'Removed by organizer'); render(); } });
+  $('ad-csv').addEventListener('click', () => {
+    const rows = listSignups(kitchen, date).map((s) => [s.date, s.kitchen, s.role, s.status, s.name, s.email, s.phone, s.party, s.firstTime, s.hasCar ?? ''].map(csvCell).join(','));
+    download(`roster-${kitchen}-${date}.csv`, ['date,kitchen,role,status,name,email,phone,party,first_time,has_car', ...rows].join('\n'), 'text/csv');
+  });
+  $('ad-mcsv').addEventListener('click', () => {
+    const rows = meals().map((r) => [r.date, r.mode, r.name, r.phone, r.address, r.area, r.household, r.diet.join('; '), r.allergies, r.language].map(csvCell).join(','));
+    download(`meal-requests-${kitchen}-${date}.csv`, ['date,mode,name,phone,address,area,household,dietary,allergies,language', ...rows].join('\n'), 'text/csv');
+  });
+  $('ad-reset').addEventListener('click', () => { if (confirm('Reset all demo data in this browser?')) { resetDemo(); resetMealDemo(); render(); } });
   render();
 </script>
 
-<style>
-  .bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 16px; margin-bottom: 20px; }
-  .spacer { flex: 1; }
-  select { font: inherit; padding: .7rem 1rem; border-radius: 12px; border: 1.5px solid var(--line); background: #fff; }
-  #roster :global(ul) { list-style: none; padding: 0; margin: 0 0 12px; }
-  #roster :global(li) { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); }
-  #roster :global(em) { font-style: normal; font-size: .75rem; background: var(--tint); color: var(--accent); padding: 1px 8px; border-radius: 99px; }
-  #roster :global(li button) { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 1.1rem; }
+<style is:global>
+  .ad-demo { margin-top: 22px; max-width: 40em; }
+  .wrap.ad { padding-top: 48px; padding-bottom: 88px; }
+  .ad-bar { display: flex; gap: 20px 28px; align-items: end; flex-wrap: wrap; padding-bottom: 26px; }
+  .ad-bar .field select { min-width: 270px; }
+  .ad-seg { display: inline-grid; grid-auto-flow: column; background: #eef2ec; border-radius: 10px; padding: 4px; }
+  .ad-seg button { border: 0; background: none; padding: 11px 24px; min-height: 46px; border-radius: 7px; cursor: pointer; font-weight: 700; font-size: 16.5px; color: var(--muted); }
+  .ad-seg button[aria-checked=true] { background: var(--green); color: #fff; }
+  .ad-btns { display: flex; gap: 10px; flex-wrap: wrap; margin-left: auto; }
+  .ad-totals { display: grid; grid-template-columns: repeat(4, 1fr); margin: 0; background: var(--green); border-radius: 16px; padding: 8px 32px; }
+  .ad-totals > div { padding: 22px 0; display: grid; gap: 4px; align-content: start; }
+  .ad-totals > div + div { padding-left: 28px; border-left: 1px solid rgba(255, 255, 255, 0.18); }
+  .ad-totals dt { font-family: var(--head); font-size: 46px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; color: var(--gold); }
+  .ad-totals dd { margin: 0; color: #fff; font-size: 17px; }
+  .ad-roles { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 28px; }
+  .ad-role { background: #fff; border: 1px solid var(--rule); border-top: 5px solid var(--green); border-radius: 6px 6px 16px 16px; padding: 24px; }
+  .ad-role header { display: grid; grid-template-columns: 52px 1fr auto; gap: 14px; align-items: center; margin-bottom: 16px; }
+  .ad-role .vf-ico.sm { margin: 0; }
+  .ad-role h3 { font-size: 25px; font-weight: 800; }
+  .ad-role header p { color: var(--muted); font-size: 16.5px; }
+  .ad-count { font-family: var(--head); font-size: 20px; font-weight: 700; color: var(--muted); }
+  .ad-count b { font-size: 36px; font-weight: 800; color: var(--green); }
+  .ad-count.full b { color: var(--muted); }
+  .ad-role ul { list-style: none; margin: 14px 0 0; padding: 0; }
+  .ad-role li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--rule); }
+  .ad-who { display: grid; gap: 1px; font-size: 17px; }
+  .ad-who b { font-weight: 700; color: var(--ink); }
+  .ad-who i { font-style: normal; color: var(--muted); }
+  .ad-who small { color: var(--muted); font-size: 15.5px; word-break: break-word; }
+  .ad-who .badge { justify-self: start; margin: 3px 0; }
+  .ad-x { background: none; border: 0; color: var(--muted); font-size: 16px; cursor: pointer; text-decoration: underline; text-decoration-color: var(--gold); text-decoration-thickness: 2px; text-underline-offset: 4px; padding: 6px 2px; flex: none; }
+  .ad-x:hover { color: var(--green); }
+  .ad-role h4 { font-size: 20px; margin-top: 20px; }
+  .ad-none { color: var(--muted); margin-top: 14px; font-size: 16.5px; }
+  .ad-h { font-size: clamp(28px, 3vw, 38px); font-weight: 800; letter-spacing: -0.03em; margin: 60px 0 6px; }
+  .ad-sub { margin-bottom: 14px; }
+  .ad-meals { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--green); }
+  .ad-meals li { display: grid; grid-template-columns: 240px 1fr 1fr; gap: 6px 24px; padding: 18px 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
+  .ad-meals li > div { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .ad-meals li b { color: var(--ink); }
+  .ad-meals p { font-size: 17px; color: var(--text); }
+  .ad-meals p.soft { color: var(--muted); }
+  .ad-mnone { background: var(--tint); border-radius: 14px; padding: 22px 24px; margin: 0; }
+  .ad-reset { margin-top: 48px; }
+  @media (max-width: 860px) { .ad-roles { grid-template-columns: 1fr; } .ad-totals { grid-template-columns: 1fr 1fr; } .ad-totals > div:nth-child(3) { padding-left: 0; border-left: 0; } .ad-totals > div:nth-child(n+3) { border-top: 1px solid rgba(255, 255, 255, 0.18); } .ad-meals li { grid-template-columns: 1fr; } .ad-btns { margin-left: 0; } }
+  @media (max-width: 700px) { .wrap.ad { padding-top: 32px; } .ad-bar .field, .ad-bar .field select { width: 100%; } .ad-role { padding: 18px; } .ad-totals { padding: 4px 22px; } .ad-totals dt { font-size: 38px; } .ad-totals > div + div { padding-left: 18px; } }
 </style>

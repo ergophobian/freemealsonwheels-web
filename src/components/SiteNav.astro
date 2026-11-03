@@ -1,0 +1,19 @@
+---
+// Top bar shared by every page. On the home page it sits over the hero photo (overlay); elsewhere it is a solid green bar.
+interface Props { active?: 'about' | 'volunteer' | 'get-a-meal' | 'contact' | 'donate' | 'my-shifts' | ''; overlay?: boolean }
+const { active = '', overlay = false } = Astro.props;
+const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const links = [
+  ['about', 'Our story', `${B}about`],
+  ['volunteer', 'Volunteer', `${B}volunteer`],
+  ['get-a-meal', 'Get a meal', `${B}get-a-meal`],
+  ['contact', 'Contact', `${B}contact`],
+];
+---
+<header class:list={['nav', { solid: !overlay }]}>
+  <a class="brand" href={B}><i aria-hidden="true"></i>Free Meals on Wheels</a>
+  <nav aria-label="Main">
+    {links.map(([id, label, href]) => <a href={href} aria-current={active === id ? 'page' : undefined}>{label}</a>)}
+  </nav>
+  <a class="give" href={`${B}donate`} aria-current={active === 'donate' ? 'page' : undefined}>Donate</a>
+</header>

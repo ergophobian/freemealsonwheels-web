@@ -1,35 +1,140 @@
 ---
-import Base from '../layouts/Base.astro';
-// Replace with the live Stripe Payment Link used by the mobile app.
+import HearthLayout from '../layouts/HearthLayout.astro';
+// Replace with the live Stripe Payment Link (the same one the mobile app uses).
 const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
 const amounts = [10, 25, 50, 100, 250, 500];
 ---
-<Base title="Donate" description="Sponsor a meal. Every penny goes to meals.">
-  <section class="wrap page-hero">
-    <p class="eyebrow">100% to meals</p>
-    <h1>Feed a neighbor</h1>
-    <p class="lead">Every penny of every donation goes directly to impact programming.</p>
-  </section>
-  <section class="wrap section" style="padding-top:24px">
-    <div class="grid">
-      <article class="card">
-        <h3>Give an amount</h3>
-        <div class="amounts">
-          {amounts.map((a) => <a class="chip" href={STRIPE_LINK}>${a}</a>)}
+<HearthLayout title="Donate" description="$10 covers a fresh, hot meal, and every penny goes to food. One-time or monthly, and tax-deductible." active="donate">
+  <section class="ph"><div class="wrap">
+    <p class="kicker">100% to meals</p>
+    <h1>Feed a <em>neighbor.</em></h1>
+    <p class="lede">$10 covers a fresh, hot meal, and every penny of every donation goes directly to food.</p>
+  </div></section>
+
+  <section class="wrap sec dn-first">
+    <div class="dn-grid">
+      <div class="dn-card" id="dn-card">
+        <div class="dn-freq" role="radiogroup" aria-label="How often">
+          <button type="button" role="radio" class="on" aria-checked="true" data-f="once">One time</button>
+          <button type="button" role="radio" aria-checked="false" data-f="monthly">Monthly</button>
         </div>
-        <a class="btn" href={STRIPE_LINK}>Donate securely</a>
-        <p class="muted small">Payments are handled by Stripe. One-time or monthly.</p>
-      </article>
-      <article class="card" id="winter">
-        <h3>Meal and a blanket</h3>
-        <p class="muted">Our winter drive pairs a hot meal with a warm blanket for unhoused neighbors.</p>
-        <a class="btn ghost" href={STRIPE_LINK}>Give warmth</a>
-      </article>
+
+        <fieldset>
+          <legend class="legend">Choose an amount</legend>
+          <div class="dn-amounts" id="dn-amounts">
+            {amounts.map((a, i) => <button type="button" class="choice" aria-pressed={i === 1 ? 'true' : 'false'} data-a={a}>${a}</button>)}
+            <button type="button" class="choice other" aria-pressed="false" data-a="other">Other</button>
+          </div>
+          <div class="field dn-custom" id="dn-custom" hidden>
+            <label for="dn-other">Amount in dollars</label>
+            <div class="dn-dollar"><span aria-hidden="true">$</span><input id="dn-other" type="number" inputmode="numeric" min="1" step="1" placeholder="40" /></div>
+          </div>
+        </fieldset>
+
+        <p class="dn-does" id="dn-does" aria-live="polite"></p>
+        <a class="btn gold dn-go" id="dn-go" href={STRIPE_LINK} rel="noopener">Donate securely</a>
+        <p class="fine">Payments are handled by Stripe. We are a 501(c)(3), so your gift is tax-deductible.</p>
+      </div>
+
+      <aside class="dn-side">
+        <h2>Where it goes</h2>
+        <ul class="rows">
+          <li class="row"><h3>$10</h3><p>covers a fresh, hot meal</p><span></span></li>
+          <li class="row"><h3>100%</h3><p>of every donation goes to food</p><span></span></li>
+          <li class="row"><h3>Weekly</h3><p>cooked on Saturday mornings in San Jose and San Ramon</p><span></span></li>
+        </ul>
+      </aside>
     </div>
   </section>
-</Base>
-<style>
-  .amounts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0 20px; }
-  .chip { text-align: center; padding: .8rem; border-radius: 12px; background: var(--soft); text-decoration: none; font-weight: 600; }
-  .chip:hover { background: var(--brand); color: var(--brand-ink); }
+
+  <section class="dn-winter-band" id="winter">
+    <div class="wrap sec">
+      <h2>Meal and a blanket</h2>
+      <div class="dn-winter">
+        <p>Our winter drive pairs a hot meal with a warm blanket for unhoused neighbors.</p>
+        <a class="btn ghost" href={STRIPE_LINK} rel="noopener">Give warmth</a>
+      </div>
+    </div>
+  </section>
+</HearthLayout>
+
+<script>
+  const card = document.getElementById('dn-card')!;
+  const does = document.getElementById('dn-does')!;
+  const go = document.getElementById('dn-go')!;
+  const custom = document.getElementById('dn-custom')!;
+  const other = document.getElementById('dn-other') as HTMLInputElement;
+  const PRESETS = [10, 25, 50, 100, 250, 500];
+  let freq: 'once' | 'monthly' = 'once', amt = 25, isOther = false;
+  // The home page donate card sends ?freq=monthly|once&amt=25|50|100|other (or any whole number).
+  const q = new URLSearchParams(location.search);
+  if (q.get('freq') === 'once' || q.get('freq') === 'monthly') freq = q.get('freq') as typeof freq;
+  const qa = q.get('amt');
+  if (qa === 'other') { isOther = true; amt = 0; }
+  else if (qa && /^\d{1,6}$/.test(qa) && Number(qa) > 0) { amt = Number(qa); if (!PRESETS.includes(amt)) { isOther = true; other.value = String(amt); } }
+  const meals = (n: number) => `${n} fresh, hot ${n === 1 ? 'meal' : 'meals'}`;
+  function paint() {
+    const n = Math.floor(amt / 10);
+    if (!amt) does.innerHTML = 'Choose any amount. <b>Every dollar is food.</b>';
+    else if (!n) does.innerHTML = `<b>$${amt}${freq === 'monthly' ? ' a month' : ''}</b> goes straight to food for neighbors.`;
+    else does.innerHTML = freq === 'once'
+      ? `<b>$${amt}</b> covers ${meals(n)} at $10 each.`
+      : `<b>$${amt} a month</b> covers ${meals(n)} every month, ${n * 12} over a year.`;
+    go.textContent = !amt ? 'Donate securely' : freq === 'once' ? `Donate $${amt} securely` : `Donate $${amt} monthly`;
+    card.querySelectorAll<HTMLElement>('[data-a]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.a === 'other' ? isOther : !isOther && Number(b.dataset.a) === amt)));
+    card.querySelectorAll<HTMLElement>('[data-f]').forEach((b) => { const on = b.dataset.f === freq; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
+    custom.hidden = !isOther;
+  }
+  card.addEventListener('click', (e) => {
+    const t = (e.target as HTMLElement).closest<HTMLElement>('button');
+    if (!t) return;
+    if (t.dataset.a === 'other') { isOther = true; amt = Math.floor(Number(other.value)) || 0; paint(); other.focus(); return; }
+    if (t.dataset.a) { isOther = false; amt = Number(t.dataset.a); }
+    if (t.dataset.f) freq = t.dataset.f as typeof freq;
+    paint();
+  });
+  other.addEventListener('input', () => { amt = Math.max(0, Math.min(999999, Math.floor(Number(other.value)) || 0)); paint(); });
+  paint();
+</script>
+
+<style is:global>
+  .dn-first { padding-top: 56px !important; }
+  .dn-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 64px; align-items: start; }
+  .dn-card { background: #fff; border: 1px solid var(--rule); border-radius: 16px; padding: 32px; display: grid; gap: 22px; box-shadow: 0 20px 50px rgba(19, 42, 29, 0.12); }
+  .dn-freq { display: grid; grid-template-columns: 1fr 1fr; background: #eef2ec; border-radius: 10px; padding: 4px; }
+  .dn-freq button { border: 0; background: none; padding: 12px 20px; border-radius: 7px; cursor: pointer; font-weight: 700; font-size: 16.5px; color: var(--muted); min-height: 46px; }
+  .dn-freq button.on { background: var(--green); color: #fff; }
+  .dn-card fieldset { display: grid; gap: 12px; }
+  .dn-amounts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .dn-amounts .choice { text-align: center; font-family: var(--head); font-weight: 700; font-size: 24px; padding: 14px 8px; border-radius: 10px; }
+  .dn-amounts .choice.other { grid-column: span 2; font-family: var(--body); font-size: 18px; }
+  .dn-dollar { position: relative; }
+  .dn-dollar span { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-weight: 700; font-size: 20px; color: var(--ink); }
+  .dn-dollar input { padding-left: 34px !important; }
+  .dn-does { position: relative; font-size: 18px; color: var(--text); min-height: 3.3em; padding-left: 22px; }
+  .dn-does::before { content: ""; position: absolute; left: 1px; top: 11px; width: 9px; height: 9px; background: var(--gold); transform: rotate(45deg); border-radius: 1px; }
+  .dn-does b { color: var(--ink); font-weight: 700; }
+  .dn-go { width: 100%; font-size: 19px; padding: 20px 24px; }
+  .dn-card .fine { text-align: center; }
+  .dn-side { background: var(--green); color: #fff; border-radius: 16px; padding: 36px 36px 22px; }
+  .wrap.sec .dn-side h2 { color: #fff; font-size: clamp(28px, 3vw, 36px); margin-bottom: 14px; }
+  .dn-side .rows { border-top: 1px solid rgba(255, 255, 255, 0.25); }
+  .dn-side .row { grid-template-columns: 130px 1fr; gap: 16px; padding: 20px 0; align-items: center; border-bottom-color: rgba(255, 255, 255, 0.18); }
+  .dn-side .row:last-child { border-bottom: 0; }
+  .dn-side .row h3 { font-size: 40px; font-weight: 800; color: var(--gold); letter-spacing: -0.03em; }
+  .dn-side .row p { color: #fff; }
+  .dn-winter-band { background: var(--tint); margin-top: 56px; padding: 8px 0 56px; }
+  .dn-winter { display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  .dn-winter p { font-size: 20px; max-width: 30em; }
+  @media (max-width: 860px) { .dn-grid { grid-template-columns: 1fr; gap: 36px; } }
+  @media (max-width: 700px) {
+    .dn-first { padding-top: 36px !important; }
+    .dn-card { padding: 22px 18px; }
+    .dn-amounts { grid-template-columns: repeat(3, 1fr); }
+    .dn-amounts .choice.other { grid-column: span 3; }
+    .dn-side { padding: 26px 22px 12px; }
+    .dn-side .row { grid-template-columns: 100px 1fr; }
+    .dn-side .row h3 { font-size: 34px; }
+    .dn-winter .btn { width: 100%; }
+  }
 </style>

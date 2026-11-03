@@ -1,12 +1,88 @@
 ---
-import Base from '../layouts/Base.astro';
+import HearthLayout from '../layouts/HearthLayout.astro';
+const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const values = [
+  { h: 'Dignity first', p: 'We believe in the innate dignity of the human spirit, regardless of circumstances.' },
+  { h: 'Fresh, not frozen', p: 'Meals are cooked the same morning they are delivered.' },
+  { h: 'Every dollar counts', p: 'Every penny of every donation goes directly to meals.' },
+];
+const programs = [
+  { h: 'Saturday meals', p: 'Hot meals cooked and delivered every week, from our San Jose and San Ramon kitchens.' },
+  { h: 'Meal and a blanket', p: 'A winter drive for unhoused communities. When it turns cold we pair a hot meal with a warm blanket.' },
+  { h: 'Annual celebration gala', p: 'Our yearly evening to thank volunteers and donors.' },
+];
 ---
-<Base title="About us">
-  <section class="wrap page-hero">
-    <h1>About us</h1>
-    <p class="lead">Free Meals on Wheels is a 501(c)(3) nonprofit founded by Japjot Sethi and Devinder Kumar. From kitchens in San Jose and San Ramon, 400+ volunteers serve 300+ meals every week.</p>
+<HearthLayout title="About us" description="Free Meals on Wheels is a 501(c)(3) nonprofit founded by Japjot Sethi and Devinder Kumar. 400+ volunteers serve 300+ meals every week." active="about">
+  <section class="ph"><div class="wrap">
+    <p class="kicker">About us</p>
+    <h1>A good meal is better <em>shared.</em></h1>
+    <p class="lede">Free Meals on Wheels is a 501(c)(3) nonprofit founded by Japjot Sethi and Devinder Kumar. From kitchens in San Jose and San Ramon, 400+ volunteers serve 300+ meals every week.</p>
+  </div></section>
+
+  <section class="wrap sec">
+    <div class="ab-two">
+      <div class="prose">
+        <p>A Saturday begins with a light in the kitchen and ends with more people at the table than there were at dawn. A fresh, hot meal is handed over, still warm, with no questions and no one asking why.</p>
+        <p>At Thanksgiving everyone gets a seat. We are all neighbors here.</p>
+      </div>
+      <dl class="ab-facts">
+        <div><dt>400+</dt><dd>volunteers cooking and packing</dd></div>
+        <div><dt>300+</dt><dd>meals every week</dd></div>
+        <div><dt>100%</dt><dd>of every donation goes to food</dd></div>
+      </dl>
+    </div>
   </section>
-  <section class="wrap section" style="padding-top:24px">
-    <div class="grid"><article class="card"><h3>Dignity first</h3><p class="muted">We believe in the innate dignity of the human spirit, regardless of circumstances.</p></article><article class="card"><h3>Fresh, not frozen</h3><p class="muted">Meals are cooked the same morning they are delivered.</p></article><article class="card"><h3>Every dollar counts</h3><p class="muted">Every penny of every donation goes directly to meals.</p></article></div>
+
+  <section class="quote">
+    <div class="wrap">
+      <span class="mark" aria-hidden="true">&ldquo;</span>
+      <blockquote>A fresh, hot, and nutritious meal is not just satiating, but more importantly, enabling and liberating.</blockquote>
+      <p><b>Japjot Sethi and Devinder Kumar</b> started cooking because no neighbor should go to bed hungry.</p>
+    </div>
   </section>
-</Base>
+
+  <section class="wrap sec ab-believe">
+    <h2>What we believe</h2>
+    <ul class="rows tiles">
+      {values.map((v) => <li class="row"><h3>{v.h}</h3><p>{v.p}</p><span></span></li>)}
+    </ul>
+  </section>
+
+  <section class="wrap sec" id="programs">
+    <h2>Programs</h2>
+    <p class="lede ab-intro">Beyond our Saturday meals, we run seasonal drives and community events.</p>
+    <ul class="rows tiles">
+      {programs.map((v) => <li class="row"><h3>{v.h}</h3><p>{v.p}</p><span></span></li>)}
+    </ul>
+  </section>
+
+  <section class="ab-join">
+    <div class="wrap">
+      <h2>Come to the table</h2>
+      <div class="ab-cta">
+        <a class="btn gold" href={`${B}volunteer`}>Sign up to volunteer</a>
+        <a class="btn ghost" href={`${B}get-a-meal`}>Get a meal</a>
+        <a class="btn ghost" href={`${B}donate`}>Donate</a>
+      </div>
+    </div>
+  </section>
+</HearthLayout>
+
+<style>
+  .ab-two { display: grid; grid-template-columns: 1.35fr 1fr; gap: 72px; align-items: start; }
+  .ab-two .prose { font-size: 20px; }
+  .ab-facts { margin: 0; background: var(--green); color: #fff; border-radius: 16px; padding: 12px 32px; }
+  .ab-facts > div { display: flex; align-items: baseline; gap: 18px; padding: 20px 0; }
+  .ab-facts > div + div { border-top: 1px solid rgba(255, 255, 255, 0.18); }
+  .ab-facts dt { font-family: var(--head); font-size: 48px; font-weight: 800; min-width: 140px; letter-spacing: -0.03em; line-height: 1; color: var(--gold); }
+  .ab-facts dd { margin: 0; color: #fff; font-size: 17px; line-height: 1.4; }
+  .wrap.ab-believe { padding-top: 96px; }
+  .ab-intro { margin: -8px 0 32px; max-width: 34em; }
+  .ab-join { background: var(--green); margin-top: 72px; padding: 72px 0 80px; }
+  .ab-join h2 { color: #fff; font-size: clamp(32px, 3.8vw, 48px); font-weight: 800; letter-spacing: -0.03em; margin-bottom: 28px; }
+  .ab-join .btn.ghost { border-color: rgba(255, 255, 255, 0.6); color: #fff; }
+  .ab-join .btn.ghost:hover { background: rgba(255, 255, 255, 0.1); }
+  .ab-cta { display: flex; gap: 12px; flex-wrap: wrap; }
+  @media (max-width: 860px) { .ab-two { grid-template-columns: 1fr; gap: 36px; } }
+  @media (max-width: 700px) { .ab-facts { padding: 6px 22px; } .ab-facts dt { font-size: 40px; min-width: 112px; } .wrap.ab-believe { padding-top: 64px; } .ab-join { margin-top: 48px; padding: 52px 0 60px; } .ab-cta .btn { width: 100%; } }
+</style>

@@ -1,0 +1,759 @@
+---
+import Base from '../../layouts/Base.astro';
+const STRIPE_LINK = 'https://donate.stripe.com/REPLACE_ME';
+---
+<Base title="Home" immersive>
+  <section class="world" id="world" data-stripe={STRIPE_LINK}>
+    <canvas class="world-canvas" id="scene" aria-hidden="true"></canvas>
+    <div class="loader" id="loader" aria-live="polite">
+      <img src={`${import.meta.env.BASE_URL.replace(/\/?$/, '/')}img/logo-heart.png`} alt="" width="120" height="106" />
+      <p>Setting up the kitchen…</p>
+      <i class="bar"><b id="load-bar"></b></i>
+    </div>
+    <header class="hud">
+      <a class="hud-brand" href={import.meta.env.BASE_URL}><img src={`${import.meta.env.BASE_URL.replace(/\/?$/, '/')}img/logo-heart.png`} alt="" width="38" height="34" /><span>Free Meals on Wheels</span></a>
+      <nav class="hud-nav">
+        <button data-open="about">Our story</button>
+        <button data-open="volunteer">Volunteer</button>
+        <button data-open="resources">Get a meal</button>
+        <button data-open="contact">Contact</button>
+        <button data-shifts class="login">Log in</button>
+        <button class="hud-give" data-open="donate">Donate</button>
+      </nav>
+    </header>
+    <div class="intro">
+      <span class="eyebrow">San Jose and San Ramon · every Saturday</span>
+      <h1>Dignity starts with <em>a full belly.</em></h1>
+      <p class="hint-desktop">Welcome to our kitchen. Drag to look around, click anything to step in.</p>
+      <p class="hint-mobile">Swipe around the kitchen and tap what you need.</p>
+    </div>
+    <div class="labels" id="labels">
+      <button data-station="volunteer"><i></i>Volunteer</button>
+      <button data-station="donate"><i></i>Donate</button>
+      <button data-station="about"><i></i>Our story</button>
+      <button data-station="resources"><i></i>Get a meal</button>
+      <button data-station="contact"><i></i>Contact</button>
+    </div>
+    <div class="swiper" id="swiper">
+      <button id="prev" aria-label="Previous">‹</button>
+      <span class="count"><b id="count">01</b> / 05 · <i id="cname">Volunteer</i></span><span id="dots"></span>
+      <button id="next" aria-label="Next">›</button>
+    </div>
+    <div class="quick" id="quick">
+      <button class="btn go" id="go" hidden>Open</button>
+      <button class="btn" data-open="volunteer">Volunteer</button>
+      <button class="btn ghost" data-open="donate">Donate</button>
+    </div>
+    <aside class="pop" id="pop" aria-hidden="true" role="dialog" aria-labelledby="pop-title">
+      <button class="pop-close" id="pop-close" aria-label="Back to the street">×</button>
+      <div id="pop-body"></div>
+    </aside>
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="chalky"><feTurbulence type="fractalNoise" baseFrequency="1.2" numOctaves="2" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.5"/></filter></svg>
+    <section class="story" id="story" aria-hidden="true" aria-label="Our story">
+      <div class="chalkboard">
+        <button class="sheet-close" data-close aria-label="Back to the street">×</button>
+        <div class="chapters"></div>
+        <nav class="story-nav">
+          <button class="s-prev" aria-label="Previous">‹</button>
+          <span class="s-dots"></span>
+          <button class="s-next" aria-label="Next">›</button>
+        </nav>
+      </div>
+    </section>
+    <section class="board" id="board" aria-hidden="true" aria-label="Community board">
+      <div class="cork">
+        <button class="sheet-close" data-close aria-label="Back to the street">×</button>
+        <div class="pinned">
+          <div class="paper title"><i class="pin"></i><h2>Community board</h2><p>Questions, ideas, a team that wants to help, or just a hello. It all goes here.</p></div>
+          <a class="paper card" href="mailto:info@freemealsonwheels.com"><i class="pin"></i><small>Write to us</small><b>info@freemealsonwheels.com</b><span>A real person reads every note.</span></a>
+          <a class="polaroid" href="https://www.instagram.com/freemealsonwheels/"><i class="tape"></i><img src={`${import.meta.env.BASE_URL.replace(/\/?$/, '/')}img/smile.webp`} alt="" loading="lazy" /><span>@freemealsonwheels</span></a>
+          <a class="paper flyer green" href="mailto:info@freemealsonwheels.com?subject=Corporate%20team%20day"><i class="pin"></i><b>Bring your team</b><span>Cook and pack together on a Saturday. Great for companies, schools and clubs.</span></a>
+          <a class="paper flyer peach" href="mailto:info@freemealsonwheels.com?subject=Blanket%20drive"><i class="pin"></i><b>Host a blanket drive</b><span>Every winter we pair a hot meal with a warm blanket.</span></a>
+          <a class="paper note" href="https://www.facebook.com/Freemeals20/"><i class="pin"></i><b>Find us on Facebook</b><span>Free Meals on Wheels</span></a>
+          <button class="paper note yellow" data-goto="resources"><i class="pin"></i><b>Need a meal?</b><span>There's a seat for you. Tap here.</span></button>
+          <form class="paper letter note-form"><i class="pin"></i><b>Leave a note for the volunteers</b><textarea name="note" rows="2" placeholder="They read these on Saturday morning."></textarea><button class="btn">Pin it</button></form>
+        </div>
+        <p class="credits">3D world: people built with MakeHuman, animation by Quaternius, props and textures from Poly Haven. Clothing and hair by punkduck, Mindfront and Elvaerwyn (CC BY), the rest CC0 or MakeHuman's asset licence.</p>
+      </div>
+    </section>
+  </section>
+</Base>
+
+<script>
+  import { mountWorld, type StationId } from '../../lib/kitchen-scene';
+  const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+  import { KITCHENS, ROLES, upcomingSaturdays, spotsLeft, book, signupsFor, reschedule, cancel, type Kitchen, type RoleId } from '../../lib/store';
+
+  const ORDER: StationId[] = ['volunteer', 'donate', 'about', 'resources', 'contact'];
+  const root = document.getElementById('world')!, pop = document.getElementById('pop')!, body = document.getElementById('pop-body')!;
+  const STRIPE = root.dataset.stripe!;
+  const labels = Object.fromEntries([...document.querySelectorAll<HTMLElement>('#labels button')].map((b) => [b.dataset.station, b])) as Record<StationId, HTMLElement>;
+  const mobile = () => innerWidth < 760;
+  const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+  const fmt = (d: string, o: Intl.DateTimeFormatOptions) => new Date(d + 'T12:00').toLocaleDateString('en-US', o);
+  let idx = -1, openTimer = 0;
+
+  const loader = document.getElementById('loader')!, loadBar = document.getElementById('load-bar')!;
+  const reveal = () => { loader.classList.add('gone'); root.classList.add('ready'); };
+  setTimeout(reveal, 7000); // never keep people waiting on a slow connection
+  const api = mountWorld(document.getElementById('scene') as HTMLCanvasElement, labels, (id) => open(id), (id) => { const sh = sheets[id]; if (sh && location.hash === '#' + id) showSheet(sh); },
+    (p, done) => { loadBar.style.width = `${Math.round(15 + p * 85)}%`; if (done) reveal(); });
+  if (!api) reveal();
+  if (!api) root.classList.add('no-gl');
+
+  // Volunteer card: kitchen, Saturday, role, then a few fields. Confirmed on the spot.
+  const vol = { kitchen: 'san_jose' as Kitchen, date: upcomingSaturdays()[0], role: null as RoleId | null, step: 'pick' as 'pick' | 'form' | 'done' };
+  function volunteerCard() {
+    if (vol.step === 'pick') {
+      body.innerHTML = `
+        <p class="kicker">This is the kitchen. This could be you.</p><h2 id="pop-title">Pick a Saturday shift</h2>
+        <div class="seg kseg" data-at="${vol.kitchen}"><i class="pill"></i>${(Object.keys(KITCHENS) as Kitchen[]).map((k) => `<button data-k="${k}" aria-pressed="${k === vol.kitchen}">${KITCHENS[k]}</button>`).join('')}</div>
+        <div class="dates">${upcomingSaturdays().map((d) => {
+          const open = ROLES.reduce((n, r) => n + spotsLeft(vol.kitchen, d, r.id), 0);
+          return `<button data-d="${d}" aria-pressed="${d === vol.date}"><small>${fmt(d, { month: 'short' })}</small><b>${fmt(d, { day: 'numeric' })}</b><em>${open ? open + ' open' : 'Full'}</em></button>`;
+        }).join('')}</div>
+        <div class="roles">${ROLES.map((r) => {
+          const left = spotsLeft(vol.kitchen, vol.date, r.id);
+          return `<button data-r="${r.id}"><span><b>${r.name}</b><small>${r.time}</small></span><em class="${left ? (left <= 2 ? 'low' : '') : 'full'}">${left ? left + ' left' : 'Waitlist'}</em></button>`;
+        }).join('')}</div>`;
+    } else if (vol.step === 'form') {
+      const r = ROLES.find((x) => x.id === vol.role)!;
+      body.innerHTML = `
+        <button class="back" data-back>‹ Change shift</button>
+        <h2 id="pop-title">${r.name}</h2>
+        <p class="muted">${fmt(vol.date, { weekday: 'long', month: 'long', day: 'numeric' })} · ${r.time} · ${KITCHENS[vol.kitchen]}</p>
+        <form id="vform">
+          <label>Your name<input name="name" required autocomplete="name" /></label>
+          <label>Email<input name="email" type="email" required autocomplete="email" /></label>
+          <label>Phone (for day-of updates)<input name="phone" type="tel" autocomplete="tel" /></label>
+          <div class="row">
+            <div class="party"><span>People coming</span><div class="stepper"><button type="button" data-p="-1" aria-label="Fewer">−</button><output name="party">1</output><button type="button" data-p="1" aria-label="More">+</button></div></div>
+          </div>
+          <div class="guests" id="guests"></div>
+          <label class="first"><input type="checkbox" name="first" /><span class="first-box"><b>It's my first time</b><small>We'll pair you with a lead and save you an apron.</small></span><i class="tick-mark">✓</i></label>
+          <button class="btn wide">Confirm my spot</button>
+        </form>`;
+    }
+  }
+  body.addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest('button'); if (!b || !body.contains(b)) return;
+    if (b.dataset.k) {
+      if (vol.kitchen === b.dataset.k) return;
+      vol.kitchen = b.dataset.k as Kitchen;
+      // Slide the pill and recolor first, then swap the dates and roles in.
+      const seg = body.querySelector<HTMLElement>('.kseg')!; seg.dataset.at = vol.kitchen;
+      seg.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      pop.dataset.kitchen = vol.kitchen;
+      const parts = body.querySelectorAll<HTMLElement>('.dates, .roles');
+      parts.forEach((el) => el.classList.add('swap'));
+      setTimeout(() => { volunteerCard(); body.querySelectorAll<HTMLElement>('.dates, .roles').forEach((el) => { el.classList.add('swap-in'); requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('swap-in'))); }); }, 220);
+    }
+    else if (b.dataset.d) { vol.date = b.dataset.d; volunteerCard(); }
+    else if (b.dataset.r) { vol.role = b.dataset.r as RoleId; b.classList.add('picked'); body.querySelectorAll('.roles button').forEach((x) => x !== b && x.classList.add('fade')); setTimeout(() => { vol.step = 'form'; volunteerCard(); body.firstElementChild?.parentElement?.classList.add('slide-in'); setTimeout(() => body.classList.remove('slide-in'), 450); }, 280); }
+    else if ('shiftsIn' in b.dataset) { try { localStorage.setItem('fmow.session.v1', String(body.querySelector('.done')?.getAttribute('data-email') || '')); } catch {} openShifts(); }
+    else if ('back' in b.dataset || 'again' in b.dataset) { vol.step = 'pick'; volunteerCard(); }
+    else if (b.dataset.p) {
+      // Party stepper: one name field per extra person.
+      const out = body.querySelector<HTMLOutputElement>('output[name="party"]')!, n = Math.max(1, Math.min(6, Number(out.value) + Number(b.dataset.p)));
+      out.value = String(n);
+      const g = body.querySelector('#guests')!, have = g.children.length;
+      for (let i = have; i < n - 1; i++) { const l = document.createElement('label'); l.className = 'guest'; l.innerHTML = `Guest ${i + 2}<input name="guest" placeholder="Their name" autocomplete="off" />`; g.append(l); }
+      while (g.children.length > n - 1) g.lastElementChild!.remove();
+    }
+    else if (b.dataset.amt) {
+      body.querySelectorAll('[data-amt]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      const a = Number(b.dataset.amt), m = Math.floor(a / 10) || 1;
+      api?.give(a);
+      document.getElementById('meals')!.innerHTML = `That's <b>${m}</b> warm meal${m > 1 ? 's' : ''}, made with love on Saturday.`;
+    }
+  });
+  body.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target as HTMLFormElement), r = ROLES.find((x) => x.id === vol.role)!;
+    const guests = f.getAll('guest').map(String).map((g) => g.trim()).filter(Boolean);
+    const party = 1 + body.querySelectorAll('[name="guest"]').length;
+    const s = book({ kitchen: vol.kitchen, date: vol.date, role: r.id, name: String(f.get('name')) + (guests.length ? ` + ${guests.join(', ')}` : ''), email: String(f.get('email')), phone: String(f.get('phone') || ''), party, firstTime: f.has('first') });
+    vol.step = 'done';
+    const [st, en] = r.time.split(' – ');
+    const t = (x: string) => { const [hm, ap] = x.trim().split(' '); let [h, m] = hm.split(':').map(Number); if (ap === 'PM' && h < 12) h += 12; return vol.date.replace(/-/g, '') + 'T' + String(h).padStart(2, '0') + String(m).padStart(2, '0') + '00'; };
+    const ics = `BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nSUMMARY:Free Meals on Wheels · ${r.name}\nDTSTART:${t(st.includes('M') ? st : st + ' ' + en.split(' ')[1])}\nDTEND:${t(en)}\nLOCATION:${KITCHENS[vol.kitchen]} kitchen\nEND:VEVENT\nEND:VCALENDAR`;
+    body.innerHTML = s.status === 'booked' ? `
+      <div class="done" data-email="${esc(s.email)}"><span class="tick">✓</span><h2 id="pop-title">You're in, ${esc(s.name.split(' ')[0])}!</h2>
+      <p class="muted">${r.name} · ${fmt(vol.date, { weekday: 'long', month: 'long', day: 'numeric' })} · ${r.time}. A confirmation is on its way to ${esc(s.email)}.</p>
+      <a class="btn wide" download="free-meals-shift.ics" href="data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}">Add to calendar</a>
+      <button class="link" data-shifts-in>Manage your shifts →</button><br /><button class="link" data-again>Book another shift</button></div>` : `
+      <div class="done"><span class="tick wait">…</span><h2 id="pop-title">You're on the waitlist</h2>
+      <p class="muted">That shift is full. We'll email ${esc(s.email)} the moment a spot opens.</p>
+      <button class="link" data-again>Pick a different shift</button></div>`;
+  });
+
+  const CARDS: Record<Exclude<StationId, 'volunteer'>, () => string> = {
+    donate: () => `
+      <p class="kicker">Every coin is a warm dinner</p><h2 id="pop-title">Somebody eats tonight because of you</h2>
+      <p class="muted">Tap an amount and watch it land. $10 covers a fresh, hot meal, and 100% goes to food.</p>
+      <div class="amounts">${[10, 25, 50, 100, 250].map((a, i) => `<button data-amt="${a}" aria-pressed="${i === 1}">$${a}</button>`).join('')}</div>
+      <p class="meals" id="meals">That's <b>2</b> warm meals, made with love on Saturday.</p>
+      <a class="btn wide" href="${STRIPE}">Donate securely</a>
+      <p class="fine">Payments by Stripe. One-time or monthly. Tax-deductible, we're a 501(c)(3).</p>`,
+    about: () => `
+      <p class="kicker">Our story</p><h2 id="pop-title">Neighbors feeding neighbors</h2>
+      <p class="muted">Founded by Japjot Sethi and Devinder Kumar, Free Meals on Wheels cooks, packs and delivers fresh meals every Saturday from San Jose and San Ramon.</p>
+      <div class="stats"><div><b>300+</b><small>meals a week</small></div><div><b>400+</b><small>volunteers</small></div><div><b>100%</b><small>to meals</small></div></div>
+      <a class="link" href="${BASE}about">Read the full story →</a>`,
+    resources: () => `
+      <p class="kicker">Need a meal?</p><h2 id="pop-title">Sit down. This one's for you.</h2>
+      <p class="muted">A fresh, hot meal, free for anyone who needs one. No forms, no questions, no one asking why. Just good food and good company.</p>
+      <ul class="list"><li><b>Saturdays, 11 AM – 1 PM</b><small>Meals delivered across San Jose and San Ramon</small></li><li><b>Can't get out?</b><small>Email us and we'll add you to a delivery route</small></li></ul>
+      <a class="btn wide" href="mailto:info@freemealsonwheels.com?subject=Meal%20delivery">Request a meal</a>
+      <a class="link" href="${BASE}resources">More resources →</a>`,
+    contact: () => `
+      <p class="kicker">Say hello</p><h2 id="pop-title">We'd love to hear from you</h2>
+      <ul class="list"><li><b>Email</b><a href="mailto:info@freemealsonwheels.com">info@freemealsonwheels.com</a></li>
+      <li><b>Instagram</b><a href="https://www.instagram.com/freemealsonwheels/">@freemealsonwheels</a></li>
+      <li><b>Facebook</b><a href="https://www.facebook.com/Freemeals20/">Free Meals on Wheels</a></li></ul>
+      <a class="link" href="${BASE}contact">Corporate team days and partnerships →</a>`,
+  };
+
+  const sheets: Partial<Record<StationId, HTMLElement>> = { about: document.getElementById('story')!, contact: document.getElementById('board')! };
+  function open(id: StationId) {
+    idx = ORDER.indexOf(id); syncDots(); root.classList.add('focus');
+    closeSheets(); root.classList.remove('open');
+    api?.focus(id);
+    clearTimeout(openTimer);
+    const sheet = sheets[id];
+    if (sheet) {
+      if (id === 'about') showChapter(0);
+      if (!api) showSheet(sheet);
+    } else {
+      pop.dataset.kitchen = id === 'volunteer' ? vol.kitchen : '';
+    if (id !== 'volunteer') body.innerHTML = CARDS[id]();
+      else if (vol.step !== 'done' || !body.querySelector('.done')) { if (vol.step === 'done') vol.step = 'pick'; volunteerCard(); }
+      openTimer = window.setTimeout(() => { root.classList.add('open'); pop.setAttribute('aria-hidden', 'false'); }, api ? 650 : 0);
+    }
+    history.replaceState(null, '', '#' + id);
+  }
+  // Boards: the camera flies into the real board in the world; the page fades in only once it arrives.
+  function showSheet(sheet: HTMLElement) {
+    root.classList.add('sheet');
+    const id = (Object.entries(sheets).find(([, v]) => v === sheet)?.[0]) as StationId;
+    if (api && wide()) { surfaces[id]?.classList.add('live'); return; }
+    sheet.classList.add('on'); sheet.setAttribute('aria-hidden', 'false');
+  }
+  function closeSheets() {
+    for (const el of Object.values(sheets)) { el!.classList.remove('on'); el!.setAttribute('aria-hidden', 'true'); }
+    for (const el of [storySurface, corkSurface]) el?.classList.remove('live');
+    root.classList.remove('sheet');
+  }
+  function close() {
+    clearTimeout(openTimer); closeSheets(); root.classList.remove('focus');
+    root.classList.remove('open'); pop.setAttribute('aria-hidden', 'true');
+    // Leaving a station always returns to the home overview.
+    idx = -1; syncDots(); api?.focus(null);
+    history.replaceState(null, '', location.pathname);
+  }
+
+  // Chalk, generated in code: a dusty slate with eraser smudges, and a grain mask that makes lettering look drawn in chalk.
+  {
+    const rnd = (() => { let x = 9; return () => (x = (x * 16807) % 2147483647) / 2147483647; })();
+    const board = document.createElement('canvas'); board.width = board.height = 1024; const b = board.getContext('2d')!;
+    b.fillStyle = '#26382e'; b.fillRect(0, 0, 1024, 1024);
+    for (let i = 0; i < 70; i++) {
+      // Eraser swipes: long soft arcs of pale dust.
+      const x = rnd() * 1024, y = rnd() * 1024, r = 80 + rnd() * 260, a = rnd() * Math.PI * 2;
+      b.strokeStyle = `rgba(230,235,225,${.012 + rnd() * .03})`; b.lineWidth = 30 + rnd() * 90; b.lineCap = 'round';
+      b.beginPath(); b.arc(x, y, r, a, a + .6 + rnd() * 1.4); b.stroke();
+    }
+    const id = b.getImageData(0, 0, 1024, 1024), d = id.data;
+    for (let i = 0; i < d.length; i += 4) { const n = (rnd() - .5) * 14; d[i] += n; d[i + 1] += n; d[i + 2] += n; }
+    b.putImageData(id, 0, 0);
+    const dust = document.createElement('canvas'); dust.width = dust.height = 256; const c = dust.getContext('2d')!;
+    const dd = c.createImageData(256, 256);
+    for (let i = 0; i < dd.data.length; i += 4) { dd.data[i] = dd.data[i + 1] = dd.data[i + 2] = 255; dd.data[i + 3] = rnd() < .16 ? rnd() * 120 : 200 + rnd() * 55; }
+    c.putImageData(dd, 0, 0);
+    document.documentElement.style.setProperty('--slate', `url(${board.toDataURL('image/jpeg', .85)})`);
+    document.documentElement.style.setProperty('--chalk', `url(${dust.toDataURL()})`);
+    // Cork: soft mottled flecks at a coarse scale (fine dot patterns shimmer when the board is scaled in 3D).
+    const cork = document.createElement('canvas'); cork.width = cork.height = 512; const k = cork.getContext('2d')!;
+    k.fillStyle = '#c99c62'; k.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 2600; i++) { const r = 1 + rnd() * 3.5, l = rnd() < .5; k.fillStyle = l ? `rgba(255,228,180,${.15 + rnd() * .25})` : `rgba(110,64,28,${.15 + rnd() * .3})`; k.beginPath(); k.ellipse(rnd() * 512, rnd() * 512, r, r * (.5 + rnd()), rnd() * 3, 0, Math.PI * 2); k.fill(); }
+    document.documentElement.style.setProperty('--cork', `url(${cork.toDataURL('image/jpeg', .85)})`);
+  }
+
+  // Our story: a chalkboard storyboard with taped-up photos.
+  const SK = {
+    friends: '<path d="M30 90c0-14 8-22 16-22s16 8 16 22M46 60a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM78 90c0-14 8-22 16-22s16 8 16 22M94 60a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM62 74c4-6 12-6 16 0M70 28c-4-6-14-2-10 6l10 9 10-9c4-8-6-12-10-6z"/>',
+    bowl: '<path d="M24 62h92c0 18-20 32-46 32S24 80 24 62zM50 94h40M52 50c-6-8 6-12 0-22M70 50c-6-8 6-12 0-22M88 50c-6-8 6-12 0-22"/>',
+    clock: '<circle cx="70" cy="60" r="34"/><path d="M70 38v22l14 10M70 26v4M104 60h-4M70 94v-4M36 60h4"/>',
+    houses: '<path d="M18 92V58l22-18 22 18v34zM78 92V58l22-18 22 18v34zM62 74c6-8 10-8 16 0M32 92V74h16v18M92 92V74h16v18"/>',
+    truck: '<path d="M14 82V44h66v38zM80 56h22l14 14v12H80zM30 92a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM100 92a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM30 62c6-6 12 6 18 0s12 6 18 0"/>',
+    blanket: '<path d="M24 34h92v52H24zM24 50h92M24 70h92M44 34v52M70 34v52M96 34v52M60 22l4 6M80 18l-2 8M100 24l-4 6"/>',
+    heart: '<path d="M70 96S20 66 20 40c0-14 10-22 22-22 12 0 20 8 28 18 8-10 16-18 28-18 12 0 22 8 22 22 0 26-50 56-50 56z"/>',
+  };
+  const CH = [
+    { t: 'It started with <em>two friends.</em>', b: 'Japjot Sethi and Devinder Kumar believed no neighbor should go to bed hungry. So they started cooking.', sk: SK.friends, img: ['team.webp'] },
+    { t: 'A hot meal is <em>more than food.</em>', b: '“A fresh, hot, and nutritious meal is not just satiating, but more importantly, enabling and liberating.”', sk: SK.bowl, img: ['smile.webp'] },
+    { t: 'Every Saturday, <em>the kitchen wakes up.</em>', b: 'We cook at 7. We pack at 9:30. By 11, meals are on their way.', sk: SK.clock, img: ['kitchen.webp', 'boxes.jpg'] },
+    { t: 'Two kitchens. <em>One family.</em>', b: 'San Jose and San Ramon, and more than 400 volunteers who show up with open hearts.', sk: SK.houses, img: ['serving.jpg'] },
+    { t: '300+ meals, <em>every single week.</em>', b: 'Delivered by hand, still warm, with a smile and a name.', sk: SK.truck, img: ['handoff.jpg'] },
+    { t: 'Warmth <em>for winter.</em>', b: 'When it gets cold, we pair a hot meal with a warm blanket. At Thanksgiving, everyone gets a seat at the table.', sk: SK.blanket, img: ['blanket.webp', 'thanksgiving.webp'] },
+    { t: 'And now, <em>you.</em>', b: 'Every meal starts with someone who decided to care. That can be you this Saturday.', sk: SK.heart, img: [], cta: true },
+  ];
+  const chapters = document.querySelector<HTMLElement>('#story .chapters')!, sdots = document.querySelector<HTMLElement>('#story .s-dots')!;
+  chapters.innerHTML = CH.map((c, i) => `
+    <article class="chapter" data-i="${i}">
+      <div class="chalk">
+        <small>${i + 1} / ${CH.length}</small>
+        <h2>${c.t}</h2><p>${c.b}</p>
+        ${c.cta ? '<div class="cta"><button class="btn" data-goto="volunteer">Volunteer this Saturday</button><button class="btn ghost" data-goto="donate">Give a meal</button></div>' : ''}
+        <svg class="sketch" viewBox="0 0 140 110" aria-hidden="true"><g>${c.sk}</g></svg>
+      </div>
+      <div class="photos">${c.img.map((src, k) => `<figure style="--r:${(k ? 4 : -3) + (i % 2 ? 2 : -1)}deg"><i class="tape"></i><img src="${BASE}img/${src}" alt="" loading="lazy" /></figure>`).join('')}</div>
+    </article>`).join('');
+  sdots.innerHTML = CH.map(() => '<i></i>').join('');
+  // Desktop: the same board, mounted onto the chalkboard and corkboard in the world.
+  const wide = () => innerWidth >= 760;
+  const storySurface = document.querySelector('#story .chalkboard')!.cloneNode(true) as HTMLElement;
+  const corkSurface = document.querySelector('#board .cork')!.cloneNode(true) as HTMLElement;
+  storySurface.classList.add('surface'); corkSurface.classList.add('surface');
+  api?.surfaces({ about: storySurface, contact: corkSurface });
+  const surfaces: Partial<Record<StationId, HTMLElement>> = { about: storySurface, contact: corkSurface };
+  document.addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('.s-prev, .s-next, [data-close], [data-goto]'); if (!b) return;
+    if (b.matches('.s-prev')) showChapter(ch - 1); else if (b.matches('.s-next')) showChapter(ch + 1);
+    else if (b.dataset.goto) open(b.dataset.goto as StationId); else close();
+  });
+  document.addEventListener('submit', (e) => {
+    const f = e.target as HTMLFormElement; if (!f.matches('.note-form')) return; e.preventDefault();
+    location.href = `mailto:info@freemealsonwheels.com?subject=${encodeURIComponent('A note for the volunteers')}&body=${encodeURIComponent(String(new FormData(f).get('note') || ''))}`;
+  });
+  let ch = 0;
+  function showChapter(i: number) {
+    ch = Math.max(0, Math.min(CH.length - 1, i));
+    for (const scope of [document.getElementById('story')!, storySurface]) {
+      scope.querySelectorAll('.chapter').forEach((el) => { const k = Number((el as HTMLElement).dataset.i); el.classList.toggle('on', k === ch); el.classList.toggle('past', k < ch); });
+      scope.querySelectorAll('.s-dots').forEach((d) => [...d.children].forEach((x, k) => x.classList.toggle('on', k === ch)));
+    }
+  }
+  addEventListener('keydown', (e) => { if (!root.classList.contains('sheet') || !location.hash.includes('about')) return; if (e.key === 'ArrowRight') showChapter(ch + 1); if (e.key === 'ArrowLeft') showChapter(ch - 1); });
+  let csx = 0;
+  sheets.about!.addEventListener('touchstart', (e) => { csx = e.touches[0].clientX; }, { passive: true });
+  sheets.about!.addEventListener('touchend', (e) => { const dx = e.changedTouches[0].clientX - csx; if (Math.abs(dx) > 50) showChapter(ch + (dx < 0 ? 1 : -1)); }, { passive: true });
+  showChapter(0);
+
+  for (const [id, el] of Object.entries(labels)) el.onclick = () => open(id as StationId);
+  document.querySelectorAll<HTMLElement>('[data-open]').forEach((b) => (b.onclick = () => open(b.dataset.open as StationId)));
+  document.getElementById('pop-close')!.onclick = close;
+  addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+
+  // Phones: swipe or use the arrows to walk around the kitchen.
+  const dots = document.getElementById('dots')!;
+  dots.innerHTML = ORDER.map(() => '<i></i>').join('');
+  const NAMES: Record<StationId, string> = { volunteer: 'Volunteer', donate: 'Donate', about: 'Our story', resources: 'Get a meal', contact: 'Contact' };
+  const GO: Record<StationId, string> = { volunteer: 'Pick a shift', donate: 'Give', about: 'Read our story', resources: 'Get a meal', contact: 'Say hello' };
+  const go = document.getElementById('go') as HTMLButtonElement;
+  go.onclick = () => { if (idx >= 0) open(ORDER[idx]); };
+  function syncDots() { go.hidden = idx < 0; document.getElementById('quick')!.classList.toggle('peek', idx >= 0); if (idx >= 0) go.textContent = GO[ORDER[idx]]; [...dots.children].forEach((d, i) => d.classList.toggle('on', i === idx)); document.getElementById('count')!.textContent = idx < 0 ? '00' : String(idx + 1).padStart(2, '0'); document.getElementById('cname')!.textContent = idx < 0 ? (mobile() ? 'Swipe' : 'Explore') : NAMES[ORDER[idx]]; }
+  function step(d: number) { idx = idx < 0 ? (d > 0 ? 0 : ORDER.length - 1) : (idx + d + ORDER.length) % ORDER.length; syncDots(); api?.focus(ORDER[idx], true); }
+  document.getElementById('prev')!.onclick = () => step(-1);
+  document.getElementById('next')!.onclick = () => step(1);
+  let sx = 0;
+  root.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; }, { passive: true });
+  root.addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].clientX - sx;
+    if (Math.abs(dx) > 50 && !root.classList.contains('open') && !root.classList.contains('sheet')) step(dx < 0 ? 1 : -1);
+  }, { passive: true });
+  const applyMode = () => { if (!root.classList.contains('open') && !root.classList.contains('sheet')) api?.focus(mobile() && idx >= 0 ? ORDER[idx] : null, true); };
+  addEventListener('resize', applyMode); applyMode(); syncDots();
+  root.querySelector('canvas')!.addEventListener('pointerdown', () => setTimeout(() => root.classList.add('moved'), 400), { once: true });
+  for (const el of [document.getElementById('prev')!, document.getElementById('next')!]) el.addEventListener('click', () => root.classList.add('moved'), { once: true });
+  // ——— My shifts, inside the world: the camera goes into the kitchen and a sign-in card opens beside it.
+  const SKEY = 'fmow.session.v1';
+  const sess = () => { try { return localStorage.getItem(SKEY); } catch { return null; } };
+  const sfmt = (d: string) => new Date(d + 'T12:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const sh = { step: 'email' as 'email' | 'code' | 'list', email: '', code: '', editing: '', cancelling: [] as string[] };
+  const REASONS = ['Schedule conflict', 'Feeling unwell', 'Transportation', 'Booked by mistake', 'Something else'];
+  function shiftsCard() {
+    if (sess()) sh.step = 'list';
+    if (sh.step === 'email') {
+      body.innerHTML = `<p class="kicker">Volunteers</p><h2 id="pop-title">Your shifts</h2>
+        <p class="muted">Sign in with the email you booked with. We'll send a one-time code.</p>
+        <form class="sform" data-s="email"><label>Email<input name="email" type="email" required autocomplete="email" placeholder="you@example.com" /></label><button class="btn wide">Send my code</button></form>`;
+    } else if (sh.step === 'code') {
+      body.innerHTML = `<button class="back" data-s-back>‹ Different email</button><h2 id="pop-title">Check your inbox</h2>
+        <p class="muted">We sent a 6-digit code to ${esc(sh.email)}.</p>
+        <form class="sform" data-s="code"><label>Code<input name="code" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" required autocomplete="one-time-code" /></label><button class="btn wide">Sign in</button></form>
+        <p class="fine">Preview mode: your code is <b>${sh.code}</b>. Real emails start once the site is connected.</p>`;
+    } else {
+      const email = sess()!, list = signupsFor(email);
+      const row = (x: ReturnType<typeof signupsFor>[number]) => {
+        const r = ROLES.find((y) => y.id === x.role)!;
+        if (sh.editing === x.id) return `<li class="srow editing"><form class="sform" data-s="edit" data-id="${x.id}">
+          <label>Kitchen<select name="kitchen">${(Object.keys(KITCHENS) as Kitchen[]).map((k) => `<option value="${k}" ${k === x.kitchen ? 'selected' : ''}>${KITCHENS[k]}</option>`).join('')}</select></label>
+          <label>Saturday<select name="date">${upcomingSaturdays().map((d) => `<option value="${d}" ${d === x.date ? 'selected' : ''}>${sfmt(d)}</option>`).join('')}</select></label>
+          <label>Role<select name="role">${ROLES.map((y) => `<option value="${y.id}" ${y.id === x.role ? 'selected' : ''}>${y.name}</option>`).join('')}</select></label>
+          <div class="srow-acts"><button type="button" class="link" data-s-x>Keep as is</button><button class="btn">Save</button></div></form></li>`;
+        return `<li class="srow ${x.status}"><div><b>${sfmt(x.date)} · ${r.time}</b><small>${r.name} · ${KITCHENS[x.kitchen]}${x.status === 'waitlist' ? ' · waitlist' : ''}</small></div>
+          <div class="srow-acts"><button class="link" data-s-edit="${x.id}">Change</button><button class="link danger" data-s-cancel="${x.id}">Cancel</button></div></li>`;
+      };
+      const cancelBox = sh.cancelling.length ? `<form class="sform cancelbox" data-s="cancel"><b>${sh.cancelling.length > 1 ? `Cancel all ${sh.cancelling.length} shifts?` : 'Cancel this shift?'}</b>
+        <small class="muted">A quick reason helps the kitchen plan.</small>
+        <div class="reasons">${REASONS.map((r, i) => `<label class="reason"><input type="radio" name="reason" value="${r}" ${i === 0 ? 'checked' : ''} /> ${r}</label>`).join('')}</div>
+        <textarea name="comment" rows="2" placeholder="Anything else? (optional)"></textarea>
+        <div class="srow-acts"><button type="button" class="link" data-s-x>Keep</button><button class="btn danger-btn">${sh.cancelling.length > 1 ? 'Cancel all' : 'Cancel shift'}</button></div></form>` : '';
+      body.innerHTML = `<p class="kicker">Signed in as ${esc(email)}</p><h2 id="pop-title">Your shifts</h2>
+        ${cancelBox}
+        ${list.length ? `<ul class="slist">${list.slice(0, 40).map(row).join('')}</ul>` : '<p class="muted">No upcoming shifts yet.</p>'}
+        <div class="srow-acts spread"><button class="btn" data-s-book>Book a shift</button>${list.length > 1 ? '<button class="link danger" data-s-all>Cancel all</button>' : ''}<button class="link" data-s-out>Sign out</button></div>`;
+    }
+  }
+  function openShifts() {
+    idx = -1; syncDots(); root.classList.add('focus'); closeSheets(); root.classList.remove('open');
+    api?.focus('volunteer'); pop.dataset.kitchen = ''; shiftsCard();
+    clearTimeout(openTimer); openTimer = window.setTimeout(() => { root.classList.add('open'); pop.setAttribute('aria-hidden', 'false'); }, api ? 650 : 0);
+    history.replaceState(null, '', '#shifts');
+  }
+  document.querySelectorAll<HTMLElement>('[data-shifts]').forEach((b) => (b.onclick = openShifts));
+  // Signed-out visitors see Log in; once signed in it reads My shifts.
+  const syncLogin = () => { let on = false; try { on = !!localStorage.getItem(SKEY); } catch {} document.querySelectorAll<HTMLElement>('button.login').forEach((b) => (b.textContent = on ? 'My shifts' : 'Log in')); };
+  syncLogin(); addEventListener('storage', syncLogin); setInterval(syncLogin, 2000);
+  body.addEventListener('submit', (e) => {
+    const f = e.target as HTMLFormElement, kind = f.dataset.s; if (!kind) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    const d = new FormData(f);
+    if (kind === 'email') { sh.email = String(d.get('email')).trim().toLowerCase(); sh.code = String(Math.floor(100000 + Math.random() * 900000)); sh.step = 'code'; }
+    else if (kind === 'code') { if (String(d.get('code')) !== sh.code) { f.querySelector('input')!.setCustomValidity('That code does not match'); f.reportValidity(); return; } try { localStorage.setItem(SKEY, sh.email); } catch {} sh.step = 'list'; }
+    else if (kind === 'edit') { reschedule(f.dataset.id!, { kitchen: d.get('kitchen') as Kitchen, date: String(d.get('date')), role: d.get('role') as RoleId }); sh.editing = ''; }
+    else if (kind === 'cancel') { const reason = [d.get('reason'), String(d.get('comment') || '').trim()].filter(Boolean).join(': '); sh.cancelling.forEach((id) => cancel(id, reason)); sh.cancelling = []; }
+    shiftsCard();
+  }, true);
+  body.addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('button'); if (!b) return;
+    const D = b.dataset;
+    if ('sBack' in D) { sh.step = 'email'; }
+    else if (D.sEdit) { sh.editing = D.sEdit; sh.cancelling = []; }
+    else if (D.sCancel) { sh.cancelling = [D.sCancel]; sh.editing = ''; }
+    else if ('sAll' in D) { sh.cancelling = signupsFor(sess()!).map((x) => x.id); sh.editing = ''; }
+    else if ('sX' in D) { sh.editing = ''; sh.cancelling = []; }
+    else if ('sOut' in D) { try { localStorage.removeItem(SKEY); } catch {} sh.step = 'email'; }
+    else if ('sBook' in D) { open('volunteer'); return; }
+    else return;
+    shiftsCard();
+  });
+
+  const fromHash = location.hash.slice(1) as StationId;
+  if (ORDER.includes(fromHash)) open(fromHash); else if (location.hash === '#shifts') openShifts();
+</script>
+
+<style>
+  :global(body.immersive) { overflow: hidden; }
+  .world { position: relative; height: 100svh; min-height: 520px; overflow: hidden; background: #d9eaee; }
+  .world-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: pan-y; }
+  /* The same punchy grade the street was rendered with in Blender, dropped on the boards so they match their pages. */
+  .world-canvas { filter: contrast(1.07) saturate(1.12); transition: filter .6s ease; }
+  .world-canvas.flat { filter: none; }
+  .world::before { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: radial-gradient(ellipse 85% 75% at 50% 45%, transparent 55%, rgba(30, 22, 14, .28)); transition: opacity .6s ease; }
+  .world.flat::before { opacity: 0; }
+  .hud { position: absolute; z-index: 4; top: 16px; left: 16px; right: 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; pointer-events: none; }
+  .hud > * { pointer-events: auto; }
+  .hud-brand { display: flex; align-items: center; gap: 10px; padding: 6px 16px 6px 8px; border-radius: 999px; background: linear-gradient(135deg, rgb(255 255 255 / .55), rgb(255 255 255 / .28)); backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4); border: 1px solid rgb(255 255 255 / .6); box-shadow: inset 0 1px 0 rgb(255 255 255 / .8), inset 0 -8px 16px rgb(255 255 255 / .12), 0 8px 24px rgb(20 60 100 / .16); text-decoration: none; color: #16231c; font-weight: 600; letter-spacing: -.01em; }
+  .hud-brand img { width: 38px; height: 34px; object-fit: contain; }
+  .hud-nav { display: flex; gap: 4px; padding: 5px; border-radius: 999px; background: linear-gradient(135deg, rgb(255 255 255 / .55), rgb(255 255 255 / .28)); backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4); border: 1px solid rgb(255 255 255 / .6); box-shadow: inset 0 1px 0 rgb(255 255 255 / .8), inset 0 -8px 16px rgb(255 255 255 / .12), 0 8px 24px rgb(20 60 100 / .16); }
+  .hud-nav button { border: 0; background: none; padding: .55rem 1rem; border-radius: 999px; font: inherit; font-weight: 550; color: var(--ink); cursor: pointer; }
+  .hud-nav button:hover, .hud-nav .hud-link:hover { background: rgb(255 255 255 / .5); }
+  .hud-nav .hud-link { padding: .55rem 1rem; border-radius: 999px; font-weight: 550; color: var(--ink); text-decoration: none; }
+  .hud-nav .hud-give { background: var(--btn); color: #fff; box-shadow: var(--btn-shadow); }
+  .intro { position: absolute; z-index: 2; left: 16px; top: 80px; max-width: 340px; padding: 16px 20px; border-radius: 22px; background: linear-gradient(135deg, rgb(255 255 255 / .55), rgb(255 255 255 / .28)); backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4); border: 1px solid rgb(255 255 255 / .6); box-shadow: inset 0 1px 0 rgb(255 255 255 / .8), inset 0 -8px 16px rgb(255 255 255 / .12), 0 8px 24px rgb(20 60 100 / .16); pointer-events: none; transition: opacity .4s, transform .4s; }
+  .intro h1 em { font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-weight: 400; letter-spacing: -.01em; }
+  .intro h1 { font-size: clamp(1.4rem, 2vw, 1.8rem); margin: .3em 0 .2em; }
+  .intro .eyebrow { font-size: .78rem; }
+  .intro p { font-size: .9rem; }
+  .intro p { margin: 0; color: var(--muted); }
+  .hint-mobile { display: none; }
+  .world.open .intro, .world.moved .intro, .world.sheet .intro, .world.focus .intro { opacity: 0; transform: translateY(12px); }
+
+  .labels { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+  .labels button { position: absolute; left: 0; top: 0; pointer-events: auto; display: flex; align-items: center; gap: 8px; padding: .5rem .9rem; border-radius: 999px; background: linear-gradient(135deg, rgb(255 255 255 / .55), rgb(255 255 255 / .28)); backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4); border: 1px solid rgb(255 255 255 / .6); box-shadow: inset 0 1px 0 rgb(255 255 255 / .8), inset 0 -8px 16px rgb(255 255 255 / .12), 0 8px 24px rgb(20 60 100 / .16); font: inherit; font-weight: 550; font-size: .92rem; color: #16231c; cursor: pointer; transition: opacity .3s, box-shadow .2s; will-change: transform; }
+  .labels button i { width: 8px; height: 8px; border-radius: 50%; background: var(--green-2); box-shadow: 0 0 0 4px rgb(47 107 74 / .18); animation: pulse 2s ease-in-out infinite; }
+  .labels button[data-station="volunteer"], .labels button[data-station="donate"] { color: #1f4d34; font-weight: 650; }
+  .labels button[data-station="volunteer"] i, .labels button[data-station="donate"] i { background: #1f4d34; box-shadow: 0 0 0 4px rgb(31 77 52 / .2); }
+  .labels button:hover, .labels :global(button.hot) { box-shadow: 0 0 0 3px var(--gold), 0 8px 22px rgb(30 40 30 / .2); }
+  .labels :global(button.off) { opacity: 0; pointer-events: none; }
+  .world.open .labels { opacity: 0; pointer-events: none; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 7px transparent; } }
+
+  .quick { display: none; }
+  .swiper { position: absolute; z-index: 3; left: 50%; bottom: 26px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; transition: opacity .3s; }
+  .swiper button { width: 46px; height: 46px; border-radius: 50%; font-size: 1.4rem; color: #16231c; cursor: pointer; background: linear-gradient(135deg, rgb(255 255 255 / .55), rgb(255 255 255 / .25)); backdrop-filter: blur(16px); border: 1px solid rgb(255 255 255 / .6); box-shadow: inset 0 1px 0 rgb(255 255 255 / .8), 0 8px 20px rgb(20 60 100 / .15); }
+  .swiper .count { font: 500 .8rem ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; color: rgb(10 30 50 / .7); min-width: 170px; text-align: center; }
+  .swiper .count i { font-family: 'Instrument Serif', Georgia, serif; font-size: 1.05rem; letter-spacing: 0; color: #16231c; }
+  /* After a swipe, one clear button opens the station you're looking at. */
+  .credits { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); margin: 0; padding: 3px 10px; border-radius: 6px; background: rgb(255 253 246 / .85); white-space: nowrap; font: 400 11px Inter, system-ui, sans-serif; color: #5f6b64; }
+  .quick .go[hidden] { display: none; }
+  .quick.peek .btn:not(.go) { display: none; }
+  .quick.peek .go { flex: 1; }
+  .quick.peek { grid-template-columns: 1fr !important; }
+  .swiper #dots { display: none; }
+  .world.open .swiper, .world.sheet .swiper { opacity: 0; pointer-events: none; }
+
+  .pop { position: absolute; z-index: 5; top: 50%; right: clamp(16px, 4vw, 56px); width: min(420px, calc(100% - 32px)); max-height: calc(100% - 40px); overflow: auto; padding: 30px; border-radius: 28px; background: linear-gradient(160deg, rgb(255 255 255 / .82), rgb(246 248 250 / .7)); backdrop-filter: blur(24px) saturate(1.4); -webkit-backdrop-filter: blur(24px) saturate(1.4); border: 1px solid rgb(255 255 255 / .7); box-shadow: inset 0 1px 0 #fff, 0 30px 80px rgb(20 50 80 / .25); opacity: 0; transform: translate(24px, -50%) scale(.98); pointer-events: none; transition: opacity .3s, transform .4s cubic-bezier(.2, .8, .2, 1); }
+  .world.open .pop { opacity: 1; transform: translate(0, -50%); pointer-events: auto; }
+  .pop-close { position: absolute; top: 14px; right: 14px; width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--tint); color: var(--green); font-size: 1.3rem; cursor: pointer; }
+  .pop :global(h2 em) { font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-weight: 400; }
+  .pop :global(h2) { font-size: 1.6rem; margin: .1em 0 .3em; padding-right: 36px; }
+  .pop :global(.kicker) { margin: 0; color: var(--green-2); font-weight: 600; font-size: .9rem; }
+  .pop :global(.muted) { color: var(--muted); margin: 0 0 18px; }
+  .pop :global(.fine) { color: var(--muted); font-size: .82rem; margin: 12px 0 0; text-align: center; }
+  .pop :global(.btn.wide) { width: 100%; justify-content: center; margin-top: 8px; border: 0; cursor: pointer; font: inherit; font-weight: 600; }
+  .pop :global(.link) { display: inline-block; margin-top: 14px; background: none; border: 0; padding: 0; font: inherit; color: var(--green-2); font-weight: 600; cursor: pointer; text-decoration: none; }
+  .pop :global(.back) { background: none; border: 0; padding: 0; margin-bottom: 8px; font: inherit; color: var(--muted); cursor: pointer; }
+  .pop :global(.seg) { display: inline-flex; padding: 4px; border-radius: 999px; background: var(--tint); margin: 6px 0 14px; }
+  .pop :global(.seg button) { border: 0; background: none; padding: .5rem 1rem; border-radius: 999px; font: inherit; font-weight: 600; color: var(--muted); cursor: pointer; }
+  .pop :global(.seg button[aria-pressed="true"]) { background: #fff; color: var(--green); box-shadow: 0 2px 8px rgb(0 0 0 / .08); }
+  .pop :global(.dates) { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 12px; scrollbar-width: none; }
+  .pop :global(.dates button) { flex: 0 0 auto; display: grid; justify-items: center; gap: 1px; min-width: 62px; padding: 8px 6px; border: 1.5px solid var(--line); border-radius: 14px; background: #fff; font: inherit; cursor: pointer; }
+  .pop :global(.dates small) { color: var(--muted); font-size: .75rem; }
+  .pop :global(.dates b) { font-size: 1.3rem; color: var(--ink); }
+  .pop :global(.dates em) { font-style: normal; font-size: .72rem; color: var(--green-2); font-weight: 600; }
+  .pop :global(.dates button[aria-pressed="true"]) { border-color: var(--green-2); background: var(--tint); }
+  .pop :global(.roles) { display: grid; gap: 8px; }
+  .pop :global(.roles button) { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 14px; background: #fff; font: inherit; text-align: left; cursor: pointer; transition: border-color .15s, transform .15s; }
+  .pop :global(.roles button:hover) { border-color: var(--green-2); transform: translateY(-1px); }
+  .pop :global(.roles span) { display: grid; }
+  .pop :global(.roles small) { color: var(--muted); font-size: .85rem; }
+  .pop :global(.roles em) { font-style: normal; font-size: .8rem; font-weight: 600; padding: .25rem .65rem; border-radius: 99px; background: rgb(47 107 74 / .12); color: var(--green-2); white-space: nowrap; }
+  .pop :global(.roles em.low) { background: rgb(232 104 28 / .14); color: #b4500f; }
+  .pop :global(.roles em.full) { background: var(--tint); color: var(--muted); }
+  .pop :global(form) { display: grid; gap: 12px; }
+  .pop :global(label) { display: grid; gap: 4px; font-size: .88rem; font-weight: 500; color: var(--ink); }
+  .pop :global(input:not([type="checkbox"])), .pop :global(select) { font: inherit; padding: .7rem .9rem; border: 1.5px solid var(--line); border-radius: 12px; background: #fff; }
+  .pop :global(input:focus), .pop :global(select:focus) { outline: none; border-color: var(--green-2); box-shadow: 0 0 0 3px rgb(47 107 74 / .15); }
+  .pop :global(.row) { display: flex; gap: 16px; align-items: end; }
+  .pop :global(.check) { display: flex; align-items: center; gap: 8px; padding-bottom: .7rem; }
+  .pop :global(.amounts) { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 8px; }
+  .pop :global(.amounts button) { padding: .75rem 0; border: 1.5px solid var(--line); border-radius: 12px; background: #fff; font: inherit; font-weight: 600; color: var(--green); cursor: pointer; }
+  .pop :global(.amounts button[aria-pressed="true"]) { border-color: var(--green); background: rgb(31 77 52 / .08); color: var(--green); }
+  .pop :global(.stats) { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .pop :global(.stats div) { padding: 12px; border-radius: 14px; background: var(--tint); text-align: center; }
+  .pop :global(.stats b) { display: block; font-size: 1.4rem; color: var(--green); }
+  .pop :global(.stats small) { color: var(--muted); }
+  .pop :global(.list) { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 8px; }
+  .pop :global(.list li) { display: grid; padding: 12px 14px; border-radius: 14px; background: var(--tint); }
+  .pop :global(.list small) { color: var(--muted); }
+  .pop :global(.list a) { color: var(--green-2); }
+  .pop :global(.done) { text-align: center; }
+  .pop :global(.tick) { display: grid; place-items: center; width: 56px; height: 56px; margin: 4px auto 10px; border-radius: 50%; background: var(--green-2); color: #fff; font-size: 1.6rem; }
+  .pop :global(.tick.wait) { background: var(--gold); }
+
+  .no-gl { height: auto; padding: 48px 0; }
+  :global(body.immersive):has(.no-gl) { overflow: auto; }
+  .no-gl .intro { position: static; margin: 80px 16px 0; }
+  .no-gl .labels { position: static; display: flex; flex-wrap: wrap; gap: 10px; max-width: 1120px; margin: 24px auto 0; padding: 0 16px; }
+  .no-gl .labels button { position: static; transform: none !important; opacity: 1 !important; }
+  .no-gl .pop { position: relative; top: auto; right: auto; margin: 24px auto 0; display: none; }
+  .no-gl.open .pop { display: block; transform: none; }
+
+  @media (max-width: 760px) {
+    .hint-desktop { display: none; } .hint-mobile { display: block; }
+    .hud-nav { display: none; }
+    .hud-brand span { font-size: .95rem; }
+    .intro { left: 12px; right: 12px; top: 68px; bottom: auto; max-width: none; padding: 12px 16px; }
+    .intro h1 { font-size: 1.3rem; }
+    .intro .eyebrow { display: none; }
+    .swiper { bottom: 88px; }
+    .swiper .count { min-width: 120px; }
+    .swiper button { width: 40px; height: 40px; border: 0; border-radius: 50%; background: rgb(255 255 255 / .9); color: var(--green); font-size: 1.5rem; }
+    #dots { display: flex; gap: 6px; }
+    #dots :global(i) { width: 7px; height: 7px; border-radius: 50%; background: rgb(31 77 52 / .25); transition: width .2s; }
+    #dots :global(i.on) { width: 20px; border-radius: 4px; background: var(--green); }
+    .quick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; position: absolute; z-index: 3; left: 16px; right: 16px; bottom: 20px; transition: opacity .3s; }
+    .quick .btn { justify-content: center; border: 0; font: inherit; font-weight: 600; }
+    .quick .btn.ghost { background: rgb(255 255 255 / .92); }
+    .world.open .swiper, .world.open .quick { opacity: 0; pointer-events: none; }
+    .pop { top: auto; right: 0; left: 0; bottom: 0; width: 100%; max-height: 72%; border-radius: 24px 24px 0 0; padding: 24px 20px calc(24px + env(safe-area-inset-bottom)); transform: translateY(100%); }
+    .world.open .pop { transform: none; }
+    .pop :global(.amounts) { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  .world.sheet .intro, .world.sheet .labels, .world.sheet .hud, .world.sheet .swiper, .world.sheet .quick { opacity: 0; pointer-events: none; }
+  .hud, .swiper, .quick { transition: opacity .35s; }
+  .pop :global(.meals) { margin: 10px 0 2px; text-align: center; font: italic 400 1.4rem/1.2 'Instrument Serif', Georgia, serif; color: var(--green-2); }
+  .pop :global(.meals b) { color: var(--green); font-size: 1.6rem; }
+  .sheet-close { position: absolute; z-index: 3; top: 18px; right: 18px; width: 42px; height: 42px; border: 0; border-radius: 50%; background: rgb(255 255 255 / .92); color: var(--green); font-size: 1.5rem; cursor: pointer; box-shadow: 0 6px 18px rgb(0 0 0 / .2); }
+
+  /* Our story: chalkboard */
+  .story, .board { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; padding: 3vh 3vw; visibility: hidden; opacity: 0; pointer-events: none; transition: opacity .45s, visibility 0s .45s; }
+  .story.on, .board.on { visibility: visible; opacity: 1; transition: opacity .45s; }
+  .story.on .chalkboard, .board.on .cork { pointer-events: auto; }
+  .chalkboard { position: relative; width: 100%; height: 100%; border-radius: 18px; border: clamp(10px, 1.6vw, 18px) solid #b07a4a; box-shadow: inset 0 0 0 3px #8a5e3c, 0 30px 80px rgb(0 0 0 / .45); background: radial-gradient(ellipse at 30% 20%, rgb(255 255 255 / .07), transparent 55%), radial-gradient(ellipse at 80% 90%, rgb(255 255 255 / .05), transparent 50%), #24382d; overflow: hidden; }
+  .chalkboard::before { content: ''; position: absolute; inset: 0; opacity: .35; pointer-events: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .18 0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  .chapters { position: absolute; inset: 0; }
+  .chapters :global(.chapter) { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1.1fr; align-items: center; gap: 48px; padding: clamp(28px, 5vw, 64px) clamp(28px, 5vw, 72px) 90px; opacity: 0; transform: translateX(40px); transition: opacity .5s, transform .6s cubic-bezier(.2, .8, .2, 1); pointer-events: none; }
+  .chapters :global(.chapter.past) { transform: translateX(-40px); }
+  .chapters :global(.chapter.on) { opacity: 1; transform: none; pointer-events: auto; }
+  .chapters :global(.chalk) { align-self: center; color: #f4f1e8; text-shadow: 0 0 1px rgb(255 255 255 / .35); }
+  .chapters :global(.chalk small) { font: 500 .85rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; color: var(--gold); opacity: .9; }
+  .chapters :global(.chalk h2) { color: #fffdf4; font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: clamp(2.8rem, 5.6vw, 5rem); line-height: .98; letter-spacing: -.01em; margin: .25em 0 .35em; }
+  .chapters :global(.chalk h2 em) { font-style: italic; color: #f6d9a8; }
+  .chapters :global(.chalk p) { font-family: Kalam, cursive; font-weight: 400; font-size: clamp(1.3rem, 2vw, 1.75rem); line-height: 1.45; max-width: 26ch; margin: 0; color: #f4f1e8; }
+  .chapters :global(.cta) { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; font-family: Inter, sans-serif; }
+  .chapters :global(.cta .btn) { border: 0; font: inherit; font-weight: 600; cursor: pointer; }
+  .chapters :global(.sketch) { display: block; margin-top: 28px; width: clamp(100px, 12vw, 150px); fill: none; stroke: #f4f1e8; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; opacity: .85; filter: url(#chalky); }
+  .chapters :global(.chapter.on .sketch path), .chapters :global(.chapter.on .sketch circle) { stroke-dasharray: 600; stroke-dashoffset: 600; animation: draw 2.2s .2s ease forwards; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  .chapters :global(.photos) { position: relative; display: grid; place-items: center; height: 100%; }
+  .chapters :global(figure) { position: relative; margin: 0; padding: 12px 12px 40px; background: #fffdf7; box-shadow: 0 14px 30px rgb(0 0 0 / .35); transform: rotate(var(--r)); width: min(500px, 88%); }
+  .chapters :global(figure + figure) { position: absolute; right: 0; bottom: 4%; width: min(250px, 55%); }
+  .chapters :global(figure img) { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; filter: saturate(.92) contrast(1.02); }
+  :global(.tape) { position: absolute; z-index: 2; top: -14px; left: 50%; width: 110px; height: 30px; transform: translateX(-50%) rotate(-3deg); background: rgb(246 233 196 / .78); box-shadow: 0 2px 4px rgb(0 0 0 / .12); clip-path: polygon(3% 0, 97% 4%, 100% 50%, 96% 100%, 2% 96%, 0 50%); }
+  .story-nav { position: absolute; left: 0; right: 0; bottom: 22px; display: flex; justify-content: center; align-items: center; gap: 18px; }
+  .story-nav button { width: 46px; height: 46px; border: 2px solid rgb(244 241 232 / .5); border-radius: 50%; background: none; color: #f4f1e8; font-size: 1.6rem; cursor: pointer; }
+  .story-nav button:hover { background: rgb(255 255 255 / .1); }
+  .s-dots { display: flex; gap: 8px; }
+  .s-dots :global(i) { width: 8px; height: 8px; border-radius: 50%; background: rgb(244 241 232 / .3); transition: width .2s; }
+  .s-dots :global(i.on) { width: 24px; border-radius: 4px; background: #f4f1e8; }
+
+  /* Contact: bulletin board */
+  .cork { position: relative; width: 100%; height: 100%; overflow: auto; border-radius: 16px; border: clamp(10px, 1.6vw, 18px) solid #9a6b40; box-shadow: inset 0 0 30px rgb(80 40 10 / .35), 0 30px 80px rgb(0 0 0 / .45); background-color: #c99c62; background-image: radial-gradient(rgb(120 70 30 / .35) 1px, transparent 1.4px), radial-gradient(rgb(255 230 190 / .3) 1px, transparent 1.4px); background-size: 7px 7px, 11px 11px; background-position: 0 0, 3px 4px; }
+  .pinned { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 28px; padding: clamp(28px, 4vw, 56px); align-items: start; }
+  .pinned > * { position: relative; display: grid; gap: 6px; padding: 26px 22px 22px; border: 0; text-align: left; font: inherit; color: var(--ink); text-decoration: none; background: #fffdf6; box-shadow: 0 10px 22px rgb(60 30 10 / .28); transition: transform .2s; cursor: pointer; }
+  .pinned > *:nth-child(3n + 1) { transform: rotate(-1.6deg); } .pinned > *:nth-child(3n + 2) { transform: rotate(1.2deg); } .pinned > *:nth-child(3n) { transform: rotate(-.6deg); }
+  .pinned > *:hover { transform: rotate(0) translateY(-3px); }
+  .pinned :global(.pin) { position: absolute; top: 8px; left: 50%; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ff9a6a, #d2501a); box-shadow: 0 3px 4px rgb(0 0 0 / .35); }
+  .pinned .title { grid-column: span 2; cursor: default; color: #3b2412; padding: 30px 30px 26px; }
+  .pinned .title h2 { font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-size: clamp(2.6rem, 5vw, 3.8rem); color: #2a1a0c; margin: 0; letter-spacing: 0; }
+  .pinned .title p { margin: 0; font-size: 1.05rem; max-width: 40ch; }
+  .pinned small { color: var(--muted); }
+  .pinned b { font-size: 1.15rem; color: var(--green); }
+  .pinned span { color: var(--muted); }
+  .pinned .card b { font-size: .9rem; overflow-wrap: anywhere; }
+  .pinned .flyer.green { background: #e2efd9; } .pinned .flyer.peach { background: #fde4cf; } .pinned .note.yellow { background: #fff3a8; }
+  .pinned .note b, .pinned .letter b { font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-size: 1.7rem; color: #2a3a2f; }
+  .pinned .polaroid { padding: 12px 12px 14px; }
+  .pinned .polaroid img { width: 100%; aspect-ratio: 1; object-fit: cover; }
+  .pinned .polaroid span { font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-size: 1.5rem; color: var(--ink); text-align: center; }
+  .pinned .letter { grid-column: span 2; cursor: default; background: #fffdf6 repeating-linear-gradient(transparent 0 27px, rgb(120 150 200 / .25) 27px 28px); }
+  .pinned .letter textarea { font: 300 1.15rem/28px Kalam, cursive; border: 0; background: transparent; resize: none; outline: none; color: var(--ink); }
+  .pinned .letter .btn { justify-self: start; border: 0; font: inherit; font-weight: 600; cursor: pointer; }
+  @media (max-width: 760px) {
+    .chalkboard { height: 100%; }
+    .chapters :global(.chapter) { grid-template-columns: 1fr; grid-template-rows: auto 1fr; align-items: start; padding: 60px 22px 84px; gap: 18px; }
+    .chapters :global(.photos) { height: auto; }
+    .chapters :global(.sketch) { width: 80px; margin-top: 14px; }
+    .pinned { grid-template-columns: 1fr; padding: 60px 20px 28px; }
+    .pinned .title, .pinned .letter { grid-column: auto; }
+  }
+
+  /* Board surfaces mounted in the 3D world (desktop). Fixed design size, sized to the 3D board face. */
+  :global(.surfaces) .surface { pointer-events: none; border: 0 !important; border-radius: 6px !important; box-shadow: none !important; }
+  :global(.surfaces) .surface.live { pointer-events: auto; }
+  :global(.surfaces) .surface:not(.live) .sheet-close, :global(.surfaces) .surface:not(.live) .story-nav { opacity: 0; }
+  :global(.surfaces) .chalkboard.surface { width: 1600px !important; height: 1000px !important; }
+  :global(.surfaces) .cork.surface { width: 1760px !important; height: 1060px !important; overflow: hidden; }
+  :global(.surfaces) .chalkboard.surface .sheet-close, :global(.surfaces) .cork.surface .sheet-close { width: 60px; height: 60px; font-size: 2rem; top: 28px; right: 28px; transition: opacity .3s; }
+  :global(.surfaces) .surface .story-nav { bottom: 40px; gap: 26px; transition: opacity .3s; }
+  :global(.surfaces) .surface .story-nav button { width: 68px; height: 68px; font-size: 2.2rem; }
+  :global(.surfaces) .surface .chapters :global(.chapter) { padding: 90px 110px 150px; gap: 70px; grid-template-columns: 1fr 1fr; }
+  :global(.surfaces) .surface .chapters :global(.chalk small) { font-size: 22px; }
+  :global(.surfaces) .surface .chapters :global(.chalk h2) { font-size: 104px; line-height: .98; }
+  :global(.surfaces) .surface .chapters :global(.chalk p) { font-size: 38px; line-height: 1.4; max-width: 24ch; font-weight: 400; }
+  :global(.surfaces) .surface .chapters :global(.sketch) { width: 170px; margin-top: 40px; }
+  :global(.surfaces) .surface .chapters :global(figure) { width: 640px; padding: 18px 18px 64px; }
+  :global(.surfaces) .surface .chapters :global(figure + figure) { width: 380px; }
+  :global(.surfaces) .surface .chapters :global(.cta) { margin-top: 40px; gap: 16px; }
+  :global(.surfaces) .surface .chapters :global(.cta .btn) { font-size: 26px; padding: 18px 30px; }
+  :global(.surfaces) .surface .s-dots :global(i) { width: 12px; height: 12px; }
+  :global(.surfaces) .surface .s-dots :global(i.on) { width: 36px; }
+  :global(.surfaces) .cork.surface .pinned { grid-template-columns: repeat(4, 1fr); gap: 26px; padding: 44px 50px; zoom: 1.45; width: calc(1760px / 1.45); box-sizing: border-box; }
+
+  /* Kitchen switch: a sliding pill, and each kitchen has its own color. */
+  .pop { --k: #1f4d34; --k-soft: rgb(31 77 52 / .1); transition: opacity .3s, transform .4s cubic-bezier(.2, .8, .2, 1), background .5s; }
+  .pop[data-kitchen="san_ramon"] { --k: #b5651d; --k-soft: rgb(214 140 60 / .14); background: linear-gradient(160deg, rgb(255 250 240 / .86), rgb(253 241 222 / .74)); }
+  .pop :global(.kseg) { position: relative; }
+  .pop :global(.kseg .pill) { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 999px; background: var(--k); box-shadow: 0 4px 14px var(--k-soft); transition: transform .45s cubic-bezier(.3, 1.4, .5, 1), background .4s; }
+  .pop :global(.kseg[data-at="san_ramon"] .pill) { transform: translateX(100%); }
+  .pop :global(.kseg button) { position: relative; z-index: 1; min-width: 120px; transition: color .3s; }
+  .pop :global(.kseg button[aria-pressed="true"]) { background: none; box-shadow: none; color: #fff; }
+  .pop :global(.dates), .pop :global(.roles) { transition: opacity .22s, transform .3s; }
+  .pop :global(.swap) { opacity: 0; transform: translateX(-14px); }
+  .pop :global(.swap-in) { opacity: 0; transform: translateX(14px); transition: none; }
+  .pop :global(.dates button[aria-pressed="true"]) { border-color: var(--k); background: var(--k-soft); }
+  .pop :global(.dates em) { color: var(--k); }
+  .pop :global(.kicker) { transition: color .4s; }
+  .pop[data-kitchen="san_ramon"] :global(.kicker), .pop[data-kitchen="san_ramon"] :global(h2) { color: var(--k); }
+
+  /* Chalk look: textured slate, chalk-grain lettering, chalk-outline buttons. */
+  .chalkboard { background: var(--slate) center / cover, #26382e !important; }
+  .chapters :global(.chalk h2), .chapters :global(.chalk p), .chapters :global(.chalk small) {
+    -webkit-mask-image: var(--chalk); mask-image: var(--chalk); -webkit-mask-size: 180px; mask-size: 180px;
+    text-shadow: 0 0 1px rgb(255 255 255 / .55), 0 0 12px rgb(255 255 255 / .12);
+  }
+  .chapters :global(.chalk h2) { color: #fbfaf4; }
+  .chapters :global(.chalk h2 em) { color: #ffe08f; }
+  .chapters :global(.chalk p) { color: #f2f1ea; font-weight: 400; }
+  .chapters :global(.chalk small) { color: #ffe08f; }
+  .chapters :global(.cta .btn) { background: transparent !important; box-shadow: none !important; color: #fbfaf4 !important; border: 3px solid rgb(251 250 244 / .85) !important; border-radius: 14px 18px 12px 20px / 18px 12px 20px 14px; font-family: Kalam, cursive; font-size: 1.25rem; padding: .7rem 1.4rem; -webkit-mask-image: var(--chalk); mask-image: var(--chalk); -webkit-mask-size: 160px; mask-size: 160px; }
+  .chapters :global(.cta .btn.ghost) { color: #ffe08f !important; border-color: rgb(255 224 143 / .85) !important; }
+  .chapters :global(.cta .btn:hover) { background: rgb(255 255 255 / .08) !important; }
+
+  .cork { background: var(--cork) 0 0 / 512px, #c99c62 !important; }
+  :global(.surfaces) .cork.surface .pinned { zoom: 1.22 !important; width: calc(1760px / 1.22) !important; height: calc(1060px / 1.22); gap: 22px !important; padding: 34px 44px !important; align-content: start; }
+  :global(.surfaces) .cork.surface .pinned .letter textarea { rows: 2; }
+  .pinned .card b { font-size: .82rem !important; white-space: nowrap; overflow-wrap: normal !important; }
+
+  /* My shifts card */
+  .pop :global(.slist) { list-style: none; padding: 0; margin: 6px 0 14px; display: grid; gap: 8px; max-height: 46vh; overflow: auto; }
+  .pop :global(.srow) { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 14px; background: #fff; }
+  .pop :global(.srow div:first-child) { display: grid; }
+  .pop :global(.srow small) { color: var(--muted); }
+  .pop :global(.srow.waitlist) { border-style: dashed; }
+  .pop :global(.srow.editing) { display: block; }
+  .pop :global(.srow-acts) { display: flex; gap: 14px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+  .pop :global(.srow-acts.spread) { justify-content: space-between; }
+  .pop :global(.srow-acts .link) { margin: 0; }
+  .pop :global(.danger) { color: #b4433a !important; }
+  .pop :global(.danger-btn) { background: #b4433a !important; border: 0; color: #fff; padding: .6rem 1rem; border-radius: 999px; font: inherit; font-weight: 600; cursor: pointer; }
+  .pop :global(.cancelbox) { padding: 12px; border-radius: 16px; background: rgb(180 67 58 / .06); margin-bottom: 12px; }
+  .pop :global(.reasons) { display: grid; gap: 6px; }
+  .pop :global(.reason) { display: flex !important; gap: 8px; align-items: center; padding: .45rem .7rem; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; cursor: pointer; }
+  .pop :global(.reason:has(input:checked)) { border-color: var(--green-2); }
+  .pop :global(textarea) { font: inherit; padding: .6rem .8rem; border: 1.5px solid var(--line); border-radius: 12px; resize: vertical; }
+
+  .loader { position: absolute; inset: 0; z-index: 30; display: grid; place-content: center; justify-items: center; gap: 14px; background: radial-gradient(900px 500px at 50% 40%, #fffaf2, #f2ead9); transition: opacity .7s ease, visibility 0s .7s; }
+  .loader.gone { opacity: 0; visibility: hidden; }
+  .loader img { width: 120px; height: auto; animation: beat 1.4s ease-in-out infinite; }
+  .loader p { margin: 0; font: italic 400 1.4rem 'Instrument Serif', Georgia, serif; color: var(--green); }
+  .loader .bar { width: 180px; height: 4px; border-radius: 4px; background: rgb(31 77 52 / .12); overflow: hidden; }
+  .loader .bar b { display: block; width: 15%; height: 100%; background: var(--green-2); transition: width .4s ease; }
+  @keyframes beat { 0%, 100% { transform: scale(1); } 15% { transform: scale(1.08); } 30% { transform: scale(1); } 45% { transform: scale(1.05); } }
+  .world:not(.ready) .labels, .world:not(.ready) .intro, .world:not(.ready) .swiper { opacity: 0; }
+
+  /* Booking form polish */
+  .pop :global(.roles button) { transition: border-color .15s, transform .25s, opacity .25s, background .25s; }
+  .pop :global(.roles button.picked) { border-color: var(--green-2); background: rgb(47 107 74 / .1); transform: scale(1.03); }
+  .pop :global(.roles button.fade) { opacity: .25; transform: translateX(-8px); }
+  :global(#pop-body.slide-in) { animation: slideIn .42s cubic-bezier(.2, .8, .2, 1); }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+  .pop :global(.party) { display: flex; justify-content: space-between; align-items: center; width: 100%; font-size: .88rem; font-weight: 500; }
+  .pop :global(.stepper) { display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 999px; background: var(--tint); }
+  .pop :global(.stepper button) { width: 34px; height: 34px; border: 0; border-radius: 50%; background: #fff; font-size: 1.2rem; color: var(--green); cursor: pointer; box-shadow: 0 2px 6px rgb(0 0 0 / .08); }
+  .pop :global(.stepper output) { min-width: 28px; text-align: center; font-weight: 700; color: var(--green); }
+  .pop :global(.guests) { display: grid; gap: 10px; }
+  .pop :global(.guest) { animation: slideIn .3s ease; }
+  .pop :global(.first) { position: relative; display: flex !important; gap: 12px; align-items: center; padding: 14px 16px; border-radius: 16px; border: 1.5px dashed rgb(47 107 74 / .35); background: linear-gradient(135deg, rgb(255 255 255 / .9), rgb(232 245 236 / .8)); cursor: pointer; transition: border-color .2s, background .2s; }
+  .pop :global(.first input) { position: absolute; opacity: 0; pointer-events: none; }
+  .pop :global(.first-box) { display: grid; gap: 2px; }
+  .pop :global(.first-box small) { color: var(--muted); font-weight: 400; }
+  .pop :global(.first .tick-mark) { margin-left: auto; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-style: normal; color: transparent; border: 2px solid rgb(47 107 74 / .35); transition: all .2s; flex: none; }
+  .pop :global(.first:has(input:checked)) { border-style: solid; border-color: var(--green-2); background: linear-gradient(135deg, #f1faf4, #dff1e6); }
+  .pop :global(.first:has(input:checked) .tick-mark) { background: var(--green-2); border-color: var(--green-2); color: #fff; transform: scale(1.1); }
+  /* Phones: no overlapping labels on the overview, compact explore bar, comment tucked away */
+  @media (max-width: 760px) {
+    .swiper .count { min-width: 0; white-space: nowrap; font-size: .75rem; }
+    .swiper .count i { font-size: .95rem; }
+    :global(.fb) { bottom: 150px !important; right: auto !important; left: 12px; justify-items: start !important; }
+    :global(.fb-toggle) { width: 40px; height: 40px; padding: 0 !important; justify-content: center; font-size: 0 !important; }
+    :global(.fb-toggle span) { font-size: 16px; }
+    :global(.world.open) ~ :global(.fb), :global(body:has(.world.open)) :global(.fb) { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .pop, .labels button i { transition: none; animation: none; } }
+</style>
