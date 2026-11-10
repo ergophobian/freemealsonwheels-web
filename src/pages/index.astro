@@ -1,303 +1,212 @@
 ---
-// Home page, direction A ("Langar"): full-bleed kitchen photo hero with a donate card, a green stats band, story, quote,
-// how it works, photo cards and contact. Every picture comes from src/lib/hearth-art.ts.
+// Home page, "One Saturday": the page is a single Saturday told in still paintings made with canvas (src/lib/art).
+// A sleeping street with one kitchen light, the pot, the packing table, the route, the shared table, three hundred
+// bowls with one of them lit, and, in the footer, the same street at dusk with every window on. Nothing moves.
 import HearthLayout from '../layouts/HearthLayout.astro';
 import SiteNav from '../components/SiteNav.astro';
-import Photo from '../components/Photo.astro';
 const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const MAIL = 'mailto:info@freemealsonwheels.com';
 const arrow = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4"/></svg>';
-const steps = [
-  { n: '1', h: 'We cook', p: 'On Saturday mornings volunteers cook fresh meals together in our San Jose and San Ramon kitchens.' },
-  { n: '2', h: 'We pack', p: 'Every meal is packed by hand and checked, so it is still hot when it leaves the kitchen.' },
-  { n: '3', h: 'We deliver', p: 'Meals are carried to neighbors across both cities and handed over at the door, between 11 AM and 1 PM.' },
-  { n: '4', h: 'We share', p: 'Neighbors sit down together at the table, and a good meal is better shared. We are all neighbors here.' },
+const day = [
+  { art: 'pot', seed: 11, time: '6:00 in the morning', h: 'We cook', lead: 'Before the city wakes, the first pot goes up.', p: 'Volunteers cook fresh meals together in our San Jose and San Ramon kitchens, the same morning they are delivered. Never frozen, never days old.', alt: 'Painting of a steel pot of golden dal seen from above, with a ladle resting in it and steam rising.' },
+  { art: 'tiffins', seed: 23, time: '9:30', h: 'We pack', lead: 'Every meal is packed by hand.', p: 'Each one is checked and sealed while it is still hot, then lined up by the door for the drivers.', alt: 'Painting of rows of round steel containers on a table, some filled with rice and curry, some closed and labeled.' },
+  { art: 'route', seed: 5, time: '11:00 to 1:00', h: 'We deliver', lead: 'Someone is already waiting.', p: 'Meals are carried to neighbors across both cities and handed over at the door, still warm. No forms, and no one asking why.', alt: 'Painting of a street map with a golden route running from the kitchen to a dozen front doors.' },
+  { art: 'table', seed: 31, time: 'Evening', h: 'We share', lead: 'By night, there are more people at the table than there were at dawn.', p: 'At Thanksgiving everyone gets a seat. When it turns cold we pair a hot meal with a warm blanket. A good meal is better shared.', alt: 'Painting of a long table from above, steel plates with rice, roti and small bowls, marigolds and clay lamps along an indigo runner.' },
 ];
 ---
 <HearthLayout title="Free Meals on Wheels: dignity starts with a full belly" fullTitle bare>
   <section class="hero" id="top">
-    <Photo name="kitchen" eager sizes="100vw" widths={[640, 960, 1440]} pictureClass="hero-pic" />
+    <canvas class="art" data-art="night" data-seed="7" role="img" aria-label="A painting of a sleeping neighborhood before dawn. Every window is dark except one: a community kitchen, lit, with steam rising from its roof."></canvas>
     <SiteNav overlay />
-
-    <div class="hero-body">
-      <div>
-        <h1>Dignity starts with <span>a full belly.</span></h1>
-        <p class="sub">Fresh meals, cooked the same morning and delivered by hand, still warm. Every Saturday in San Jose and San Ramon.</p>
-        <p class="byline">Founded by Japjot Sethi and Devinder Kumar</p>
+    <div class="wrap hero-body">
+      <p class="when">Saturday, a little before six. San Jose.</p>
+      <h1>Dignity starts with <em>a full belly.</em></h1>
+      <p class="sub">Before the city wakes, one kitchen light comes on. By lunch, three hundred neighbors have a fresh, hot meal, cooked that morning and handed over at the door.</p>
+      <div class="acts">
+        <a class="btn gold" href={`${B}donate`}>Give a meal</a>
+        <a class="quiet" href={`${B}volunteer`}>Volunteer on a Saturday <Fragment set:html={arrow} /></a>
       </div>
-
-      <form class="give-card" id="give" method="get" action={`${B}donate`}>
-        <h2>Put a hot meal on the table</h2>
-        <p class="lead">$10 covers a fresh, hot meal. Every penny goes to food.</p>
-        <div class="opt seg" role="radiogroup" aria-label="Frequency">
-          <input type="radio" name="freq" value="monthly" id="fm" checked /><label for="fm">Monthly</label>
-          <input type="radio" name="freq" value="once" id="fo" /><label for="fo">Once</label>
-        </div>
-        <div class="opt chips" role="radiogroup" aria-label="Amount">
-          <input type="radio" name="amt" value="25" id="a25" /><label for="a25">$25</label>
-          <input type="radio" name="amt" value="50" id="a50" checked /><label for="a50">$50</label>
-          <input type="radio" name="amt" value="100" id="a100" /><label for="a100">$100</label>
-          <input type="radio" name="amt" value="other" id="aother" /><label for="aother">Other</label>
-        </div>
-        <p class="hint"><span class="h25">$25 covers two hot meals and a little more.</span><span class="h50">$50 covers five fresh, hot meals.</span><span class="h100">$100 covers ten hot meals for neighbors.</span><span class="hother">Choose any amount. Every dollar is food.</span></p>
-        <button class="btn gold" type="submit">Donate</button>
-        <p class="fine">Tax-deductible. Secure payment by Stripe.</p>
-      </form>
     </div>
+    <a class="need" href={`${B}get-a-meal`}><b>Need a meal?</b> It&rsquo;s free, and no one will ask why. <span>Request one <Fragment set:html={arrow} /></span></a>
   </section>
 
-  <section class="stats" aria-label="Free Meals on Wheels in numbers">
+  <section class="intro">
     <div class="wrap">
-      <div class="stat"><b>400+</b><span>volunteers cooking and packing</span></div>
-      <div class="stat"><b>300+</b><span>meals every week</span></div>
-      <div class="stat"><b>100%</b><span>of every donation goes to food</span></div>
-      <div class="stat"><b>Saturdays</b><span>San Jose and San Ramon</span></div>
+      <p class="say">No forms, no questions. Just a fresh, hot meal, handed over at the door by a neighbor.</p>
+      <dl class="figs">
+        <div><dt>400+</dt><dd>volunteers who give up a Saturday morning</dd></div>
+        <div><dt>300+</dt><dd>meals cooked and delivered every week</dd></div>
+        <div><dt>100%</dt><dd>of every donation goes to food</dd></div>
+      </dl>
+      <p class="founders">Started by Japjot Sethi and Devinder Kumar, because no neighbor should go to bed hungry. <a class="more" href={`${B}about`}>Our story <Fragment set:html={arrow} /></a></p>
     </div>
   </section>
-  <div class="garland" aria-hidden="true"></div>
 
-  <section class="sec" id="story">
-    <div class="wrap story">
-      <figure><Photo name="team" sizes="(min-width: 1080px) 540px, 100vw" widths={[480, 720, 960]} /></figure>
-      <div>
-        <p class="kicker">Our story</p>
-        <h2 class="big">One Saturday, told slowly.</h2>
-        <p class="lede">Free Meals on Wheels cooks and delivers fresh meals to neighbors every week. A Saturday begins with a light in the kitchen and ends with more people at the table than there were at dawn.</p>
-        <p>No forms, no questions, no one asking why. A fresh, hot meal is handed over, still warm. We cook in the spirit of the community kitchen, where everyone who arrives is fed and everyone sits together. A good meal is better shared, and we are all neighbors here.</p>
-        <a class="more" href={`${B}about`}>Read our story <Fragment set:html={arrow} /></a>
+  <section class="day" aria-labelledby="day-h">
+    <div class="wrap">
+      <h2 id="day-h" class="day-h">One Saturday</h2>
+      <ol class="moments">
+        {day.map((m, i) => (
+          <li class:list={['moment', { flip: i % 2 === 1 }]}>
+            <figure><canvas class="art" data-art={m.art} data-seed={m.seed} role="img" aria-label={m.alt}></canvas></figure>
+            <div class="txt">
+              <p class="time">{m.time}</p>
+              <h3>{m.h}</h3>
+              <p class="lead">{m.lead}</p>
+              <p>{m.p}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  </section>
+
+  <section class="bowls" aria-labelledby="bowls-h">
+    <div class="wrap bowls-in">
+      <div class="bowls-txt">
+        <h2 id="bowls-h">Three hundred meals. Each one is someone.</h2>
+        <p>Every bowl here is one meal we will hand over this Saturday. Ten dollars fills one. The one that is lit could be yours.</p>
+        <div class="give">
+          <a class="btn gold" href={`${B}donate?freq=once&amt=10`}>Give $10</a>
+          <a class="chip" href={`${B}donate?freq=once&amt=50`}>$50</a>
+          <a class="chip" href={`${B}donate?freq=once&amt=100`}>$100</a>
+          <a class="chip" href={`${B}donate?freq=monthly&amt=25`}>Monthly</a>
+        </div>
+        <p class="fine-d">Tax-deductible. Every penny goes to food.</p>
       </div>
+      <figure class="bowls-art"><canvas class="art" data-art="meals" data-seed="300" role="img" aria-label="Three hundred small bowls of food on a dark ground, painted one by one. One bowl glows."></canvas></figure>
     </div>
   </section>
 
   <section class="quote">
+    <canvas class="art toran" data-art="toran" data-seed="9" aria-hidden="true"></canvas>
     <div class="wrap">
-      <span class="mark" aria-hidden="true">&ldquo;</span>
-      <blockquote>A fresh, hot, and nutritious meal is not just satiating, but more importantly, enabling and liberating.</blockquote>
-      <p><b>Japjot Sethi and Devinder Kumar</b> started cooking because no neighbor should go to bed hungry.</p>
+      <blockquote>&ldquo;A fresh, hot, and nutritious meal is not just satiating, but more importantly, enabling and liberating.&rdquo;</blockquote>
+      <p><b>Japjot Sethi and Devinder Kumar</b>, founders</p>
     </div>
   </section>
 
-  <section class="sec" id="how">
+  <section class="sec table" aria-labelledby="table-h">
     <div class="wrap">
-      <div class="how-head">
-        <h2 class="big">How it works</h2>
-        <p>Four steps, every Saturday, from the first light in the kitchen to the last seat at the table.</p>
-      </div>
-      <ol class="steps">
-        {steps.map((s) => <li class="step"><span class="n">{s.n}</span><h3>{s.h}</h3><p>{s.p}</p></li>)}
-      </ol>
-
-      <div class="moments">
-        <figure class="moment"><Photo name="thanksgiving" sizes="(min-width: 1080px) 640px, 100vw" widths={[480, 720, 960]} /><figcaption><b>At Thanksgiving, everyone gets a seat.</b>The same meal, the same table, more chairs.</figcaption></figure>
-        <figure class="moment"><Photo name="blanket" sizes="(min-width: 1080px) 520px, 100vw" widths={[480, 720, 960]} /><figcaption><b>When it turns cold</b>We pair a hot meal with a warm blanket.</figcaption></figure>
-      </div>
-    </div>
-  </section>
-
-  <section class="sec table" id="table">
-    <div class="wrap">
-      <h2 class="big">Come to the table</h2>
-      <div class="cards">
-        <article class="card" id="volunteer">
-          <Photo name="team" decorative pos="15% 40%" sizes="(min-width: 1080px) 380px, (min-width: 761px) 40vw, 100vw" widths={[480, 720, 960]} />
-          <div class="in">
-            <h3>Volunteer</h3>
-            <p>Pick a Saturday shift. Choose a kitchen, a date and a role, and your spot is confirmed instantly.</p>
-            <a class="more" href={`${B}volunteer`}>Sign up to volunteer <Fragment set:html={arrow} /></a>
-          </div>
+      <h2 id="table-h" class="big">Come to the table</h2>
+      <div class="ways">
+        <article>
+          <p class="time">Volunteer</p>
+          <h3>Give a Saturday morning</h3>
+          <p>Pick a kitchen, a date and a role: cooking, packing, delivering or cleaning up. Your spot is confirmed instantly.</p>
+          <a class="more" href={`${B}volunteer`}>Pick a shift <Fragment set:html={arrow} /></a>
         </article>
-        <article class="card" id="meal">
-          <Photo name="smile" decorative sizes="(min-width: 1080px) 380px, (min-width: 761px) 40vw, 100vw" widths={[480, 720, 960]} />
-          <div class="in">
-            <h3>Get a meal</h3>
-            <p>A fresh, hot meal, free for anyone who needs one. Email us your name, address and household size and we will add you to a route.</p>
-            <a class="more" href={`${B}get-a-meal`}>Request a meal <Fragment set:html={arrow} /></a>
-          </div>
+        <article>
+          <p class="time">Get a meal</p>
+          <h3>A hot meal, free</h3>
+          <p>For anyone who needs one. Tell us where to bring it and how many are at your table. No one will ask why.</p>
+          <a class="more" href={`${B}get-a-meal`}>Request a meal <Fragment set:html={arrow} /></a>
         </article>
-        <article class="card give" id="donate">
-          <div class="in">
-            <h3>Donate</h3>
-            <div class="ten"><b>$10</b><span>is one fresh, hot meal</span></div>
-            <p>$10 covers a fresh, hot meal, and every penny goes to food. One-time or monthly, and tax-deductible.</p>
-            <div class="mini" aria-hidden="true"><span>$25</span><span class="on">$50</span><span>$100</span></div>
-            <a class="btn gold" href={`${B}donate`}>Donate</a>
-          </div>
+        <article>
+          <p class="time">Donate</p>
+          <h3>Ten dollars is one meal</h3>
+          <p>Every penny goes to food. One-time or monthly, and tax-deductible. We are a 501(c)(3).</p>
+          <a class="more" href={`${B}donate`}>Give a meal <Fragment set:html={arrow} /></a>
         </article>
       </div>
-      <div class="goodtoknow">
-        <div><b>First time volunteering?</b>Wear closed-toe shoes, tie back long hair and arrive 10 minutes early.</div>
-        <div><b>A group of 7 or more?</b><a href={`${MAIL}?subject=Group%20volunteering`}>Email us</a> and we will set aside a kitchen for your team.</div>
-        <div><b>Can&rsquo;t get out?</b>Dial 211 for food, housing and health services near you.</div>
-      </div>
-    </div>
-  </section>
-
-  <section class="sec" id="contact">
-    <div class="wrap contact">
-      <div>
-        <p class="kicker">Contact</p>
-        <h2 class="big">Say hello.</h2>
-        <a class="mail" href={MAIL}>info@freemealsonwheels.com</a>
-        <div class="pills"><a class="pill" href="https://www.instagram.com/freemealsonwheels/">Instagram</a><a class="pill" href="https://www.facebook.com/Freemeals20/">Facebook</a></div>
-      </div>
-      <div class="team">
-        <h3>Bring your team</h3>
-        <p>Cook and pack together on a Saturday. Great for companies, schools and clubs.</p>
-        <a class="btn gold" href={`${MAIL}?subject=Corporate%20team%20day`}>Corporate team days</a>
+      <div class="know">
+        <p><b>First time?</b> Wear closed-toe shoes, tie back long hair and arrive ten minutes early.</p>
+        <p><b>A group of 7 or more?</b> <a href={`${MAIL}?subject=Group%20volunteering`}>Email us</a> and we will set aside a kitchen for your team.</p>
+        <p><b>Can&rsquo;t get out?</b> Dial 211 for food, housing and health services near you.</p>
       </div>
     </div>
   </section>
 </HearthLayout>
 
-<style is:global>
-  /* hero */
-  .hero { position: relative; color: #fff; min-height: 900px; display: flex; flex-direction: column; background: var(--green-deep); overflow: hidden; }
-  .hero .hero-pic { position: absolute; inset: 0; }
-  .hero .hero-pic img { width: 100%; height: 100%; object-fit: cover; }
-  .hero::before { content: ""; position: absolute; inset: 0; z-index: 1; background:
-      linear-gradient(180deg, rgba(10, 24, 16, 0.62) 0, rgba(10, 24, 16, 0) 22%),
-      linear-gradient(0deg, rgba(10, 24, 16, 0.92) 0, rgba(10, 24, 16, 0.7) 34%, rgba(10, 24, 16, 0.15) 66%, rgba(10, 24, 16, 0) 100%),
-      linear-gradient(90deg, rgba(10, 24, 16, 0.55) 0, rgba(10, 24, 16, 0) 60%); }
-  .hero-body { position: relative; z-index: 2; margin-top: auto; padding: 0 40px 64px; display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 64px; align-items: end; max-width: 1360px; width: 100%; margin-left: auto; margin-right: auto; }
-  .hero h1 { color: #fff; font-size: clamp(46px, 6.1vw, 92px); line-height: 0.98; font-weight: 800; letter-spacing: -0.025em; max-width: 9.5em; text-wrap: balance; }
-  .hero h1 span { color: var(--gold); }
-  .hero .sub { font-size: 21px; line-height: 1.5; max-width: 25em; text-wrap: balance; margin: 24px 0 0; color: #fff; }
-  .hero .byline { margin: 22px 0 0; font-size: 16.5px; color: rgba(255, 255, 255, 0.9); display: flex; align-items: center; gap: 10px; }
-  .hero .byline::before { content: ""; width: 28px; height: 2px; background: var(--gold); flex: none; }
+<style>
+  canvas.art { display: block; width: 100%; height: 100%; }
 
-  /* donate card: CSS-only radio chips, submits as a GET to the donate page */
-  .give-card { background: #fff; color: var(--text); border-radius: 16px; padding: 28px 28px 24px; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35); }
-  .give-card h2 { font-size: 27px; line-height: 1.15; font-weight: 800; }
-  .give-card .lead { font-size: 17px; margin: 6px 0 20px; color: var(--muted); line-height: 1.45; }
-  .opt { position: relative; }
-  .opt input { position: absolute; opacity: 0; pointer-events: none; }
-  .seg { display: grid; grid-template-columns: 1fr 1fr; background: #eef2ec; border-radius: 10px; padding: 4px; margin-bottom: 14px; }
-  .seg label { text-align: center; padding: 11px 0; font-weight: 700; font-size: 16.5px; border-radius: 7px; cursor: pointer; color: var(--muted); }
-  .seg input:checked + label { background: var(--green); color: #fff; }
-  .chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
-  .chips label { text-align: center; padding: 14px 0; border: 2px solid var(--rule); border-radius: 10px; font-weight: 700; font-size: 18px; color: var(--ink); cursor: pointer; background: #fff; }
-  .chips label:hover { border-color: var(--green); }
-  .chips input:checked + label { border-color: var(--green); background: var(--sel); box-shadow: inset 0 0 0 1px var(--green); }
-  .seg input:focus-visible + label, .chips input:focus-visible + label { outline: 3px solid var(--gold); outline-offset: 2px; }
-  .give-card .hint { color: var(--ink); margin: 0 0 16px; min-height: 52px; display: flex; align-items: flex-start; gap: 10px; }
-  .give-card .hint::before { content: ""; width: 9px; height: 9px; margin-top: 9px; background: var(--gold); transform: rotate(45deg); flex: none; border-radius: 1px; }
-  .give-card .hint span { display: none; }
-  .give-card:has(#a25:checked) .h25, .give-card:has(#a50:checked) .h50, .give-card:has(#a100:checked) .h100, .give-card:has(#aother:checked) .hother { display: inline; }
-  .give-card .btn { width: 100%; font-size: 19px; padding: 20px 24px; }
-  .give-card .fine { font-size: 15.5px; text-align: center; margin: 14px 0 0; }
+  /* ---------- hero: the street before dawn ---------- */
+  .hero { position: relative; min-height: max(640px, min(100svh, 940px)); display: flex; flex-direction: column; background: linear-gradient(#0b0e22, #141a3a 40%, #232a55 75%, #12153a); color: #fff; overflow: hidden; }
+  .hero > canvas.art { position: absolute; inset: 0; }
+  .hero-body { position: relative; width: 100%; padding-top: clamp(40px, 9vh, 110px); padding-bottom: 300px; }
+  .when { font-family: var(--serif); font-style: italic; font-size: 20px; color: #c9cbe6; margin-bottom: 18px; }
+  .hero h1 { color: #fff; font-size: clamp(50px, 7.6vw, 112px); line-height: 1; letter-spacing: -0.02em; max-width: 9.5em; }
+  .hero h1 em { font-family: var(--serif); font-style: italic; color: #ffd27a; letter-spacing: -0.01em; }
+  .sub { margin-top: 26px; max-width: 30em; font-size: clamp(18px, 1.5vw, 21px); line-height: 1.55; color: #e3e4f3; }
+  .acts { display: flex; align-items: center; flex-wrap: wrap; gap: 18px 30px; margin-top: 36px; }
+  .acts .btn { min-width: 180px; border-radius: 999px; font-size: 18px; }
+  .quiet { display: inline-flex; align-items: center; gap: 10px; color: #fff; font-weight: 600; text-decoration: none; border-bottom: 1.5px solid rgba(255, 255, 255, 0.5); padding-bottom: 3px; }
+  .quiet:hover { border-color: #ffd27a; }
+  .quiet :global(svg), .need :global(svg), .more :global(svg) { width: 16px; height: 16px; flex: none; }
+  .need { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); width: min(1136px, calc(100% - 44px)); display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: #d6d8ec; text-decoration: none; font-size: 16.5px; }
+  .need b { color: #fff; font-weight: 600; }
+  .need span { display: inline-flex; align-items: center; gap: 8px; color: #ffd27a; font-weight: 600; }
+  .need:hover span { text-decoration: underline; text-underline-offset: 4px; }
 
-  /* stats */
-  .stats { background: var(--green); color: #fff; }
-  .stats .wrap { display: grid; grid-template-columns: repeat(4, 1fr); }
-  .stat { padding: 40px 28px 42px 0; }
-  .stat + .stat { padding-left: 32px; border-left: 1px solid rgba(255, 255, 255, 0.18); }
-  .stat b { display: block; font-family: var(--head); font-size: 58px; line-height: 1; letter-spacing: -0.03em; color: var(--gold); font-weight: 800; }
-  .stat span { display: block; margin-top: 10px; font-size: 17px; line-height: 1.4; color: #fff; max-width: 14em; }
+  /* ---------- intro ---------- */
+  .intro { padding: clamp(80px, 10vw, 140px) 0 clamp(64px, 8vw, 110px); }
+  .say { font-family: var(--head); color: var(--ink); font-size: clamp(32px, 4vw, 56px); line-height: 1.14; letter-spacing: -0.015em; max-width: 17em; text-wrap: balance; }
+  .figs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; margin: clamp(48px, 6vw, 80px) 0 0; padding-top: 34px; border-top: 1px solid var(--rule); }
+  .figs dt { font-family: var(--head); font-size: clamp(44px, 5vw, 68px); line-height: 1; color: var(--night); }
+  .figs dd { margin: 12px 0 0; max-width: 15em; color: var(--muted); font-size: 17px; }
+  .founders { margin-top: 44px; font-family: var(--serif); font-style: italic; font-size: clamp(20px, 1.8vw, 24px); color: var(--text); display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 20px; }
+  .founders .more { font-family: var(--body); font-style: normal; font-size: 17px; }
 
-  /* story */
-  .story { display: grid; grid-template-columns: 1fr 1.05fr; gap: 88px; align-items: center; }
-  .story figure { margin: 0; position: relative; }
-  .story figure img { width: 100%; height: auto; aspect-ratio: 4 / 4.6; object-fit: cover; border-radius: 14px; }
-  .story figure::after { content: ""; position: absolute; left: -16px; bottom: -16px; width: 38%; height: 38%; border-left: 5px solid var(--gold); border-bottom: 5px solid var(--gold); border-radius: 0 0 0 18px; z-index: -1; }
-  .story .lede { margin: 26px 0 20px; }
-  .story p { margin: 0 0 18px; max-width: 34em; }
-  .story p.kicker { margin-bottom: 18px; }
-  .story .more { margin-top: 10px; }
+  /* ---------- one Saturday ---------- */
+  .day { padding: 20px 0 clamp(80px, 9vw, 130px); }
+  .day-h { font-family: var(--serif); font-style: italic; font-size: clamp(26px, 2.6vw, 34px); color: var(--muted); margin-bottom: 40px; }
+  .moments { list-style: none; margin: 0; padding: 0; display: grid; gap: clamp(64px, 8vw, 120px); }
+  .moment { display: grid; grid-template-columns: 1.35fr 1fr; gap: clamp(32px, 5vw, 80px); align-items: center; }
+  .moment.flip figure { order: 2; }
+  .moment figure { margin: 0; aspect-ratio: 4 / 3; border-radius: 6px; overflow: hidden; background: #ddd; box-shadow: 0 30px 60px -30px rgba(18, 21, 58, 0.45); }
+  .time { font-family: var(--serif); font-style: italic; font-size: 20px; color: var(--lamp-deep); margin-bottom: 10px; }
+  .moment h3 { font-size: clamp(38px, 4vw, 56px); line-height: 1.04; color: var(--ink); }
+  .moment .lead { margin: 18px 0 14px; font-family: var(--serif); font-size: clamp(22px, 2vw, 27px); line-height: 1.3; color: var(--ink); }
+  .moment .txt > p:last-child { color: var(--text); max-width: 28em; }
 
-  /* how it works */
-  .how-head { display: flex; justify-content: space-between; align-items: end; gap: 40px; margin-bottom: 56px; }
-  .how-head p { max-width: 24em; color: var(--muted); }
-  .steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 36px; }
-  .step { border-top: 4px solid var(--green); padding-top: 22px; }
-  .step .n { font-family: var(--head); font-weight: 800; font-size: 76px; line-height: 0.9; letter-spacing: -0.04em; color: var(--gold); display: block; margin-bottom: 18px; }
-  .step h3 { font-size: 28px; margin-bottom: 10px; }
-  .step p { margin: 0; font-size: 17.5px; }
+  /* ---------- three hundred bowls ---------- */
+  .bowls { background: hsl(234, 34%, 12%); color: #e3e4f3; }
+  .bowls-in { display: grid; grid-template-columns: 1fr 1.25fr; gap: clamp(32px, 5vw, 72px); align-items: center; padding-block: clamp(72px, 8vw, 120px); }
+  .bowls h2 { color: #fff; font-size: clamp(36px, 4.2vw, 58px); line-height: 1.06; text-wrap: balance; }
+  .bowls-txt > p:first-of-type { margin-top: 22px; font-size: 19px; max-width: 26em; }
+  .give { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
+  .give .btn { border-radius: 999px; }
+  .chip { display: inline-flex; align-items: center; min-height: 54px; padding: 0 22px; border-radius: 999px; border: 1.5px solid rgba(255, 255, 255, 0.35); color: #fff; text-decoration: none; font-weight: 600; }
+  .chip:hover { border-color: #ffd27a; color: #ffd27a; }
+  .fine-d { margin-top: 18px; font-size: 15.5px; color: #a9acc9; }
+  .bowls-art { margin: 0; aspect-ratio: 5 / 4; }
 
-  .moments { display: grid; grid-template-columns: 1.25fr 1fr; gap: 24px; margin-top: 72px; }
-  .moment { position: relative; margin: 0; border-radius: 14px; overflow: hidden; min-height: 400px; background: #111; }
-  .moment picture { position: absolute; inset: 0; }
-  .moment img { width: 100%; height: 100%; object-fit: cover; }
-  .moment::after { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, rgba(10, 24, 16, 0.88) 0, rgba(10, 24, 16, 0.4) 40%, rgba(10, 24, 16, 0) 70%); }
-  .moment figcaption { position: absolute; z-index: 2; left: 28px; right: 28px; bottom: 26px; color: #fff; font-size: 17px; line-height: 1.45; }
-  .moment figcaption b { display: block; font-family: var(--head); font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 4px; }
+  /* ---------- quote under a toran ---------- */
+  .quote { position: relative; padding-top: 130px; }
+  .toran { position: absolute; top: 0; left: 0; height: 96px; }
+  .quote p b { color: var(--ink); }
 
-  /* come to the table */
-  .table { background: var(--tint); }
-  .table h2.big { max-width: 12em; margin-bottom: 52px; }
-  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
-  .card { background: #fff; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; border: 1px solid var(--rule); }
-  .card picture { display: block; flex: none; }
-  .card img { width: 100%; height: 250px; object-fit: cover; }
-  .card .in { padding: 30px 30px 34px; display: flex; flex-direction: column; flex: 1; }
-  .card h3 { font-size: 32px; margin-bottom: 12px; }
-  .card p { margin: 0 0 26px; font-size: 17.5px; }
-  .card .more, .card .btn { margin-top: auto; align-self: flex-start; }
-  .card.give { background: var(--green); border-color: var(--green); color: #fff; }
-  .card.give .in { padding-top: 34px; }
-  .card.give h3 { color: #fff; }
-  .card.give p { color: #e8efe8; }
-  .card.give .ten { display: flex; align-items: baseline; gap: 14px; margin: 0 0 18px; }
-  .card.give .ten b { font-family: var(--head); font-size: 96px; line-height: 0.9; font-weight: 800; letter-spacing: -0.04em; color: var(--gold); }
-  .card.give .ten span { font-size: 19px; line-height: 1.3; color: #fff; font-weight: 600; max-width: 6em; }
-  .card.give .mini { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 0 24px; }
-  .card.give .mini span { border: 2px solid rgba(255, 255, 255, 0.35); border-radius: 10px; padding: 12px 0; text-align: center; font-weight: 700; font-size: 18px; color: #fff; }
-  .card.give .mini span.on { border-color: var(--gold); background: rgba(232, 163, 23, 0.16); }
-  .goodtoknow { margin: 56px 0 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
-  .goodtoknow div { border-top: 2px solid var(--green); padding-top: 16px; font-size: 17px; line-height: 1.55; color: var(--text); }
-  .goodtoknow b { display: block; color: var(--ink); font-family: var(--head); font-size: 20px; margin-bottom: 4px; }
-  .goodtoknow a { color: var(--green); font-weight: 600; text-underline-offset: 3px; }
+  /* ---------- come to the table ---------- */
+  .ways { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 44px; border-top: 1px solid var(--ink); }
+  .ways article { padding: 30px 32px 34px 0; display: flex; flex-direction: column; gap: 12px; }
+  .ways article + article { padding-left: 32px; border-left: 1px solid var(--rule); }
+  .ways .time { margin: 0; font-size: 19px; }
+  .ways h3 { font-size: clamp(28px, 2.6vw, 36px); line-height: 1.1; }
+  .ways p:not(.time) { color: var(--text); flex: 1; }
+  .ways .more { align-self: flex-start; margin-top: 8px; }
+  .know { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; margin-top: 56px; padding: 28px 32px; background: var(--tint); border-radius: 8px; font-size: 16px; color: var(--muted); }
+  .know b { color: var(--ink); }
+  .know a { color: var(--night); font-weight: 600; }
 
-  /* contact */
-  .contact { display: grid; grid-template-columns: 1fr 1fr; gap: 88px; align-items: start; }
-  .contact .mail { display: inline-block; font-family: var(--head); font-weight: 700; font-size: clamp(21px, 2.5vw, 32px); letter-spacing: -0.01em; color: var(--green); text-decoration: none; border-bottom: 3px solid var(--gold); margin: 26px 0 28px; padding-bottom: 4px; overflow-wrap: anywhere; }
-  .contact .pills { display: flex; gap: 12px; flex-wrap: wrap; }
-  .team { background: var(--green); color: #fff; border-radius: 16px; padding: 40px; }
-  .team h3 { color: #fff; font-size: 32px; margin-bottom: 12px; }
-  .team p { margin: 0 0 28px; color: #e8efe8; }
-
-  @media (max-width: 1080px) {
-    .hero-body { grid-template-columns: 1fr; gap: 40px; }
-    .give-card { max-width: 520px; }
-    .stats .wrap { grid-template-columns: repeat(2, 1fr); }
-    .stat:nth-child(3) { padding-left: 0; border-left: 0; }
-    .stat:nth-child(n+3) { border-top: 1px solid rgba(255, 255, 255, 0.18); }
-    .steps { grid-template-columns: repeat(2, 1fr); }
-    .cards { grid-template-columns: 1fr; }
-    .card { flex-direction: row; }
-    .card picture { width: 40%; }
-    .card img { height: 100%; }
+  @media (max-width: 900px) {
+    .moment, .moment.flip { grid-template-columns: 1fr; gap: 26px; }
+    .moment.flip figure { order: 0; }
+    .bowls-in { grid-template-columns: 1fr; }
+    .bowls-art { aspect-ratio: 3 / 4; max-height: 640px; }
+    .ways, .know { grid-template-columns: 1fr; }
+    .ways article, .ways article + article { padding: 26px 0; border-left: 0; border-bottom: 1px solid var(--rule); }
+    .figs { grid-template-columns: 1fr; gap: 26px; }
+    .figs div { display: grid; grid-template-columns: 120px 1fr; align-items: baseline; gap: 16px; }
+    .figs dd { margin: 0; }
   }
   @media (max-width: 760px) {
-    .hero { min-height: 0; }
-    .hero::before { background:
-      linear-gradient(180deg, rgba(10, 24, 16, 0.66) 0, rgba(10, 24, 16, 0.1) 18%),
-      linear-gradient(0deg, rgba(10, 24, 16, 0.95) 0, rgba(10, 24, 16, 0.78) 45%, rgba(10, 24, 16, 0.2) 80%); }
-    .hero .hero-pic img { object-position: 38% 20% !important; }
-    .hero-body { padding: 110px 22px 32px; gap: 32px; }
-    .hero h1 { font-size: 46px; }
-    .hero .sub { font-size: 19px; }
-    .hero .byline { font-size: 15.5px; }
-    .give-card { padding: 24px 20px 20px; max-width: none; }
-    .stats .wrap { grid-template-columns: 1fr; padding-top: 12px; padding-bottom: 12px; }
-    .stat, .stat + .stat, .stat:nth-child(3) { padding: 20px 0; border-left: 0; display: flex; align-items: baseline; gap: 18px; }
-    .stat:nth-child(n+2) { border-top: 1px solid rgba(255, 255, 255, 0.18); }
-    .stat b { font-size: 40px; flex: none; min-width: 3.4em; }
-    .stat span { font-size: 17px; margin: 0; }
-    .story { grid-template-columns: 1fr; gap: 44px; }
-    .story figure::after { display: none; }
-    .how-head { display: block; margin-bottom: 36px; }
-    .how-head p { margin-top: 16px; }
-    .steps { grid-template-columns: 1fr; gap: 30px; }
-    .step { display: grid; grid-template-columns: 74px 1fr; column-gap: 12px; padding-top: 18px; }
-    .step .n { grid-row: span 2; font-size: 62px; margin: 0; }
-    .step h3 { font-size: 26px; margin-bottom: 6px; }
-    .moments { grid-template-columns: 1fr; margin-top: 48px; }
-    .moment { min-height: 320px; }
-    .card { flex-direction: column; }
-    .card picture { width: 100%; }
-    .card img { width: 100%; height: 220px; }
-    .goodtoknow { grid-template-columns: 1fr; gap: 22px; }
-    .contact { grid-template-columns: 1fr; gap: 44px; }
-    .team { padding: 30px 24px; }
+    .hero { min-height: 780px; }
+    .hero-body { padding-top: 34px; padding-bottom: 290px; }
+    .when { font-size: 18px; }
+    .need { font-size: 15.5px; bottom: 16px; }
+    .acts .btn { width: 100%; }
+    .quote { padding-top: 110px; }
+    .know { padding: 22px; gap: 18px; }
   }
 </style>

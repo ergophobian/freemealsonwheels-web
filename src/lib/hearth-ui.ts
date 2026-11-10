@@ -75,4 +75,4 @@ export const ROLE_ICONS: Record<RoleId, string> = {
 };
 
 /** The round marigold tick shown on the sign-up and meal-request confirmations. */
-export const TICK_SVG = '<svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="24" cy="24" r="22" fill="#e8a317"/><path d="M14 25l7 7 14-16" stroke="#132a1d" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+export const TICK_SVG = '<svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="24" cy="24" r="22" fill="#f2b141"/><path d="M14 25l7 7 14-16" stroke="#12153a" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';

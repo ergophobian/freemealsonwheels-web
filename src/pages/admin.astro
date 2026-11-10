@@ -91,23 +91,23 @@ import HearthLayout from '../layouts/HearthLayout.astro';
   .wrap.ad { padding-top: 48px; padding-bottom: 88px; }
   .ad-bar { display: flex; gap: 20px 28px; align-items: end; flex-wrap: wrap; padding-bottom: 26px; }
   .ad-bar .field select { min-width: 270px; }
-  .ad-seg { display: inline-grid; grid-auto-flow: column; background: #eef2ec; border-radius: 10px; padding: 4px; }
+  .ad-seg { display: inline-grid; grid-auto-flow: column; background: #f0f0f6; border-radius: 10px; padding: 4px; }
   .ad-seg button { border: 0; background: none; padding: 11px 24px; min-height: 46px; border-radius: 7px; cursor: pointer; font-weight: 700; font-size: 16.5px; color: var(--muted); }
-  .ad-seg button[aria-checked=true] { background: var(--green); color: #fff; }
+  .ad-seg button[aria-checked=true] { background: var(--night); color: #fff; }
   .ad-btns { display: flex; gap: 10px; flex-wrap: wrap; margin-left: auto; }
-  .ad-totals { display: grid; grid-template-columns: repeat(4, 1fr); margin: 0; background: var(--green); border-radius: 16px; padding: 8px 32px; }
+  .ad-totals { display: grid; grid-template-columns: repeat(4, 1fr); margin: 0; background: var(--night); border-radius: 16px; padding: 8px 32px; }
   .ad-totals > div { padding: 22px 0; display: grid; gap: 4px; align-content: start; }
   .ad-totals > div + div { padding-left: 28px; border-left: 1px solid rgba(255, 255, 255, 0.18); }
-  .ad-totals dt { font-family: var(--head); font-size: 46px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; color: var(--gold); }
+  .ad-totals dt { font-family: var(--head); font-size: 46px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; color: var(--lamp); }
   .ad-totals dd { margin: 0; color: #fff; font-size: 17px; }
   .ad-roles { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 28px; }
-  .ad-role { background: #fff; border: 1px solid var(--rule); border-top: 5px solid var(--green); border-radius: 6px 6px 16px 16px; padding: 24px; }
+  .ad-role { background: #fff; border: 1px solid var(--rule); border-top: 5px solid var(--night); border-radius: 6px 6px 16px 16px; padding: 24px; }
   .ad-role header { display: grid; grid-template-columns: 52px 1fr auto; gap: 14px; align-items: center; margin-bottom: 16px; }
   .ad-role .vf-ico.sm { margin: 0; }
   .ad-role h3 { font-size: 25px; font-weight: 800; }
   .ad-role header p { color: var(--muted); font-size: 16.5px; }
   .ad-count { font-family: var(--head); font-size: 20px; font-weight: 700; color: var(--muted); }
-  .ad-count b { font-size: 36px; font-weight: 800; color: var(--green); }
+  .ad-count b { font-size: 36px; font-weight: 800; color: var(--night); }
   .ad-count.full b { color: var(--muted); }
   .ad-role ul { list-style: none; margin: 14px 0 0; padding: 0; }
   .ad-role li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--rule); }
@@ -116,13 +116,13 @@ import HearthLayout from '../layouts/HearthLayout.astro';
   .ad-who i { font-style: normal; color: var(--muted); }
   .ad-who small { color: var(--muted); font-size: 15.5px; word-break: break-word; }
   .ad-who .badge { justify-self: start; margin: 3px 0; }
-  .ad-x { background: none; border: 0; color: var(--muted); font-size: 16px; cursor: pointer; text-decoration: underline; text-decoration-color: var(--gold); text-decoration-thickness: 2px; text-underline-offset: 4px; padding: 6px 2px; flex: none; }
-  .ad-x:hover { color: var(--green); }
+  .ad-x { background: none; border: 0; color: var(--muted); font-size: 16px; cursor: pointer; text-decoration: underline; text-decoration-color: var(--lamp); text-decoration-thickness: 2px; text-underline-offset: 4px; padding: 6px 2px; flex: none; }
+  .ad-x:hover { color: var(--night); }
   .ad-role h4 { font-size: 20px; margin-top: 20px; }
   .ad-none { color: var(--muted); margin-top: 14px; font-size: 16.5px; }
   .ad-h { font-size: clamp(28px, 3vw, 38px); font-weight: 800; letter-spacing: -0.03em; margin: 60px 0 6px; }
   .ad-sub { margin-bottom: 14px; }
-  .ad-meals { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--green); }
+  .ad-meals { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--night); }
   .ad-meals li { display: grid; grid-template-columns: 240px 1fr 1fr; gap: 6px 24px; padding: 18px 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
   .ad-meals li > div { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .ad-meals li b { color: var(--ink); }
