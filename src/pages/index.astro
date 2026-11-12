@@ -1,7 +1,8 @@
 ---
 // Home page, "One Saturday": the page is a single Saturday told in still paintings made with canvas (src/lib/art).
 // A sleeping street with one kitchen light, the pot, the packing table, the route, the shared table, three hundred
-// bowls with one of them lit, and, in the footer, the same street at dusk with every window on. Nothing moves.
+// bowls with one of them lit, and, in the footer, the same street at dusk with every window on. The paintings are still; text rises in as you scroll
+// and the lamps, stars and kitchen steam breathe a little (CSS only, off under reduced motion).
 import HearthLayout from '../layouts/HearthLayout.astro';
 import SiteNav from '../components/SiteNav.astro';
 const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
@@ -32,24 +33,24 @@ const day = [
 
   <section class="intro">
     <div class="wrap">
-      <p class="say">No forms, no questions. Just a fresh, hot meal, handed over at the door by a neighbor.</p>
-      <dl class="figs">
+      <p class="say" data-rv>No forms, no questions. Just a fresh, hot meal, handed over at the door by a neighbor.</p>
+      <dl class="figs" data-rv>
         <div><dt>400+</dt><dd>volunteers who give up a Saturday morning</dd></div>
         <div><dt>300+</dt><dd>meals cooked and delivered every week</dd></div>
         <div><dt>100%</dt><dd>of every donation goes to food</dd></div>
       </dl>
-      <p class="founders">Started by Japjot Sethi and Devinder Kumar, because no neighbor should go to bed hungry. <a class="more" href={`${B}about`}>Our story <Fragment set:html={arrow} /></a></p>
+      <p class="founders" data-rv>Started by Japjot Sethi and Devinder Kumar, because no neighbor should go to bed hungry. <a class="more" href={`${B}about`}>Our story <Fragment set:html={arrow} /></a></p>
     </div>
   </section>
 
   <section class="day" aria-labelledby="day-h">
     <div class="wrap">
-      <h2 id="day-h" class="day-h">One Saturday</h2>
+      <h2 id="day-h" class="day-h" data-rv>One Saturday</h2>
       <ol class="moments">
         {day.map((m, i) => (
           <li class:list={['moment', { flip: i % 2 === 1 }]}>
-            <figure><canvas class="art" data-art={m.art} data-seed={m.seed} role="img" aria-label={m.alt}></canvas></figure>
-            <div class="txt">
+            <figure data-rv><canvas class="art" data-art={m.art} data-seed={m.seed} role="img" aria-label={m.alt}></canvas></figure>
+            <div class="txt" data-rv style="--rd:.15s">
               <p class="time">{m.time}</p>
               <h3>{m.h}</h3>
               <p class="lead">{m.lead}</p>
@@ -63,7 +64,7 @@ const day = [
 
   <section class="bowls" aria-labelledby="bowls-h">
     <div class="wrap bowls-in">
-      <div class="bowls-txt">
+      <div class="bowls-txt" data-rv>
         <h2 id="bowls-h">Three hundred meals. Each one is someone.</h2>
         <p>Every bowl here is one meal we will hand over this Saturday. Ten dollars fills one. The one that is lit could be yours.</p>
         <div class="give">
@@ -74,22 +75,22 @@ const day = [
         </div>
         <p class="fine-d">Tax-deductible. Every penny goes to food.</p>
       </div>
-      <figure class="bowls-art"><canvas class="art" data-art="meals" data-seed="300" role="img" aria-label="Three hundred small bowls of food on a dark ground, painted one by one. One bowl glows."></canvas></figure>
+      <figure class="bowls-art" data-rv style="--rd:.15s"><canvas class="art" data-art="meals" data-seed="300" role="img" aria-label="Three hundred small bowls of food on a dark ground, painted one by one. One bowl glows."></canvas></figure>
     </div>
   </section>
 
   <section class="quote">
     <canvas class="art toran" data-art="toran" data-seed="9" aria-hidden="true"></canvas>
     <div class="wrap">
-      <blockquote>&ldquo;A fresh, hot, and nutritious meal is not just satiating, but more importantly, enabling and liberating.&rdquo;</blockquote>
+      <blockquote data-rv>&ldquo;A fresh, hot, and nutritious meal is not just satiating, but more importantly, enabling and liberating.&rdquo;</blockquote>
       <p><b>Japjot Sethi and Devinder Kumar</b>, founders</p>
     </div>
   </section>
 
   <section class="sec table" aria-labelledby="table-h">
     <div class="wrap">
-      <h2 id="table-h" class="big">Come to the table</h2>
-      <div class="ways">
+      <h2 id="table-h" class="big" data-rv>Come to the table</h2>
+      <div class="ways" data-rv>
         <article>
           <p class="time">Volunteer</p>
           <h3>Give a Saturday morning</h3>
@@ -109,7 +110,7 @@ const day = [
           <a class="more" href={`${B}donate`}>Give a meal <Fragment set:html={arrow} /></a>
         </article>
       </div>
-      <div class="know">
+      <div class="know" data-rv>
         <p><b>First time?</b> Wear closed-toe shoes, tie back long hair and arrive ten minutes early.</p>
         <p><b>A group of 7 or more?</b> <a href={`${MAIL}?subject=Group%20volunteering`}>Email us</a> and we will set aside a kitchen for your team.</p>
         <p><b>Can&rsquo;t get out?</b> Dial 211 for food, housing and health services near you.</p>

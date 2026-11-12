@@ -16,6 +16,7 @@ const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   <title>{fullTitle ? title : `${title} · Free Meals on Wheels`}</title>
   <meta name="description" content={description} />
   <link rel="icon" href={`${B}logo.png`} />
+  <script is:inline>if (!matchMedia('(prefers-reduced-motion: reduce)').matches) document.documentElement.classList.add('fx-on');</script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400;1,6..72,500&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -26,8 +27,9 @@ const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   <main id="main"><slot /></main>
   <SiteFooter />
   <script>
-    import { paintAll } from '../lib/art';
+    import { paintAll, reveal } from '../lib/art';
     paintAll();
+    reveal();
   </script>
 </body>
 </html>
@@ -241,6 +243,32 @@ const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     .fgrid { grid-template-columns: 1fr 1fr; gap: 40px 24px; }
     .fgrid > div:first-child { grid-column: 1 / -1; }
     .fwrap { padding-top: 32px; }
+  }
+  /* ---------- the little motion there is: text rises in, paintings settle, lamps breathe ---------- */
+  .fx { position: absolute; pointer-events: none; overflow: hidden; }
+  .fx i { position: absolute; border-radius: 50%; margin: 0; translate: -50% -50%; opacity: 0; }
+  @media (prefers-reduced-motion: no-preference) {
+    .fx-on canvas.art { opacity: 0; transition: opacity 1.4s ease; }
+    .fx-on canvas.art.done { opacity: 1; }
+    .fx-on [data-rv] { opacity: 0; transform: translateY(24px); transition: opacity 0.9s ease var(--rd, 0s), transform 1s cubic-bezier(0.2, 0.7, 0.2, 1) var(--rd, 0s); }
+    .fx-on [data-rv].in { opacity: 1; transform: none; }
+    .fx-on figure[data-rv] > canvas.art { transform: scale(1.07); transition: opacity 1.4s ease, transform 2.2s cubic-bezier(0.2, 0.7, 0.2, 1); }
+    .fx-on figure[data-rv].in > canvas.art { transform: none; }
+    .fx-on .ph .wrap > *, .fx-on .hero-body > * { animation: fx-rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+    .fx-on .ph .wrap > :nth-child(2), .fx-on .hero-body > :nth-child(2) { animation-delay: 0.1s; }
+    .fx-on .ph .wrap > :nth-child(3), .fx-on .hero-body > :nth-child(3) { animation-delay: 0.22s; }
+    .fx-on .ph .wrap > :nth-child(n+4), .fx-on .hero-body > :nth-child(n+4) { animation-delay: 0.34s; }
+    .fx .star { background: #fff; box-shadow: 0 0 6px 1px rgba(255, 255, 255, 0.75); animation: fx-twinkle var(--d) ease-in-out var(--o) infinite; }
+    .fx .lamp { background: radial-gradient(closest-side, rgba(255, 200, 100, 0.5), rgba(255, 184, 76, 0.18) 55%, rgba(255, 184, 76, 0)); mix-blend-mode: screen; animation: fx-breathe var(--d) ease-in-out var(--o) infinite; }
+    .fx .steam { background: radial-gradient(closest-side, rgba(255, 238, 212, 0.34), rgba(255, 238, 212, 0)); filter: blur(5px); animation: fx-steam var(--d) linear var(--o) infinite; }
+    .btn, .nav .give, .chip, .pill, .choice { transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease; }
+    .btn.gold:hover, .nav .give:hover { transform: translateY(-1px); box-shadow: 0 10px 24px -10px rgba(242, 177, 65, 0.7); }
+    .more svg, .quiet svg, .need svg { transition: transform 0.2s ease; }
+    .more:hover svg, .quiet:hover svg, .need:hover svg { transform: translateX(4px); }
+    @keyframes fx-rise { from { opacity: 0; transform: translateY(18px); } }
+    @keyframes fx-twinkle { 0%, 100% { opacity: 0; } 50% { opacity: 0.95; } }
+    @keyframes fx-breathe { 0%, 100% { opacity: 0.15; scale: 0.9; } 50% { opacity: 0.95; scale: 1.08; } }
+    @keyframes fx-steam { 0% { opacity: 0; transform: translate(0, 0) scale(0.5); } 18% { opacity: 0.8; } 100% { opacity: 0; transform: translate(var(--x), var(--h)) scale(2.1); } }
   }
   @media (prefers-reduced-motion: reduce) {
     @view-transition { navigation: none; }

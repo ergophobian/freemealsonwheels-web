@@ -1,5 +1,5 @@
 // Still, generative paintings for the site. Every <canvas data-art="..."> is painted once from a fixed seed with
-// thousands of short brush dabs, so the art is identical on every visit and nothing ever moves. It is only repainted
+// thousands of short brush dabs, so the art is identical on every visit and the painting itself never moves. It is only repainted
 // when the canvas changes width. The site tells one Saturday: a sleeping street with one kitchen light before dawn,
 // the pot, the packing table, the delivery route, the shared table, and the same street at dusk with every window lit.
 
@@ -7,6 +7,12 @@ type C = CanvasRenderingContext2D;
 type R = () => number;
 type HSL = [number, number, number];
 interface P { ctx: C; w: number; h: number; r: R }
+
+// The few places where the finished painting is allowed to breathe: stars, lamps, lit windows and kitchen steam.
+// Painters note them here (in canvas px) and paintAll lays a small CSS-only layer over the canvas. The painting itself
+// is never redrawn. Nothing is added when the visitor prefers reduced motion.
+interface Spot { k: 'star' | 'lamp' | 'win' | 'steam'; x: number; y: number; s: number }
+let spots: Spot[] = [];
 
 export const rng = (seed: number): R => () => {
   seed = (seed + 0x6d2b79f5) | 0;
@@ -121,7 +127,9 @@ function street(p: P, o: Street) {
     const n = Math.round((w * y0) / 2600);
     for (let i = 0; i < n; i++) {
       const y = Math.pow(r(), 1.6) * (y0 - 160 * u);
-      disc(c, r() * w, y, rr(r, 0.5, 1.35), hsl(220, 40, 92, rr(r, 0.25, 0.9)));
+      const sx = r() * w;
+      disc(c, sx, y, rr(r, 0.5, 1.35), hsl(220, 40, 92, rr(r, 0.25, 0.9)));
+      if (i % 7 === 0 && spots.length < 60) spots.push({ k: 'star', x: sx, y, s: 2 + (i % 3) * 0.6 });
     }
   }
   if (o.moon) {
@@ -239,6 +247,7 @@ function street(p: P, o: Street) {
           }
         }
         lights.push([bwx + bww / 2, bwy + bwh / 2, 4.2], [kx + kw - 32 * u, y0 - 13 * u, 1.6]);
+        spots.push({ k: 'lamp', x: bwx + bww / 2, y: bwy + bwh / 2, s: 150 * u }, { k: 'steam', x: vx, y: vy, s: u });
         x = kx + kw + rr(r, 6, 16) * u;
         kitchenX = -1;
         continue;
@@ -256,6 +265,7 @@ function street(p: P, o: Street) {
   // light: every lit window blooms a little, the kitchen most of all, and spills onto the street
   c.globalCompositeOperation = 'lighter';
   for (const [x, y, k] of lights) glow(c, x, y, 16 * u * k, 'hsla(38,90%,60%,A)', 0.13 + k * 0.03);
+  if (o.kitchen === undefined) lights.forEach(([x, y], i) => { if (i % (o.lit > 0.5 ? 9 : 4) === 2) spots.push({ k: 'win', x, y, s: 30 * u }); });
   c.globalCompositeOperation = 'source-over';
   if (o.kitchen !== undefined) {
     const kx = o.kitchen * w;
@@ -503,7 +513,7 @@ function table(p: P) {
   c.globalCompositeOperation = 'lighter';
   for (const [x, y] of lamps) glow(c, x, y, 70, 'hsla(38,95%,58%,A)', 0.45);
   c.globalCompositeOperation = 'source-over';
-  for (const [x, y] of lamps) { disc(c, x, y - 2, 3.4, hsl(46, 100, 82)); disc(c, x, y - 1, 1.6, '#fff'); }
+  for (const [x, y] of lamps) { disc(c, x, y - 2, 3.4, hsl(46, 100, 82)); disc(c, x, y - 1, 1.6, '#fff'); spots.push({ k: 'lamp', x, y: y - 2, s: 46 }); }
 }
 
 // Three hundred bowls, one for each meal handed over this Saturday. One of them is lit.
@@ -521,6 +531,7 @@ function meals(p: P) {
     if (k === lit) {
       c.globalCompositeOperation = 'lighter';
       glow(c, x, y, cell * 1.6, 'hsla(40,95%,58%,A)', 0.5);
+      spots.push({ k: 'lamp', x, y, s: cell * 3.4 });
       c.globalCompositeOperation = 'source-over';
     }
     ring(p, x, y, R * 0.8, R, k === lit ? [42, 90, 62] : [222, 10, 48], k === lit ? 14 : 18, 0.8);
@@ -556,6 +567,44 @@ function toran(p: P) {
   }
 }
 
+// Lay the breathing layer over a finished canvas: plain elements, moved only by CSS (see HearthLayout).
+function breathe(cv: HTMLCanvasElement, w: number, h: number) {
+  if (cv.nextElementSibling?.classList.contains('fx')) cv.nextElementSibling.remove();
+  if (!spots.length || !document.documentElement.classList.contains('fx-on')) return;
+  const par = cv.parentElement!;
+  if (getComputedStyle(par).position === 'static') par.style.position = 'relative';
+  const box = document.createElement('div');
+  box.className = 'fx';
+  box.setAttribute('aria-hidden', 'true');
+  box.style.cssText = `left:${cv.offsetLeft}px;top:${cv.offsetTop}px;width:${cv.offsetWidth}px;height:${cv.offsetHeight}px`;
+  const q = rng(spots.length * 13 + 5);
+  const add = (cls: string, x: number, y: number, size: number, dur: number, extra = '') => {
+    const i = document.createElement('i');
+    i.className = cls;
+    i.style.cssText = `left:${((x / w) * 100).toFixed(2)}%;top:${((y / h) * 100).toFixed(2)}%;width:${size.toFixed(1)}px;height:${size.toFixed(1)}px;--d:${dur.toFixed(2)}s;--o:-${(q() * dur).toFixed(2)}s;${extra}`;
+    box.appendChild(i);
+  };
+  for (const s of spots) {
+    if (s.k === 'star') add('star', s.x, s.y, s.s, 3.5 + q() * 5);
+    else if (s.k === 'lamp') add('lamp', s.x, s.y, s.s, 4.5 + q() * 2.5);
+    else if (s.k === 'win') add('lamp win', s.x, s.y, s.s, 5 + q() * 6);
+    else for (let k = 0; k < 4; k++) add('steam', s.x + (k - 1.5) * 5 * s.s, s.y, 46 * s.s, 9, `--o:-${(k * 2.25).toFixed(2)}s;--h:${(-150 * s.s).toFixed(0)}px;--x:${((k % 2 ? 1 : -1) * (14 + k * 5) * s.s).toFixed(0)}px`);
+  }
+  cv.after(box);
+}
+
+// Text and pictures rise into place the first time they scroll into view. Marked up with data-rv; without the
+// fx-on class (reduced motion, or no script) everything is simply visible.
+export function reveal() {
+  const els = [...document.querySelectorAll<HTMLElement>('[data-rv]')];
+  if (!els.length) return;
+  if (!('IntersectionObserver' in window) || !document.documentElement.classList.contains('fx-on')) { els.forEach((e) => e.classList.add('in')); return; }
+  const io = new IntersectionObserver((list) => {
+    for (const e of list) if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+  }, { rootMargin: '0px 0px -8% 0px', threshold: 0.12 });
+  els.forEach((e) => io.observe(e));
+}
+
 const painters: Record<string, (p: P) => void> = { night, dawn, dusk, pot, tiffins, route, table, meals, toran };
 
 export function paintAll() {
@@ -582,8 +631,10 @@ export function paintAll() {
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.lineCap = 'round';
+    spots = [];
     painters[cv.dataset.art ?? '']?.({ ctx, w: b.width, h: b.height, r: rng(Number(cv.dataset.seed ?? 7)) });
     cv.classList.add('done');
+    breathe(cv, b.width, b.height);
   };
   // what is on screen first, the rest straight after
   const onScreen = list.filter((cv) => cv.getBoundingClientRect().top < window.innerHeight);
