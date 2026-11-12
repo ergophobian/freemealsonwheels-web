@@ -1,34 +1,35 @@
 ---
-// Home page, "One Saturday": the page is a single Saturday told in still paintings made with canvas (src/lib/art).
-// A sleeping street with one kitchen light, the pot, the packing table, the route, the shared table, three hundred
-// bowls with one of them lit, and, in the footer, the same street at dusk with every window on. The paintings are still; text rises in as you scroll
-// and the lamps, stars and kitchen steam breathe a little (CSS only, off under reduced motion).
+// Home page. The site is about one moment: a warm meal passing from one pair of hands to another. The art is a set of
+// still paintings (public/art, webp) of hands cooking, packing, carrying, sharing and giving. Text rises in as you
+// scroll and the lamplight breathes a little (CSS only, off under reduced motion).
 import HearthLayout from '../layouts/HearthLayout.astro';
 import SiteNav from '../components/SiteNav.astro';
 const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const MAIL = 'mailto:info@freemealsonwheels.com';
 const arrow = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4"/></svg>';
+const img = (n: string) => ({ src: `${B}art/${n}-1672.webp`, srcset: `${B}art/${n}-900.webp 900w, ${B}art/${n}-1672.webp 1672w` });
 const day = [
-  { art: 'pot', seed: 11, time: '6:00 in the morning', h: 'We cook', lead: 'Before the city wakes, the first pot goes up.', p: 'Volunteers cook fresh meals together in our San Jose and San Ramon kitchens, the same morning they are delivered. Never frozen, never days old.', alt: 'Painting of a steel pot of golden dal seen from above, with a ladle resting in it and steam rising.' },
-  { art: 'tiffins', seed: 23, time: '9:30', h: 'We pack', lead: 'Every meal is packed by hand.', p: 'Each one is checked and sealed while it is still hot, then lined up by the door for the drivers.', alt: 'Painting of rows of round steel containers on a table, some filled with rice and curry, some closed and labeled.' },
-  { art: 'route', seed: 5, time: '11:00 to 1:00', h: 'We deliver', lead: 'Someone is already waiting.', p: 'Meals are carried to neighbors across both cities and handed over at the door, still warm. No forms, and no one asking why.', alt: 'Painting of a street map with a golden route running from the kitchen to a dozen front doors.' },
-  { art: 'table', seed: 31, time: 'Evening', h: 'We share', lead: 'By night, there are more people at the table than there were at dawn.', p: 'At Thanksgiving everyone gets a seat. When it turns cold we pair a hot meal with a warm blanket. A good meal is better shared.', alt: 'Painting of a long table from above, steel plates with rice, roti and small bowls, marigolds and clay lamps along an indigo runner.' },
+  { art: 'cook', time: '6:00 in the morning', h: 'We cook', lead: 'Before the city wakes, the first pot goes up.', p: 'Volunteers cook fresh meals together in our San Jose and San Ramon kitchens, the same morning they are delivered. Never frozen, never days old.', alt: 'Painting of hands stirring a large steel pot of golden dal while another hand drops in fresh herbs.' },
+  { art: 'pack', time: '9:30', h: 'We pack', lead: 'Every meal is packed by hand.', p: 'Each one is checked and sealed while it is still hot, then lined up by the door for the drivers. Children help too.', alt: 'Painting of many hands, young and old, filling steel containers with rice and curry and pressing on the lids.' },
+  { art: 'deliver', time: '11:00 to 1:00', h: 'We deliver', lead: 'Someone is already waiting at the door.', p: 'Meals are carried to neighbors across both cities and handed over at the door, still warm. No forms, and no one asking why.', alt: 'Painting of a volunteer carrying a stack of warm meals up a garden path toward a door that is opening.' },
+  { art: 'table', time: 'Evening', h: 'We share', lead: 'By night, there are more people at the table than there were at dawn.', p: 'At Thanksgiving everyone gets a seat. When it turns cold we pair a hot meal with a warm blanket. A good meal is better shared.', alt: 'Painting of a long table from above, many hands passing plates of rice and flatbread among marigolds and small lamps.' },
 ];
 ---
 <HearthLayout title="Free Meals on Wheels: dignity starts with a full belly" fullTitle bare>
   <section class="hero" id="top">
-    <canvas class="art" data-art="night" data-seed="7" role="img" aria-label="A painting of a sleeping neighborhood before dawn. Every window is dark except one: a community kitchen, lit, with steam rising from its roof."></canvas>
+    <img class="hero-img" {...img('hero')} sizes="100vw" width="1672" height="941" fetchpriority="high" alt="A painting of a doorway at dusk. A volunteer's hands hold out a warm covered bowl, and an older neighbor's hands reach from the lit doorway to take it." />
+    <span class="glow" aria-hidden="true"></span>
     <SiteNav overlay />
     <div class="wrap hero-body">
-      <p class="when">Saturday, a little before six. San Jose.</p>
-      <h1>Dignity starts with <em>a full belly.</em></h1>
-      <p class="sub">Before the city wakes, one kitchen light comes on. By lunch, three hundred neighbors have a fresh, hot meal, cooked that morning and handed over at the door.</p>
+      <p class="when">Every Saturday, at someone&rsquo;s door.</p>
+      <h1>Dignity starts<br />with <em>a full belly.</em></h1>
+      <p class="sub">A fresh, hot meal, cooked that morning and placed in a neighbor&rsquo;s hands. Three hundred times, every week.</p>
       <div class="acts">
         <a class="btn gold" href={`${B}donate`}>Give a meal</a>
         <a class="quiet" href={`${B}volunteer`}>Volunteer on a Saturday <Fragment set:html={arrow} /></a>
       </div>
+      <a class="need" href={`${B}get-a-meal`}><b>Need a meal?</b> It&rsquo;s free, and no one will ask why. <span>Request one <Fragment set:html={arrow} /></span></a>
     </div>
-    <a class="need" href={`${B}get-a-meal`}><b>Need a meal?</b> It&rsquo;s free, and no one will ask why. <span>Request one <Fragment set:html={arrow} /></span></a>
   </section>
 
   <section class="intro">
@@ -49,7 +50,7 @@ const day = [
       <ol class="moments">
         {day.map((m, i) => (
           <li class:list={['moment', { flip: i % 2 === 1 }]}>
-            <figure data-rv><canvas class="art" data-art={m.art} data-seed={m.seed} role="img" aria-label={m.alt}></canvas></figure>
+            <figure data-rv><img {...img(m.art)} sizes="(max-width: 900px) 100vw, 660px" width="1672" height="941" loading="lazy" alt={m.alt} /></figure>
             <div class="txt" data-rv style="--rd:.15s">
               <p class="time">{m.time}</p>
               <h3>{m.h}</h3>
@@ -62,11 +63,13 @@ const day = [
     </div>
   </section>
 
-  <section class="bowls" aria-labelledby="bowls-h">
-    <div class="wrap bowls-in">
-      <div class="bowls-txt" data-rv>
-        <h2 id="bowls-h">Three hundred meals. Each one is someone.</h2>
-        <p>Every bowl here is one meal we will hand over this Saturday. Ten dollars fills one. The one that is lit could be yours.</p>
+  <section class="giving" aria-labelledby="give-h">
+    <img {...img('give')} sizes="100vw" width="1672" height="941" loading="lazy" alt="A painting of two cupped hands holding one small lit clay lamp in the dark." />
+    <span class="glow small" aria-hidden="true"></span>
+    <div class="wrap">
+      <div class="giving-txt" data-rv>
+        <h2 id="give-h">Ten dollars is one warm meal in someone&rsquo;s hands.</h2>
+        <p>We have no paid staff and no overhead. Whatever you give becomes rice, lentils, vegetables and fresh bread by Saturday.</p>
         <div class="give">
           <a class="btn gold" href={`${B}donate?freq=once&amt=10`}>Give $10</a>
           <a class="chip" href={`${B}donate?freq=once&amt=50`}>$50</a>
@@ -75,12 +78,10 @@ const day = [
         </div>
         <p class="fine-d">Tax-deductible. Every penny goes to food.</p>
       </div>
-      <figure class="bowls-art" data-rv style="--rd:.15s"><canvas class="art" data-art="meals" data-seed="300" role="img" aria-label="Three hundred small bowls of food on a dark ground, painted one by one. One bowl glows."></canvas></figure>
     </div>
   </section>
 
   <section class="quote">
-    <canvas class="art toran" data-art="toran" data-seed="9" aria-hidden="true"></canvas>
     <div class="wrap">
       <blockquote data-rv>&ldquo;A fresh, hot, and nutritious meal is not just satiating, but more importantly, enabling and liberating.&rdquo;</blockquote>
       <p><b>Japjot Sethi and Devinder Kumar</b>, founders</p>
@@ -120,25 +121,32 @@ const day = [
 </HearthLayout>
 
 <style>
-  canvas.art { display: block; width: 100%; height: 100%; }
-
-  /* ---------- hero: the street before dawn ---------- */
-  .hero { position: relative; min-height: max(640px, min(100svh, 940px)); display: flex; flex-direction: column; background: linear-gradient(#0b0e22, #141a3a 40%, #232a55 75%, #12153a); color: #fff; overflow: hidden; }
-  .hero > canvas.art { position: absolute; inset: 0; }
-  .hero-body { position: relative; width: 100%; padding-top: clamp(40px, 9vh, 110px); padding-bottom: 300px; }
-  .when { font-family: var(--serif); font-style: italic; font-size: 20px; color: #c9cbe6; margin-bottom: 18px; }
-  .hero h1 { color: #fff; font-size: clamp(50px, 7.6vw, 112px); line-height: 1; letter-spacing: -0.02em; max-width: 9.5em; }
+  /* ---------- hero: the hand-off at the door ---------- */
+  .hero { position: relative; min-height: max(660px, min(100svh, 920px)); display: flex; flex-direction: column; background: #10133a; color: #fff; overflow: hidden; isolation: isolate; }
+  .hero-img { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; object-position: 88% 50%; }
+  .hero::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(11, 14, 44, 0.72) 0%, rgba(11, 14, 44, 0.45) 34%, rgba(11, 14, 44, 0) 58%), linear-gradient(rgba(11, 14, 44, 0.55), rgba(11, 14, 44, 0) 22%); }
+  .glow { position: absolute; z-index: -1; left: 74%; top: 30%; width: 46vw; height: 46vw; translate: -50% -50%; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 196, 96, 0.34), rgba(255, 184, 76, 0)); mix-blend-mode: screen; pointer-events: none; opacity: 0; }
+  .glow.small { left: 70%; top: 50%; width: 30vw; height: 30vw; }
+  .hero-body { position: relative; width: 100%; margin-block: auto; padding-top: 30px; padding-bottom: 70px; }
+  .when { font-family: var(--serif); font-style: italic; font-size: 21px; color: #d5d7ee; margin-bottom: 18px; }
+  .hero h1 { color: #fff; font-size: clamp(46px, 5.4vw, 82px); line-height: 1.02; letter-spacing: -0.02em; max-width: 9em; text-shadow: 0 2px 30px rgba(11, 14, 44, 0.5); }
   .hero h1 em { font-family: var(--serif); font-style: italic; color: #ffd27a; letter-spacing: -0.01em; }
-  .sub { margin-top: 26px; max-width: 30em; font-size: clamp(18px, 1.5vw, 21px); line-height: 1.55; color: #e3e4f3; }
+  .sub { margin-top: 26px; max-width: 25em; font-size: clamp(18px, 1.5vw, 21px); line-height: 1.55; color: #ecedfa; }
   .acts { display: flex; align-items: center; flex-wrap: wrap; gap: 18px 30px; margin-top: 36px; }
   .acts .btn { min-width: 180px; border-radius: 999px; font-size: 18px; }
   .quiet { display: inline-flex; align-items: center; gap: 10px; color: #fff; font-weight: 600; text-decoration: none; border-bottom: 1.5px solid rgba(255, 255, 255, 0.5); padding-bottom: 3px; }
   .quiet:hover { border-color: #ffd27a; }
   .quiet :global(svg), .need :global(svg), .more :global(svg) { width: 16px; height: 16px; flex: none; }
-  .need { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); width: min(1136px, calc(100% - 44px)); display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: #d6d8ec; text-decoration: none; font-size: 16.5px; }
+  .need { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 54px; max-width: 30em; color: #dcdef1; text-decoration: none; font-size: 16.5px; }
   .need b { color: #fff; font-weight: 600; }
   .need span { display: inline-flex; align-items: center; gap: 8px; color: #ffd27a; font-weight: 600; }
   .need:hover span { text-decoration: underline; text-underline-offset: 4px; }
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.fx-on) .hero-img { animation: settle 3s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+    :global(.fx-on) .glow { animation: breathe 6s ease-in-out infinite; }
+    @keyframes settle { from { opacity: 0; transform: scale(1.06); } }
+    @keyframes breathe { 0%, 100% { opacity: 0.25; scale: 0.94; } 50% { opacity: 1; scale: 1.06; } }
+  }
 
   /* ---------- intro ---------- */
   .intro { padding: clamp(80px, 10vw, 140px) 0 clamp(64px, 8vw, 110px); }
@@ -155,28 +163,26 @@ const day = [
   .moments { list-style: none; margin: 0; padding: 0; display: grid; gap: clamp(64px, 8vw, 120px); }
   .moment { display: grid; grid-template-columns: 1.35fr 1fr; gap: clamp(32px, 5vw, 80px); align-items: center; }
   .moment.flip figure { order: 2; }
-  .moment figure { margin: 0; aspect-ratio: 4 / 3; border-radius: 6px; overflow: hidden; background: #ddd; box-shadow: 0 30px 60px -30px rgba(18, 21, 58, 0.45); }
+  .moment figure { margin: 0; aspect-ratio: 3 / 2; border-radius: 10px; overflow: hidden; background: #262c63; box-shadow: 0 40px 70px -34px rgba(18, 21, 58, 0.6); }
+  .moment figure img { width: 100%; height: 100%; object-fit: cover; }
   .time { font-family: var(--serif); font-style: italic; font-size: 20px; color: var(--lamp-deep); margin-bottom: 10px; }
   .moment h3 { font-size: clamp(38px, 4vw, 56px); line-height: 1.04; color: var(--ink); }
   .moment .lead { margin: 18px 0 14px; font-family: var(--serif); font-size: clamp(22px, 2vw, 27px); line-height: 1.3; color: var(--ink); }
   .moment .txt > p:last-child { color: var(--text); max-width: 28em; }
 
-  /* ---------- three hundred bowls ---------- */
-  .bowls { background: hsl(234, 34%, 12%); color: #e3e4f3; }
-  .bowls-in { display: grid; grid-template-columns: 1fr 1.25fr; gap: clamp(32px, 5vw, 72px); align-items: center; padding-block: clamp(72px, 8vw, 120px); }
-  .bowls h2 { color: #fff; font-size: clamp(36px, 4.2vw, 58px); line-height: 1.06; text-wrap: balance; }
-  .bowls-txt > p:first-of-type { margin-top: 22px; font-size: 19px; max-width: 26em; }
+  /* ---------- giving: one lamp in two hands ---------- */
+  .giving { position: relative; isolation: isolate; overflow: hidden; background: #10133a; color: #e3e4f3; }
+  .giving > img { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; object-position: 78% 50%; }
+  .giving::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(13, 16, 46, 0.9) 0%, rgba(13, 16, 46, 0.6) 36%, rgba(13, 16, 46, 0) 62%); }
+  .giving .wrap { padding-block: clamp(96px, 12vw, 180px); }
+  .giving-txt { max-width: 520px; }
+  .giving h2 { color: #fff; font-size: clamp(36px, 4.2vw, 58px); line-height: 1.06; text-wrap: balance; }
+  .giving-txt > p:first-of-type { margin-top: 22px; font-size: 19px; }
   .give { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
   .give .btn { border-radius: 999px; }
-  .chip { display: inline-flex; align-items: center; min-height: 54px; padding: 0 22px; border-radius: 999px; border: 1.5px solid rgba(255, 255, 255, 0.35); color: #fff; text-decoration: none; font-weight: 600; }
+  .chip { display: inline-flex; align-items: center; min-height: 54px; padding: 0 22px; border-radius: 999px; border: 1.5px solid rgba(255, 255, 255, 0.4); color: #fff; text-decoration: none; font-weight: 600; background: rgba(13, 16, 46, 0.35); }
   .chip:hover { border-color: #ffd27a; color: #ffd27a; }
-  .fine-d { margin-top: 18px; font-size: 15.5px; color: #a9acc9; }
-  .bowls-art { margin: 0; aspect-ratio: 5 / 4; }
-
-  /* ---------- quote under a toran ---------- */
-  .quote { position: relative; padding-top: 130px; }
-  .toran { position: absolute; top: 0; left: 0; height: 96px; }
-  .quote p b { color: var(--ink); }
+  .fine-d { margin-top: 18px; font-size: 15.5px; color: #b6b9d6; }
 
   /* ---------- come to the table ---------- */
   .ways { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 44px; border-top: 1px solid var(--ink); }
@@ -193,8 +199,10 @@ const day = [
   @media (max-width: 900px) {
     .moment, .moment.flip { grid-template-columns: 1fr; gap: 26px; }
     .moment.flip figure { order: 0; }
-    .bowls-in { grid-template-columns: 1fr; }
-    .bowls-art { aspect-ratio: 3 / 4; max-height: 640px; }
+    .giving > img { position: relative; inset: auto; z-index: 0; height: auto; aspect-ratio: 4 / 3; object-position: 82% 50%; -webkit-mask-image: linear-gradient(#000 62%, transparent); mask-image: linear-gradient(#000 62%, transparent); }
+    .giving::after { display: none; }
+    .giving .wrap { padding-block: 0 72px; margin-top: -18px; position: relative; }
+    .glow.small { display: none; }
     .ways, .know { grid-template-columns: 1fr; }
     .ways article, .ways article + article { padding: 26px 0; border-left: 0; border-bottom: 1px solid var(--rule); }
     .figs { grid-template-columns: 1fr; gap: 26px; }
@@ -202,12 +210,15 @@ const day = [
     .figs dd { margin: 0; }
   }
   @media (max-width: 760px) {
-    .hero { min-height: 780px; }
-    .hero-body { padding-top: 34px; padding-bottom: 290px; }
+    .hero { min-height: 0; }
+    .hero-img { position: relative; z-index: 0; order: 1; height: auto; aspect-ratio: 5 / 4; object-position: 76% 50%; inset: auto; -webkit-mask-image: linear-gradient(#000 72%, transparent); mask-image: linear-gradient(#000 72%, transparent); }
+    .hero::after { display: none; }
+    .glow { display: none; }
+    .hero-body { order: 2; margin-block: 0; padding-top: 6px; padding-bottom: 48px; }
+    .hero h1 { max-width: none; }
     .when { font-size: 18px; }
-    .need { font-size: 15.5px; bottom: 16px; }
+    .need { font-size: 15.5px; margin-top: 30px; }
     .acts .btn { width: 100%; }
-    .quote { padding-top: 110px; }
     .know { padding: 22px; gap: 18px; }
   }
 </style>
