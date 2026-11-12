@@ -3,7 +3,9 @@ const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const MAIL = 'mailto:info@freemealsonwheels.com';
 ---
 <footer class="foot">
-  <div class="closing"><div class="wrap">
+  <div class="closing"><div class="frieze" aria-hidden="true">
+    {['house', 'bowl', 'lamp', 'pot', 'house', 'thali', 'bowl', 'tiffin', 'house', 'lamp', 'bowl', 'house'].map((t, i) => <canvas data-tile={t} data-seed={500 + i * 7} data-spec={i * 5 + 3}></canvas>)}
+  </div><div class="wrap">
     <p>No neighbor should go to bed hungry.<span>So every Saturday morning, we cook. Come and stand at the stove with us, or put a meal in someone&rsquo;s hands from wherever you are.</span></p>
   </div></div>
   <div class="wrap fwrap">

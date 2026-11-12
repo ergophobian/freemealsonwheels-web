@@ -1,15 +1,15 @@
 ---
 // Shared shell and design system for every page ("One Saturday"): fonts, colours, type, buttons, form fields, cards,
-// chips, progress, nav and footer. The art is a set of paintings of hands giving and receiving a meal (public/art);
-// every inner page title sits over one of them. The home page uses `bare` so it can put the nav over its own hero.
+// chips, progress, nav and footer. The art is drawn live in the browser by src/lib/bowls: one simple shape drawn many
+// ways with hand-made marks. Every inner page title gets three tiles. The home page uses `bare` for its own hero.
 import SiteNav from '../components/SiteNav.astro';
 import SiteFooter from '../components/SiteFooter.astro';
 interface Props { title: string; description?: string; active?: 'about' | 'volunteer' | 'get-a-meal' | 'contact' | 'donate' | 'my-shifts' | ''; bare?: boolean; fullTitle?: boolean }
 const { title, description = 'Free Meals on Wheels cooks and delivers fresh, free meals to neighbors every Saturday across San Jose and San Ramon.', active = '', bare = false, fullTitle = false } = Astro.props;
 const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
-// the painting behind each inner page title
-const PH: Record<string, string> = { volunteer: 'volunteer', 'my-shifts': 'volunteer', 'get-a-meal': 'meal', donate: 'give' };
-const ph = PH[active] ?? 'lamp';
+// the three drawn tiles beside each inner page title
+const PH: Record<string, string> = { volunteer: 'pot,tiffin,house', 'my-shifts': 'pot,tiffin,house', 'get-a-meal': 'thali,bowl,house', donate: 'lamp,bowl,thali', about: 'pot,bowl,lamp', contact: 'house,lamp,bowl' };
+const tiles = PH[active] ?? 'lamp,bowl,house';
 ---
 <!doctype html>
 <html lang="en">
@@ -24,13 +24,14 @@ const ph = PH[active] ?? 'lamp';
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400;1,6..72,500&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </head>
-<body style={`--ph-img:url(${B}art/${ph}-1672.webp);--ph-img-s:url(${B}art/${ph}-900.webp)`}>
+<body data-tiles={tiles}>
   <a class="skip" href="#main">Skip to content</a>
   {!bare && <SiteNav active={active} />}
   <main id="main"><slot /></main>
   <SiteFooter />
   <script>
-    import { reveal } from '../lib/art';
+    import { initTiles, reveal } from '../lib/bowls';
+    initTiles();
     reveal();
   </script>
 </body>
@@ -96,9 +97,11 @@ const ph = PH[active] ?? 'lamp';
   .sec h2:not(.big) { font-size: clamp(30px, 3.4vw, 44px); line-height: 1.12; font-weight: 400; letter-spacing: -0.01em; margin-bottom: 28px; }
 
   /* ---------- page head (inner pages) ---------- */
-  .ph { position: relative; overflow: hidden; isolation: isolate; background: #10133a; color: #fff; padding-top: 40px; }
-  .ph::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(13, 16, 46, 0.95) 0%, rgba(13, 16, 46, 0.8) 36%, rgba(13, 16, 46, 0.1) 68%, rgba(13, 16, 46, 0) 100%), var(--ph-img) right 40% / cover no-repeat; }
-  .ph .wrap { position: relative; padding-top: 34px; padding-bottom: 104px; }
+  .ph { position: relative; background: var(--night-deep); color: #fff; padding-top: 40px; }
+  .ph .wrap { position: relative; padding-top: 34px; padding-bottom: 96px; padding-right: min(46%, 560px); }
+  .ph-tiles { position: absolute; right: max(32px, calc((100% - 1200px) / 2 + 32px)); top: 50%; translate: 0 -50%; margin-top: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: min(38%, 460px); }
+  canvas[data-tile] { display: block; width: 100%; aspect-ratio: 1; border-radius: 4px; background: rgba(255, 255, 255, 0.06); cursor: pointer; }
+  canvas[data-tile][data-empty], [data-noredraw] canvas[data-tile] { cursor: default; }
   .ph .kicker { color: #ffd27a; }
   .ph .kicker::before { background: #ffd27a; }
   .ph h1 { color: #fff; font-size: clamp(42px, 5.2vw, 72px); line-height: 1.04; font-weight: 400; letter-spacing: -0.015em; max-width: 10em; text-wrap: balance; }
@@ -205,7 +208,10 @@ const ph = PH[active] ?? 'lamp';
 
   /* ---------- footer ---------- */
   .foot { background: hsl(240, 30%, 12%); color: #d9dbee; }
-  .closing { border-bottom: 1px solid rgba(255, 255, 255, 0.14); padding: clamp(56px, 7vw, 96px) 0; }
+  .closing { border-bottom: 1px solid rgba(255, 255, 255, 0.14); padding: 0 0 clamp(56px, 7vw, 96px); }
+  .frieze { display: grid; grid-template-columns: repeat(12, 1fr); margin-bottom: clamp(56px, 7vw, 96px); }
+  .frieze canvas[data-tile] { border-radius: 0; }
+  @media (max-width: 760px) { .frieze { grid-template-columns: repeat(6, 1fr); } .frieze canvas:nth-child(n+7) { display: none; } }
   .closing p { margin: 0; font-family: var(--serif); font-style: italic; font-size: clamp(30px, 4vw, 56px); line-height: 1.12; color: #fff; text-wrap: balance; max-width: 16em; }
   .closing p span { display: block; font-family: var(--body); font-style: normal; font-size: 17px; line-height: 1.5; color: #b9bcd6; margin-top: 18px; max-width: 30em; }
   .fwrap { padding-top: 40px; padding-bottom: 40px; }
@@ -235,8 +241,8 @@ const ph = PH[active] ?? 'lamp';
     .sec { padding-block: 64px; }
     .wrap.sec { padding-block: 32px; }
     .ph { padding-top: 12px; }
-    .ph::before { background: linear-gradient(rgba(13, 16, 46, 0.78), rgba(13, 16, 46, 0.9)), var(--ph-img-s) 82% center / cover no-repeat; }
-    .ph .wrap { padding-top: 22px; padding-bottom: 64px; }
+    .ph .wrap { padding-top: 22px; padding-bottom: 28px; padding-right: 22px; }
+    .ph-tiles { position: static; translate: none; width: auto; margin: 0 22px; padding-bottom: 40px; gap: 8px; }
     .quote { padding: 68px 0; }
     .quote .mark { font-size: 96px; height: 40px; }
     .vf-ticket { padding: 4px 18px; }
@@ -249,10 +255,8 @@ const ph = PH[active] ?? 'lamp';
   .fx { position: absolute; pointer-events: none; overflow: hidden; }
   .fx i { position: absolute; border-radius: 50%; margin: 0; translate: -50% -50%; opacity: 0; }
   @media (prefers-reduced-motion: no-preference) {
-    .fx-on .ph::before { animation: fx-settle 2.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
-    @keyframes fx-settle { from { opacity: 0.4; transform: scale(1.05); } }
-    .fx-on figure[data-rv] > img { transform: scale(1.07); transition: transform 2.2s cubic-bezier(0.2, 0.7, 0.2, 1); }
-    .fx-on figure[data-rv].in > img { transform: none; }
+    canvas[data-tile] { transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1); }
+    canvas[data-tile]:not([data-empty]):hover { transform: scale(1.04) rotate(-0.6deg); }
     .fx-on canvas.art { opacity: 0; transition: opacity 1.4s ease; }
     .fx-on canvas.art.done { opacity: 1; }
     .fx-on [data-rv] { opacity: 0; transform: translateY(24px); transition: opacity 0.9s ease var(--rd, 0s), transform 1s cubic-bezier(0.2, 0.7, 0.2, 1) var(--rd, 0s); }
