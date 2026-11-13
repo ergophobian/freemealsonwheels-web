@@ -144,7 +144,7 @@ export interface MealRequest {
   household: number; diet: string[]; allergies: string; date: string; language: string; notes: string;
   createdAt: string;
 }
-const MEAL_KEY = 'fmow.mealrequests.v2';
+const MEAL_KEY = 'fmow.mealrequests.v3';
 
 function loadMeals(): MealRequest[] {
   try { return JSON.parse(localStorage.getItem(MEAL_KEY) || 'null') ?? seedMeals(); } catch { return []; }
@@ -156,9 +156,9 @@ function seedMeals(): MealRequest[] {
   const mk = (name: string, mode: MealMode, area: Kitchen, household: number, diet: string[], language: string, address: string): MealRequest =>
     ({ id: crypto.randomUUID(), name, phone: '(555) 010-0100', mode, address, area, household, diet, allergies: '', date: cookDays(area, 1)[0], language, notes: '', createdAt: now });
   const out = [
-    mk('Maria G.', 'delivery', 'san_jose', 4, ['Vegetarian'], 'Spanish', '123 Example St (demo)'),
+    mk('Maria G.', 'delivery', 'san_jose', 4, [], 'Spanish', '123 Example St (demo)'),
     mk('Tom H.', 'pickup', 'san_jose', 1, [], 'English', ''),
-    mk('Anh N.', 'delivery', 'san_ramon', 3, ['No pork'], 'Vietnamese', '456 Sample Ave (demo)'),
+    mk('Anh N.', 'delivery', 'san_ramon', 3, [], 'Vietnamese', '456 Sample Ave (demo)'),
   ];
   saveMeals(out);
   return out;
