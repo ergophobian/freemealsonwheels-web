@@ -1,7 +1,7 @@
 ---
 import HearthLayout from '../layouts/HearthLayout.astro';
 ---
-<HearthLayout title="Get a meal" description="A fresh, hot meal, free for anyone who needs one. Request pickup or delivery for a Saturday." active="get-a-meal">
+<HearthLayout title="Get a meal" description="A fresh, hot meal, free for anyone who needs one. Request pickup or delivery for this weekend." active="get-a-meal">
   <section class="ph"><div class="wrap">
     <p class="kicker">For our neighbors</p>
     <h1>A hot meal, <em>free for anyone who needs one.</em></h1>
@@ -38,7 +38,7 @@ import HearthLayout from '../layouts/HearthLayout.astro';
             <div class="gm-cols">
               <div class="field"><span class="legend" id="lg-hh">People in your household</span>
                 <div class="vf-stepper" role="group" aria-labelledby="lg-hh"><button type="button" data-hh="-1" aria-label="One fewer person">&minus;</button><output id="g-hh" aria-live="polite">1</output><button type="button" data-hh="1" aria-label="One more person">+</button></div></div>
-              <div class="field"><label for="g-date">Which Saturday</label><select id="g-date"></select></div>
+              <div class="field"><label for="g-date">Which day</label><select id="g-date"></select></div>
             </div>
             <fieldset class="gm-diet">
               <legend class="legend">Anything we should know about food?</legend>
@@ -62,24 +62,30 @@ import HearthLayout from '../layouts/HearthLayout.astro';
         <ul class="rows">
           <li class="row"><h3>Free</h3><p>A fresh, hot meal for anyone who needs one.</p><span></span></li>
           <li class="row"><h3>Hot</h3><p>Cooked the same morning and delivered by hand, still warm.</p><span></span></li>
-          <li class="row"><h3>Saturdays</h3><p>Meals go out from our San Jose and San Ramon kitchens.</p><span></span></li>
+          <li class="row"><h3>Weekends</h3><p>Meals go out on Saturdays from our San Jose kitchen and on Sundays from San Ramon.</p><span></span></li>
         </ul>
-        <div class="note gm-211"><b>Can&rsquo;t wait until Saturday?</b> Dial <a class="link" href="tel:211">211</a> for food, housing and health services near you.</div>
+        <div class="note gm-211"><b>Can&rsquo;t wait until the weekend?</b> Dial <a class="link" href="tel:211">211</a> for food, housing and health services near you.</div>
       </aside>
     </div>
   </section>
 </HearthLayout>
 
 <script>
-  import { upcomingSaturdays, requestMeal, KITCHENS, type MealMode, type Kitchen } from '../lib/store';
+  import { cookDays, requestMeal, KITCHENS, type MealMode, type Kitchen } from '../lib/store';
   import { $, esc, fmtDate, longDate, validPhone, TICK_SVG, SATURDAYS_SHOWN } from '../lib/hearth-ui';
 
   const form = $<HTMLFormElement>('gm-form');
-  const sats = upcomingSaturdays(SATURDAYS_SHOWN).slice(0, 5);
   let mode: MealMode = 'delivery', hh = 1;
   const v = (id: string) => $<HTMLInputElement>(id);
-  $('g-date').innerHTML = sats.map((d, i) => `<option value="${d}">${fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' })}${i === 0 ? ' (this week)' : ''}</option>`).join('');
-  const q = new URLSearchParams(location.search).get('date'); if (q && sats.includes(q)) v('g-date').value = q;
+  // the days on offer follow the kitchen: Saturdays from San Jose, Sundays from San Ramon, both if not sure
+  function paintDates(keep?: string | null) {
+    const a = v('g-area').value, ks = (a === 'unsure' ? Object.keys(KITCHENS) : [a]) as Kitchen[];
+    const opts = ks.flatMap((k) => cookDays(k, SATURDAYS_SHOWN).slice(0, 5).map((d) => ({ d, k }))).sort((x, y) => x.d.localeCompare(y.d)).slice(0, 6);
+    $('g-date').innerHTML = opts.map(({ d, k }) => `<option value="${d}">${fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' })}${ks.length > 1 ? `, from ${KITCHENS[k]}` : ''}</option>`).join('');
+    if (keep && opts.some((o) => o.d === keep)) v('g-date').value = keep;
+  }
+  paintDates(new URLSearchParams(location.search).get('date'));
+  v('g-area').addEventListener('change', () => paintDates(v('g-date').value));
 
   function paintMode() {
     document.querySelectorAll<HTMLElement>('[data-mode]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === mode)));
@@ -129,7 +135,7 @@ import HearthLayout from '../layouts/HearthLayout.astro';
         <div><dt>Household</dt><dd>${r.household} ${r.household === 1 ? 'person' : 'people'}</dd></div>
         ${r.diet.length ? `<div><dt>Food</dt><dd>${esc(r.diet.join(', '))}${r.allergies ? `<small>Allergies: ${esc(r.allergies)}</small>` : ''}</dd></div>` : ''}
       </dl></div>
-      <div class="note gm-211"><b>Can&rsquo;t wait until Saturday?</b> Dial <a class="link" href="tel:211">211</a> for food, housing and health services near you.</div>
+      <div class="note gm-211"><b>Can&rsquo;t wait until the weekend?</b> Dial <a class="link" href="tel:211">211</a> for food, housing and health services near you.</div>
       <p class="fine vf-demo">Preview only: this request is saved in this browser and does not reach anyone yet.</p>
     </div>`;
     document.getElementById('gm-h')!.focus();

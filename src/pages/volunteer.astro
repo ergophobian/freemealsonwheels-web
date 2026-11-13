@@ -2,7 +2,7 @@
 import HearthLayout from '../layouts/HearthLayout.astro';
 const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
-<HearthLayout title="Volunteer" description="Pick a Saturday shift in San Jose or San Ramon. Choose a kitchen, a date and a role, and your spot is confirmed instantly." active="volunteer">
+<HearthLayout title="Volunteer" description="Pick a Saturday shift in San Jose or a Sunday shift in San Ramon. Choose a kitchen, a date and a role, and your spot is confirmed instantly." active="volunteer">
   <section class="ph vf-ph"><div class="wrap">
     <p class="kicker">Volunteer</p>
     <h1>Pick a shift. <em>You&rsquo;re in.</em></h1>
@@ -17,7 +17,7 @@ const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
           <noscript><p class="note">The sign-up needs JavaScript. Or email <a href="mailto:info@freemealsonwheels.com?subject=Volunteer%20sign-up">info@freemealsonwheels.com</a> and we will book you in.</p></noscript>
         </div>
       </div>
-      <aside class="vf-tk" id="vf-ticket" aria-label="Your Saturday so far"></aside>
+      <aside class="vf-tk" id="vf-ticket" aria-label="Your shift so far"></aside>
       <div class="vf-know" id="vf-info">
         <h2>Good to know</h2>
         <p><b>First time?</b> Wear closed-toe shoes, tie back long hair and come 10 minutes early. We&rsquo;ll show you everything.</p>
@@ -29,11 +29,11 @@ const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 </HearthLayout>
 
 <script>
-  import { KITCHENS, ROLES, upcomingSaturdays, spotsLeft, book, reschedule, getSignup, signupsFor, type Kitchen, type RoleId, type Signup } from '../lib/store';
+  import { KITCHENS, ROLES, COOK_DAY, cookDays, spotsLeft, book, reschedule, getSignup, signupsFor, type Kitchen, type RoleId, type Signup } from '../lib/store';
   import { $, esc, fmtDate, longDate, kitchenName, roleOf, isKitchen, isRole, getMe, setMe, validEmail, validPhone, downloadIcs, TICK_SVG, SATURDAYS_SHOWN } from '../lib/hearth-ui';
 
   const BASE = (import.meta.env.BASE_URL as string).replace(/\/?$/, '/');
-  const SATS = upcomingSaturdays(SATURDAYS_SHOWN);
+  const daysFor = (k?: Kitchen) => cookDays(k ?? 'san_jose', SATURDAYS_SHOWN);
   const WAIVER_TEXT = 'The volunteer waiver text will appear here once the organization supplies it.';
 
   type Form = { name: string; email: string; phone: string; party: number; firstTime: boolean; hasCar: boolean; waiver: boolean };
@@ -92,7 +92,7 @@ const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     const el = $('vf-ticket');
     el.hidden = S.step === 5;
     el.classList.toggle('empty', !S.kitchen);
-    el.innerHTML = `<h2>Your Saturday</h2><dl>${rows.map(([k, v, n]) => `<div class="${v ? 'set' : ''}${S.step === n ? ' cur' : ''}">
+    el.innerHTML = `<h2>Your shift</h2><dl>${rows.map(([k, v, n]) => `<div class="${v ? 'set' : ''}${S.step === n ? ' cur' : ''}">
         <dt>${k}</dt><dd>${v || 'Not chosen yet'}</dd>
         ${v && S.step !== n ? `<button type="button" class="textbtn quiet" data-goto="${n}" aria-label="Change ${k.toLowerCase()}">Change</button>` : ''}
       </div>`).join('')}</dl>`;
@@ -105,12 +105,11 @@ const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   const CHEV = '<svg class="vf-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg>';
 
   function stepKitchen() {
-    const next = SATS[0];
     return `<h2 class="vf-h" tabindex="-1">Which kitchen?</h2>
-      <p class="vf-sub">Both cook every Saturday morning. Pick the one closer to you.</p>
+      <p class="vf-sub">San Jose cooks on Saturday mornings and San Ramon on Sunday mornings. Pick the one closer to you.</p>
       <div class="vf-opts" role="group" aria-label="Kitchen">
         ${(Object.keys(KITCHENS) as Kitchen[]).map((k) => {
-          const t = dayTotals(k, next);
+          const next = daysFor(k)[0], t = dayTotals(k, next);
           return `<button type="button" class="vf-opt" data-kitchen="${k}" aria-pressed="${S.kitchen === k}">
             <span class="vf-ot"><b class="city">${KITCHENS[k]}</b><span>Next cook day: ${fmtDate(next, { weekday: 'long', month: 'long', day: 'numeric' })}</span></span>
             <span class="spots">${t.left} spots open</span>${CHEV}
@@ -120,20 +119,20 @@ const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   }
 
   function stepDate() {
-    const k = S.kitchen!;
+    const k = S.kitchen!, SATS = daysFor(k), day = COOK_DAY[k].name;
     const all = S.allDates || (!!S.date && SATS.indexOf(S.date) >= 4);
-    return `<h2 class="vf-h" tabindex="-1">Which Saturday?</h2>
+    return `<h2 class="vf-h" tabindex="-1">Which ${day}?</h2>
       <p class="vf-sub">At our ${kitchenName(k)} kitchen.</p>
-      <div class="vf-opts" role="group" aria-label="Saturday">
+      <div class="vf-opts" role="group" aria-label="${day}">
         ${SATS.slice(0, all ? SATS.length : 4).map((d) => {
           const t = dayTotals(k, d), l = label(t.left, t.cap);
           return `<button type="button" class="vf-opt" data-date="${d}" aria-pressed="${S.date === d}" aria-label="${esc(longDate(d))}, ${l.text}">
-            <span class="vf-ot"><b>${fmtDate(d, { month: 'long', day: 'numeric' })}</b><span>Saturday</span></span>
+            <span class="vf-ot"><b>${fmtDate(d, { month: 'long', day: 'numeric' })}</b><span>${day}</span></span>
             <span class="spots ${l.cls}">${l.text}</span>${CHEV}
           </button>`;
         }).join('')}
       </div>
-      ${all ? '' : '<button type="button" class="textbtn vf-more" id="vf-more">Show later Saturdays</button>'}`;
+      ${all ? '' : '<button type="button" class="textbtn vf-more" id="vf-more">Show later ${day}s</button>'}`;
   }
 
   function stepRole() {
@@ -303,7 +302,7 @@ const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   panel.addEventListener('click', (e) => {
     const t = e.target as HTMLElement;
     const kb = t.closest<HTMLElement>('[data-kitchen]'), db = t.closest<HTMLElement>('[data-date]'), rb = t.closest<HTMLElement>('[data-role]');
-    if (kb) { S.kitchen = kb.dataset.kitchen as Kitchen; return go(2); }
+    if (kb) { const nk = kb.dataset.kitchen as Kitchen; if (nk !== S.kitchen) { S.date = undefined; S.role = undefined; } S.kitchen = nk; return go(2); }
     if (db) { S.date = db.dataset.date; return go(3); }
     if (rb) { S.role = rb.dataset.role as RoleId; return go(4); }
     const g = t.closest<HTMLElement>('[data-goto]'); if (g) return go(Number(g.dataset.goto));
@@ -363,7 +362,7 @@ const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     } else {
       const k = q.get('kitchen'), d = q.get('date'), r = q.get('role');
       if (isKitchen(k)) S.kitchen = k;
-      if (S.kitchen && d && SATS.includes(d)) S.date = d;
+      if (S.kitchen && d && daysFor(S.kitchen).includes(d)) S.date = d;
       if (S.kitchen && S.date && isRole(r)) S.role = r;
       S.step = maxStep();
     }

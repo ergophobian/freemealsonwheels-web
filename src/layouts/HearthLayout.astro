@@ -1,12 +1,12 @@
 ---
-// Shared shell and design system for every page ("One Saturday"): fonts, colours, type, buttons, form fields, cards,
+// Shared shell and design system for every page : fonts, colours, type, buttons, form fields, cards,
 // chips, progress, nav and footer. The colours are the four inside the logo (lavender, butter, mint, sage) with its
 // black ink line. The art is people, drawn live in the browser by src/lib/ink in the logo's manner. Every inner page
 // title gets one picture beside it.
 import SiteNav from '../components/SiteNav.astro';
 import SiteFooter from '../components/SiteFooter.astro';
 interface Props { title: string; description?: string; active?: 'about' | 'volunteer' | 'get-a-meal' | 'contact' | 'donate' | 'my-shifts' | ''; bare?: boolean; fullTitle?: boolean }
-const { title, description = 'Free Meals on Wheels cooks and delivers fresh, free meals to neighbors every Saturday across San Jose and San Ramon.', active = '', bare = false, fullTitle = false } = Astro.props;
+const { title, description = 'Free Meals on Wheels cooks and delivers fresh, free meals to neighbors on Saturdays in San Jose and Sundays in San Ramon.', active = '', bare = false, fullTitle = false } = Astro.props;
 const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 // the picture beside each inner page title
 const PH: Record<string, string> = { volunteer: 'pack', 'my-shifts': 'kitchen', 'get-a-meal': 'table', donate: 'knock', about: 'kitchen', contact: 'van' };
@@ -212,16 +212,19 @@ const scene = PH[active] ?? 'van';
   .closing p { margin: 0 auto; text-align: center; font-family: var(--head); font-size: clamp(32px, 4.2vw, 58px); line-height: 1.1; color: var(--ink); text-wrap: balance; max-width: 16em; }
   .closing p span { display: block; font-family: var(--body); font-size: 18px; line-height: 1.55; color: var(--muted); margin: 20px auto 0; max-width: 31em; }
   .closing canvas { margin-top: clamp(28px, 4vw, 56px); margin-bottom: -1.2%; }
-  .foot { background: var(--night-deep); color: #dcd9e6; }
+  /* light, in the logo's colours: a mint ground, ink type, and the four colours as a last stripe */
+  .foot { background: #dcefe8; color: var(--text); }
+  .fstripe { display: grid; grid-template-columns: repeat(4, 1fr); height: 10px; }
+  .fstripe i:nth-child(1) { background: var(--lav); } .fstripe i:nth-child(2) { background: var(--butter); } .fstripe i:nth-child(3) { background: var(--mint); } .fstripe i:nth-child(4) { background: var(--sage); }
   .fwrap { padding-top: 40px; padding-bottom: 40px; }
   .fgrid { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1.2fr; gap: 56px; }
-  .fgrid .fb { font-family: var(--head); font-size: 30px; font-weight: 400; color: #fff; letter-spacing: -0.01em; line-height: 1.1; margin: 0 0 16px; }
-  .fgrid p { margin: 0 0 26px; max-width: 24em; font-size: 16.5px; color: #dcd9e6; }
-  .fgrid h4 { margin: 0 0 18px; font-family: var(--body); font-size: 15px; color: var(--butter); font-weight: 600; letter-spacing: 0.02em; }
+  .fgrid .fb { font-family: var(--head); font-size: 30px; font-weight: 400; color: var(--ink); letter-spacing: -0.01em; line-height: 1.1; margin: 0 0 16px; }
+  .fgrid p { margin: 0 0 26px; max-width: 24em; font-size: 16.5px; color: var(--text); }
+  .fgrid h4 { margin: 0 0 18px; font-family: var(--body); font-size: 15px; color: var(--mint-deep); font-weight: 700; letter-spacing: 0.02em; }
   .fgrid ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
-  .fgrid ul a { text-decoration: none; font-size: 17px; color: #fff; overflow-wrap: anywhere; }
-  .fgrid ul a:hover { text-decoration: underline; text-underline-offset: 5px; text-decoration-color: var(--mint); }
-  .fbar { margin-top: 64px; padding-top: 26px; border-top: 1px solid rgba(255, 255, 255, 0.16); display: flex; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; font-size: 15.5px; color: #b3afc4; }
+  .fgrid ul a { text-decoration: none; font-size: 17px; color: var(--ink); font-weight: 500; overflow-wrap: anywhere; }
+  .fgrid ul a:hover { text-decoration: underline; text-underline-offset: 5px; text-decoration-color: var(--lav-deep); }
+  .fbar { margin-top: 64px; padding-top: 26px; border-top: 1px dashed rgba(28, 26, 34, 0.35); display: flex; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; font-size: 15.5px; color: var(--muted); }
 
   @media (max-width: 1080px) {
     .fgrid { grid-template-columns: 1fr 1fr; }

@@ -1,9 +1,9 @@
 ---
 import HearthLayout from '../layouts/HearthLayout.astro';
 ---
-<HearthLayout title="My shifts" description="Look up your Saturday shifts, add them to your calendar, reschedule or cancel." active="my-shifts">
+<HearthLayout title="My shifts" description="Look up your volunteer shifts, add them to your calendar, reschedule or cancel." active="my-shifts">
   <section class="ph"><div class="wrap">
-    <p class="kicker">Your Saturdays</p>
+    <p class="kicker">Your shifts</p>
     <h1>My <em>shifts.</em></h1>
     <p class="lede">Find your shifts with the email you signed up with. Reschedule or cancel any time, so your spot can go to someone on the waitlist.</p>
   </div></section>
@@ -68,10 +68,10 @@ import HearthLayout from '../layouts/HearthLayout.astro';
     const past = all.filter((s) => s.status === 'cancelled' || s.date < today).reverse();
     out.innerHTML = `${notice ? `<p class="note ms-notice" role="status">${notice}</p>` : ''}
       <h2 class="ms-h">Upcoming</h2>
-      ${up.length ? `<ul class="ms-list">${up.map((s) => row(s, false)).join('')}</ul>` : `<div class="ms-empty"><p>No upcoming shifts under <b>${esc(email)}</b>.</p><a class="btn dark" href="${B}volunteer">Sign up for a Saturday</a></div>`}
+      ${up.length ? `<ul class="ms-list">${up.map((s) => row(s, false)).join('')}</ul>` : `<div class="ms-empty"><p>No upcoming shifts under <b>${esc(email)}</b>.</p><a class="btn dark" href="${B}volunteer">Sign up for a shift</a></div>`}
       <h2 class="ms-h">Past and cancelled</h2>
-      ${past.length ? `<ul class="ms-list">${past.map((s) => row(s, true)).join('')}</ul>` : '<p class="ms-none">Your past shifts will appear here after a Saturday with us.</p>'}
-      ${up.length ? `<p class="fine ms-more"><a class="link" href="${B}volunteer">Sign up for another Saturday</a></p>` : ''}`;
+      ${past.length ? `<ul class="ms-list">${past.map((s) => row(s, true)).join('')}</ul>` : '<p class="ms-none">Your past shifts will appear here after a morning with us.</p>'}
+      ${up.length ? `<p class="fine ms-more"><a class="link" href="${B}volunteer">Sign up for another shift</a></p>` : ''}`;
   }
 
   function lookup(v: string) {
@@ -97,7 +97,7 @@ import HearthLayout from '../layouts/HearthLayout.astro';
     const id = f.dataset.form!, s = allSignupsFor(email).find((x) => x.id === id)!;
     const why = (document.getElementById('why-' + id) as HTMLSelectElement).value, more = (document.getElementById('more-' + id) as HTMLInputElement).value.trim();
     cancel(id, more ? `${why}. ${more}` : why);
-    notice = `<b>Your ${esc(roleOf(s.role).name.toLowerCase())} shift on ${esc(fmtDate(s.date, { month: 'long', day: 'numeric' }))} is cancelled.</b> Thank you for letting us know. We hope to see you on another Saturday.`;
+    notice = `<b>Your ${esc(roleOf(s.role).name.toLowerCase())} shift on ${esc(fmtDate(s.date, { month: 'long', day: 'numeric' }))} is cancelled.</b> Thank you for letting us know. We hope to see you another weekend.`;
     open = ''; render();
   });
 

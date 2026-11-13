@@ -7,27 +7,27 @@ const values = [
   { h: 'Every dollar counts', p: 'Every penny of every donation goes directly to meals.' },
 ];
 const programs = [
-  { h: 'Saturday meals', p: 'Hot meals cooked and delivered every week, from our San Jose and San Ramon kitchens.' },
+  { h: 'Weekend meals', p: 'Hot meals cooked and delivered each week: Saturdays from our San Jose kitchen, Sundays from San Ramon.' },
   { h: 'Meal and a blanket', p: 'A winter drive for unhoused communities. When it turns cold we pair a hot meal with a warm blanket.' },
   { h: 'Annual celebration gala', p: 'Our yearly evening to thank volunteers and donors.' },
 ];
 ---
-<HearthLayout title="About us" description="Free Meals on Wheels is a 501(c)(3) nonprofit founded by Japjot Sethi and Devinder Kumar. 400+ volunteers serve 1,500 meals every week." active="about">
+<HearthLayout title="About us" description="Free Meals on Wheels is a 501(c)(3) nonprofit founded by Japjot Sethi and Devinder Kumar. 400+ volunteers serve 1,500 meals a week." active="about">
   <section class="ph"><div class="wrap">
     <p class="kicker">About us</p>
     <h1>A good meal is better <em>shared.</em></h1>
-    <p class="lede">Free Meals on Wheels is a 501(c)(3) nonprofit founded by Japjot Sethi and Devinder Kumar. From kitchens in San Jose and San Ramon, 400+ volunteers serve 1,500 meals every week.</p>
+    <p class="lede">Free Meals on Wheels is a 501(c)(3) nonprofit founded by Japjot Sethi and Devinder Kumar. From kitchens in San Jose and San Ramon, 400+ volunteers serve 1,500 meals a week.</p>
   </div></section>
 
   <section class="wrap sec">
     <div class="ab-two">
       <div class="prose">
-        <p>A Saturday begins with a light in the kitchen and ends with more people at the table than there were at dawn. A fresh, hot meal is handed over, still warm, with no questions and no one asking why.</p>
+        <p>A cook day begins with a light in the kitchen and ends with more people at the table than there were at dawn. A fresh, hot meal is handed over, still warm, with no questions and no one asking why.</p>
         <p>At Thanksgiving everyone gets a seat. We are all neighbors here.</p>
       </div>
       <dl class="ab-facts">
         <div><dt>400+</dt><dd>volunteers cooking and packing</dd></div>
-        <div><dt>1,500</dt><dd>meals every week</dd></div>
+        <div><dt>1,500</dt><dd>meals a week</dd></div>
         <div><dt>100%</dt><dd>of every donation goes to food</dd></div>
       </dl>
     </div>
@@ -50,7 +50,7 @@ const programs = [
 
   <section class="wrap sec" id="programs">
     <h2>Programs</h2>
-    <p class="lede ab-intro">Beyond our Saturday meals, we run seasonal drives and community events.</p>
+    <p class="lede ab-intro">Beyond our weekend meals, we run seasonal drives and community events.</p>
     <ul class="rows tiles">
       {programs.map((v) => <li class="row"><h3>{v.h}</h3><p>{v.p}</p><span></span></li>)}
     </ul>

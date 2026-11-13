@@ -22,7 +22,7 @@ export const ROLES: Role[] = [
   { id: 'clean', name: 'Kitchen clean up', time: '11:00 AM – 12:00 PM', note: 'Reset the kitchen for next week.', capacity: 4 },
 ];
 
-const KEY = 'fmow.signups.v1';
+const KEY = 'fmow.signups.v2';
 
 function load(): Signup[] {
   try { return JSON.parse(localStorage.getItem(KEY) || 'null') ?? seed(); } catch { return []; }
@@ -33,8 +33,9 @@ function save(all: Signup[]) { try { localStorage.setItem(KEY, JSON.stringify(al
 function seed(): Signup[] {
   const names = ['Priya S.', 'Marcus L.', 'Ana G.', 'Dev K.', 'Hannah W.', 'Omar R.', 'Lily C.', 'Raj P.', 'Sofia M.', 'Ben T.'];
   const out: Signup[] = [];
-  upcomingSaturdays(4).forEach((date, w) => {
+  [0, 1, 2, 3].forEach((w) => {
     (Object.keys(KITCHENS) as Kitchen[]).forEach((kitchen, k) => {
+      const date = cookDays(kitchen, 4)[w];
       ROLES.forEach((r, i) => {
         // A few roles are deliberately full so the waitlist state is visible in the demo.
         const full = (w * 2 + k + i) % 6 === 1;
@@ -54,9 +55,14 @@ function seed(): Signup[] {
   return out;
 }
 
-export function upcomingSaturdays(count = 6): string[] {
+// San Jose cooks on Saturdays, San Ramon on Sundays.
+export const COOK_DAY: Record<Kitchen, { dow: number; name: string }> = { san_jose: { dow: 6, name: 'Saturday' }, san_ramon: { dow: 0, name: 'Sunday' } };
+export const upcomingSaturdays = (count = 6): string[] => cookDays('san_jose', count);
+
+// The next cook days for a kitchen, soonest first.
+export function cookDays(kitchen: Kitchen, count = 6): string[] {
   const d = new Date(); d.setHours(12, 0, 0, 0);
-  d.setDate(d.getDate() + ((6 - d.getDay() + 7) % 7));
+  d.setDate(d.getDate() + ((COOK_DAY[kitchen].dow - d.getDay() + 7) % 7));
   return Array.from({ length: count }, (_, i) => {
     const x = new Date(d); x.setDate(d.getDate() + i * 7);
     return x.toISOString().slice(0, 10);
@@ -138,7 +144,7 @@ export interface MealRequest {
   household: number; diet: string[]; allergies: string; date: string; language: string; notes: string;
   createdAt: string;
 }
-const MEAL_KEY = 'fmow.mealrequests.v1';
+const MEAL_KEY = 'fmow.mealrequests.v2';
 
 function loadMeals(): MealRequest[] {
   try { return JSON.parse(localStorage.getItem(MEAL_KEY) || 'null') ?? seedMeals(); } catch { return []; }
@@ -146,9 +152,9 @@ function loadMeals(): MealRequest[] {
 function saveMeals(all: MealRequest[]) { try { localStorage.setItem(MEAL_KEY, JSON.stringify(all)); } catch {} }
 
 function seedMeals(): MealRequest[] {
-  const date = upcomingSaturdays(1)[0], now = new Date().toISOString();
+  const now = new Date().toISOString();
   const mk = (name: string, mode: MealMode, area: Kitchen, household: number, diet: string[], language: string, address: string): MealRequest =>
-    ({ id: crypto.randomUUID(), name, phone: '(555) 010-0100', mode, address, area, household, diet, allergies: '', date, language, notes: '', createdAt: now });
+    ({ id: crypto.randomUUID(), name, phone: '(555) 010-0100', mode, address, area, household, diet, allergies: '', date: cookDays(area, 1)[0], language, notes: '', createdAt: now });
   const out = [
     mk('Maria G.', 'delivery', 'san_jose', 4, ['Vegetarian'], 'Spanish', '123 Example St (demo)'),
     mk('Tom H.', 'pickup', 'san_jose', 1, [], 'English', ''),

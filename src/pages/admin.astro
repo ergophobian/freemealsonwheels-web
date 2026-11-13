@@ -1,17 +1,17 @@
 ---
 import HearthLayout from '../layouts/HearthLayout.astro';
 ---
-<HearthLayout title="Saturday roster" description="Organizer roster: who is coming on a Saturday, by role, plus meal requests." active="">
+<HearthLayout title="Weekend roster" description="Organizer roster: who is coming on each cook day, by role, plus meal requests." active="">
   <section class="ph"><div class="wrap">
     <p class="kicker">For organizers</p>
-    <h1>Saturday <em>roster.</em></h1>
+    <h1>Weekend <em>roster.</em></h1>
     <p class="note ad-demo"><b>Demo, no sign-in yet.</b> Anyone with this link can open this page, and the data shown is kept in this browser only.</p>
   </div></section>
 
   <section class="wrap ad">
     <div class="ad-bar">
       <div class="ad-seg" role="radiogroup" aria-label="Kitchen" id="ad-kitchens"></div>
-      <div class="field"><label for="ad-date">Saturday</label><select id="ad-date"></select></div>
+      <div class="field"><label for="ad-date">Cook day</label><select id="ad-date"></select></div>
       <div class="ad-btns">
         <button type="button" class="btn ghost sm" id="ad-csv">Export volunteers CSV</button>
         <button type="button" class="btn ghost sm" id="ad-mcsv">Export meal requests CSV</button>
@@ -30,15 +30,20 @@ import HearthLayout from '../layouts/HearthLayout.astro';
 </HearthLayout>
 
 <script>
-  import { KITCHENS, ROLES, upcomingSaturdays, listSignups, listMealRequests, cancel, resetDemo, resetMealDemo, type Kitchen } from '../lib/store';
+  import { KITCHENS, ROLES, cookDays, listSignups, listMealRequests, cancel, resetDemo, resetMealDemo, type Kitchen } from '../lib/store';
   import { $, esc, fmtDate, longDate, kitchenName, download, csvCell, SATURDAYS_SHOWN, ROLE_ICONS } from '../lib/hearth-ui';
 
-  const sats = upcomingSaturdays(SATURDAYS_SHOWN);
-  let kitchen: Kitchen = 'san_jose', date = sats[0];
-  const dsel = $<HTMLSelectElement>('ad-date');
-  dsel.innerHTML = sats.map((d) => `<option value="${d}">${fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' })}</option>`).join('');
   const q = new URLSearchParams(location.search);
-  if (q.get('kitchen') && q.get('kitchen')! in KITCHENS) kitchen = q.get('kitchen') as Kitchen;
+  let kitchen: Kitchen = q.get('kitchen') && q.get('kitchen')! in KITCHENS ? (q.get('kitchen') as Kitchen) : 'san_jose';
+  let sats = cookDays(kitchen, SATURDAYS_SHOWN), date = sats[0];
+  const dsel = $<HTMLSelectElement>('ad-date');
+  // each kitchen has its own days (Saturdays in San Jose, Sundays in San Ramon); switching keeps the same week
+  const paintDates = (i = 0) => {
+    sats = cookDays(kitchen, SATURDAYS_SHOWN); date = sats[Math.max(0, i)];
+    dsel.innerHTML = sats.map((d) => `<option value="${d}">${fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' })}</option>`).join('');
+    dsel.value = date;
+  };
+  paintDates();
   if (q.get('date') && sats.includes(q.get('date')!)) { date = q.get('date')!; dsel.value = date; }
 
   const meals = () => listMealRequests(date).filter((m) => m.area === kitchen || m.area === 'unsure');
@@ -68,10 +73,10 @@ import HearthLayout from '../layouts/HearthLayout.astro';
     $('ad-meals').innerHTML = m.length ? `<ul class="ad-meals">${m.map((r) => `<li>
       <div><b>${esc(r.name)}</b><span class="badge ${r.mode === 'delivery' ? 'green' : 'grey'}">${r.mode === 'delivery' ? 'Delivery' : 'Pickup'}</span></div>
       <p>${r.household} ${r.household === 1 ? 'person' : 'people'}${r.diet.length ? ' · ' + esc(r.diet.join(', ')) : ''}${r.allergies ? ' (' + esc(r.allergies) + ')' : ''} · ${esc(r.language)}</p>
-      <p class="soft">${r.mode === 'delivery' ? esc(r.address) + ' · ' : ''}${esc(r.phone)}</p></li>`).join('')}</ul>` : '<p class="ad-none ad-mnone">No meal requests for this Saturday yet.</p>';
+      <p class="soft">${r.mode === 'delivery' ? esc(r.address) + ' · ' : ''}${esc(r.phone)}</p></li>`).join('')}</ul>` : '<p class="ad-none ad-mnone">No meal requests for this day yet.</p>';
   }
 
-  $('ad-kitchens').addEventListener('click', (e) => { const b = (e.target as HTMLElement).closest<HTMLElement>('[data-k]'); if (b) { kitchen = b.dataset.k as Kitchen; render(); } });
+  $('ad-kitchens').addEventListener('click', (e) => { const b = (e.target as HTMLElement).closest<HTMLElement>('[data-k]'); if (b && b.dataset.k !== kitchen) { const i = sats.indexOf(date); kitchen = b.dataset.k as Kitchen; paintDates(i); render(); } });
   dsel.addEventListener('change', () => { date = dsel.value; render(); });
   $('ad-roles').addEventListener('click', (e) => { const b = (e.target as HTMLElement).closest<HTMLElement>('[data-id]'); if (b && confirm('Remove this person from the shift?')) { cancel(b.dataset.id!, 'Removed by organizer'); render(); } });
   $('ad-csv').addEventListener('click', () => {

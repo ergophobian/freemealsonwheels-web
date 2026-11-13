@@ -9,21 +9,21 @@ const arrow = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke
 const stops = [
   { scene: 'kitchen', seed: 11, time: '6:00 in the morning', h: 'The kitchen wakes', lead: 'Before the city is up, the first pot goes on.', p: 'Volunteers of every age cook together in our San Jose and San Ramon kitchens, the same morning the food goes out. Never frozen, never days old.', alt: 'An ink drawing of volunteers cooking around a large steaming pot while a child carries in vegetables.' },
   { scene: 'pack', seed: 12, time: '9:30', h: 'Packed by hand', lead: 'Every meal passes through a neighbor’s hands.', p: 'Each one is filled, checked and sealed while it is still hot, then stacked by the door for the drivers.', alt: 'An ink drawing of three volunteers at a long table filling and stacking meal boxes, with a child carrying a bag.' },
-  { scene: 'van', seed: 13, time: '10:30', h: 'On the road', lead: 'Families load their cars and head out.', p: 'Drivers fan out across both cities. Many bring their children along, so the next generation learns what a Saturday is for.', alt: 'An ink drawing of a volunteer and a child loading meal boxes into a van.' },
+  { scene: 'van', seed: 13, time: '10:30', h: 'On the road', lead: 'Families load their cars and head out.', p: 'Drivers fan out across both cities. Many bring their children along, so the next generation learns what a weekend morning is for.', alt: 'An ink drawing of a volunteer and a child loading meal boxes into a van.' },
   { scene: 'knock', seed: 14, time: '11:00 to 1:00', h: 'A knock at the door', lead: 'Someone is already waiting.', p: 'The meal is handed over at the door, still warm, with a hello and a few minutes to talk. No forms, and no one asking why.', alt: 'An ink drawing of a volunteer and her child handing a warm meal to an elderly woman at her front door.' },
-  { scene: 'table', seed: 15, time: 'That evening', h: 'A full table', lead: 'Tonight a family eats together.', p: 'Grandparents, parents and children around one table, with nothing to worry about until morning. This is what every Saturday is for.', alt: 'An ink drawing of a family of five sharing a hot meal around a table under a lamp.' },
+  { scene: 'table', seed: 15, time: 'That evening', h: 'A full table', lead: 'Tonight a family eats together.', p: 'Grandparents, parents and children around one table, with nothing to worry about until morning. This is what the whole morning was for.', alt: 'An ink drawing of a family of five sharing a hot meal around a table under a lamp.' },
 ];
 ---
 <HearthLayout title="Free Meals on Wheels: bringing smiles, one meal at a time" fullTitle>
   <section class="hero" id="top">
     <div class="wrap hero-in">
       <div class="hero-body">
-        <p class="hand when">Every Saturday, in San Jose and San Ramon</p>
+        <p class="hand when">Saturdays in San Jose, Sundays in San Ramon</p>
         <h1>Dignity starts with <em>a&nbsp;full&nbsp;belly.</em></h1>
         <p class="sub">Neighbors cook a fresh, hot meal in the morning and carry it to a family&rsquo;s door by noon. Fifteen hundred meals a week, always free.</p>
         <div class="acts">
           <a class="btn gold" href={`${B}donate`}>Give a meal</a>
-          <a class="quiet" href={`${B}volunteer`}>Volunteer on a Saturday <Fragment set:html={arrow} /></a>
+          <a class="quiet" href={`${B}volunteer`}>Volunteer for a morning <Fragment set:html={arrow} /></a>
         </div>
         <a class="need" href={`${B}get-a-meal`}><b>Need a meal?</b> It&rsquo;s free, and no one will ask why. <span>Request one <Fragment set:html={arrow} /></span></a>
       </div>
@@ -36,8 +36,8 @@ const stops = [
   <section class="intro">
     <div class="wrap">
       <dl class="figs" data-rv>
-        <div><dt><span>400+</span></dt><dd>volunteers who give up a Saturday morning</dd></div>
-        <div><dt><span>1,500</span></dt><dd>meals cooked and delivered every week</dd></div>
+        <div><dt><span>400+</span></dt><dd>volunteers who give up a weekend morning</dd></div>
+        <div><dt><span>1,500</span></dt><dd>meals cooked and delivered each week</dd></div>
         <div><dt><span>100%</span></dt><dd>of every donation goes to food</dd></div>
       </dl>
     </div>
@@ -48,7 +48,7 @@ const stops = [
       <header class="story-h" data-rv>
         <p class="hand">Follow one meal</p>
         <h2 id="story-h" class="big">From our stove to a family&rsquo;s table</h2>
-        <p>One Saturday, start to finish. Scroll down the road.</p>
+        <p>One morning, start to finish. Scroll down the road.</p>
       </header>
       <div class="road">
         <svg class="road-svg" aria-hidden="true">
@@ -81,7 +81,7 @@ const stops = [
             </li>
           ))}
         </ol>
-        <p class="road-end hand" data-rv>and next Saturday, we do it all again</p>
+        <p class="road-end hand" data-rv>and next weekend, we do it all again</p>
       </div>
     </div>
   </section>
@@ -91,7 +91,7 @@ const stops = [
     <div class="wrap people-in">
       <div class="people-txt" data-rv>
         <h2 id="people-h">Fifteen hundred meals a week. Each one is someone.</h2>
-        <p>Each face here stands for five neighbors we will bring a meal to this week. The last one is still waiting. Ten dollars gets a meal to their door.</p>
+        <p>Each face here stands for five neighbors we will bring a meal to this weekend. The last one is still waiting. Ten dollars gets a meal to their door.</p>
         <div class="give">
           <a class="btn gold" href={`${B}donate?freq=once&amt=10`}>Give $10</a>
           <a class="chip" href={`${B}donate?freq=once&amt=50`}>$50</a>
@@ -122,7 +122,7 @@ const stops = [
       <div class="ways" data-rv>
         <article style="--c:var(--lav)">
           <p class="hand time">Volunteer</p>
-          <h3>Give a Saturday morning</h3>
+          <h3>Give a weekend morning</h3>
           <p>Pick a kitchen, a date and a role: cooking, packing, delivering or cleaning up. Bring your family. Your spot is confirmed instantly.</p>
           <a class="more" href={`${B}volunteer`}>Pick a shift <Fragment set:html={arrow} /></a>
         </article>
