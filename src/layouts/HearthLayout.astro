@@ -1,15 +1,16 @@
 ---
 // Shared shell and design system for every page ("One Saturday"): fonts, colours, type, buttons, form fields, cards,
-// chips, progress, nav and footer. The art is drawn live in the browser by src/lib/bowls: one simple shape drawn many
-// ways with hand-made marks. Every inner page title gets three tiles. The home page uses `bare` for its own hero.
+// chips, progress, nav and footer. The colours are the four inside the logo (lavender, butter, mint, sage) with its
+// black ink line. The art is people, drawn live in the browser by src/lib/ink in the logo's manner. Every inner page
+// title gets one picture beside it.
 import SiteNav from '../components/SiteNav.astro';
 import SiteFooter from '../components/SiteFooter.astro';
 interface Props { title: string; description?: string; active?: 'about' | 'volunteer' | 'get-a-meal' | 'contact' | 'donate' | 'my-shifts' | ''; bare?: boolean; fullTitle?: boolean }
 const { title, description = 'Free Meals on Wheels cooks and delivers fresh, free meals to neighbors every Saturday across San Jose and San Ramon.', active = '', bare = false, fullTitle = false } = Astro.props;
 const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
-// the three drawn tiles beside each inner page title
-const PH: Record<string, string> = { volunteer: 'pot,tiffin,house', 'my-shifts': 'pot,tiffin,house', 'get-a-meal': 'thali,bowl,house', donate: 'lamp,bowl,thali', about: 'pot,bowl,lamp', contact: 'house,lamp,bowl' };
-const tiles = PH[active] ?? 'lamp,bowl,house';
+// the picture beside each inner page title
+const PH: Record<string, string> = { volunteer: 'pack', 'my-shifts': 'kitchen', 'get-a-meal': 'table', donate: 'knock', about: 'kitchen', contact: 'van' };
+const scene = PH[active] ?? 'van';
 ---
 <!doctype html>
 <html lang="en">
@@ -22,16 +23,16 @@ const tiles = PH[active] ?? 'lamp,bowl,house';
   <script is:inline>if (!matchMedia('(prefers-reduced-motion: reduce)').matches) document.documentElement.classList.add('fx-on');</script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400;1,6..72,500&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Josefin+Sans:wght@500;600&family=Caveat:wght@500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400;1,6..72,500&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </head>
-<body data-tiles={tiles}>
+<body data-scene={scene}>
   <a class="skip" href="#main">Skip to content</a>
-  {!bare && <SiteNav active={active} />}
+  <SiteNav active={active} />
   <main id="main"><slot /></main>
   <SiteFooter />
   <script>
-    import { initTiles, reveal } from '../lib/bowls';
-    initTiles();
+    import { initScenes, reveal } from '../lib/ink';
+    initScenes();
     reveal();
   </script>
 </body>
@@ -39,9 +40,14 @@ const tiles = PH[active] ?? 'lamp,bowl,house';
 
 <style is:global>
   :root {
-    --night: #262c63; --night-deep: #12153a; --lamp: #f2b141; --lamp-deep: #d48f1c; --lamp-ink: #6b4300;
-    --ink: #161a33; --text: #33374f; --muted: #555a74; --paper: #fcfbf9; --tint: #f2f2f7; --sel: #ebecf7;
-    --rule: #e1e2ec; --edge: #8b8ea8; --err: #b3261e;
+    /* the logo's colours */
+    --lav: #c0b0d0; --butter: #f2d988; --mint: #94c8b8; --sage: #c8d0b0; --ink: #1c1a22;
+    --lav-deep: #5d4a8a; --mint-deep: #1f6f5e; --lav-tint: #f3eff7; --mint-tint: #edf6f2; --butter-tint: #fdf6df;
+    --night: #3b3157; --night-deep: #1f1c2b; --lamp: #f2d988; --lamp-deep: #1f6f5e; --lamp-ink: #5e4706;
+    --text: #3a3745; --muted: #5f5b6e; --paper: #fefefc; --tint: #f4f2f8; --sel: #f1ecf7;
+    --rule: #e4e1ea; --edge: #8d899c; --err: #b3261e;
+    --hand: 'Caveat', 'Bradley Hand', cursive;
+    --wob: 14px 19px 15px 21px / 19px 14px 21px 15px;
     --head: 'Young Serif', Georgia, serif;
     --serif: 'Newsreader', Georgia, serif;
     --body: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -56,7 +62,7 @@ const tiles = PH[active] ?? 'lamp,bowl,house';
   h1, h2, h3, h4 { font-family: var(--head); color: var(--ink); margin: 0; font-weight: 400; letter-spacing: -0.01em; text-transform: none; }
   p { margin: 0; }
   button, input, select, textarea { font: inherit; color: inherit; }
-  :focus-visible { outline: 3px solid var(--lamp); outline-offset: 3px; border-radius: 4px; }
+  :focus-visible { outline: 3px solid var(--lav-deep); outline-offset: 3px; border-radius: 4px; }
   .wrap { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .skip { position: absolute; left: 12px; top: -80px; z-index: 50; background: var(--night-deep); color: #fff; padding: 10px 16px; border-radius: 8px; text-decoration: none; font-weight: 700; }
@@ -67,20 +73,19 @@ const tiles = PH[active] ?? 'lamp,bowl,house';
   ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 200ms; animation-timing-function: ease; }
 
   /* ---------- nav ---------- */
-  .nav { position: relative; z-index: 3; display: flex; align-items: center; gap: 36px; padding: 26px 40px; color: #fff; }
-  .nav.solid { background: var(--night-deep); }
-  .brand { font-family: var(--head); font-weight: 400; font-size: 23px; letter-spacing: -0.01em; text-decoration: none; margin-right: auto; display: flex; align-items: center; gap: 12px; color: #fff; }
-  .brand i { display: block; width: 11px; height: 11px; background: #ffd27a; border-radius: 50%; flex: none; box-shadow: 0 0 0 4px rgba(242, 177, 65, 0.22), 0 0 18px 4px rgba(242, 177, 65, 0.55); }
-  .nav nav { display: flex; gap: 32px; font-size: 16.5px; font-weight: 600; }
-  .nav nav a { text-decoration: none; padding: 4px 0; text-underline-offset: 8px; text-decoration-color: var(--lamp); text-decoration-thickness: 2px; white-space: nowrap; }
-  .nav nav a:hover, .nav nav a[aria-current] { text-decoration-line: underline; }
-  .nav .give { background: var(--lamp); color: var(--night-deep); font-weight: 700; text-decoration: none; padding: 11px 22px; border-radius: 9px; font-size: 16px; }
-  .nav .give:hover { background: #f6c364; }
-  .nav .give[aria-current] { box-shadow: 0 0 0 3px rgba(242, 177, 65, 0.5); }
+  .nav { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 34px; padding: 10px 40px; background: rgba(254, 254, 252, 0.93); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--rule); color: var(--ink); }
+  .brand { display: flex; align-items: center; gap: 12px; margin-right: auto; text-decoration: none; color: var(--ink); }
+  .brand img { width: 58px; height: auto; flex: none; }
+  .brand span { display: grid; font-family: 'Josefin Sans', var(--body); font-weight: 600; font-size: 23px; line-height: 1.1; letter-spacing: 0.035em; padding-top: 4px; }
+  .brand small { font-weight: 500; font-size: 12.5px; letter-spacing: 0.09em; color: var(--muted); margin-top: 3px; }
+  .nav nav { display: flex; gap: 30px; font-size: 16.5px; font-weight: 600; }
+  .nav nav a { text-decoration: none; padding: 6px 0; text-underline-offset: 7px; text-decoration-color: var(--mint); text-decoration-thickness: 2px; white-space: nowrap; }
+  .nav nav a:hover, .nav nav a[aria-current] { text-decoration-line: underline; text-decoration-style: wavy; }
+  .nav .give { font-weight: 700; text-decoration: none; padding: 11px 24px; font-size: 16.5px; }
 
   /* ---------- type bits ---------- */
   .kicker { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 17px; color: var(--night); margin: 0 0 18px; }
-  .kicker::before { content: ""; width: 34px; height: 3px; background: var(--lamp); flex: none; }
+  .kicker::before { content: ""; width: 34px; height: 3px; background: var(--mint); border-radius: 3px; flex: none; }
   h2.big { font-size: clamp(36px, 4.2vw, 56px); line-height: 1.08; letter-spacing: -0.015em; font-weight: 400; }
   .sec { padding-block: 96px; }
   .wrap.sec { padding-block: 44px; }
@@ -89,39 +94,35 @@ const tiles = PH[active] ?? 'lamp,bowl,house';
   .prose p + p { margin-top: 1em; }
   .prose p { max-width: 36em; }
   .fine { font-size: 15.5px; line-height: 1.5; color: var(--muted); }
-  .fine a, .prose a, .link { color: var(--night); font-weight: 600; text-decoration: underline; text-decoration-color: var(--lamp); text-decoration-thickness: 2px; text-underline-offset: 4px; }
+  .fine a, .prose a, .link { color: var(--night); font-weight: 600; text-decoration: underline; text-decoration-color: var(--mint); text-decoration-thickness: 2px; text-underline-offset: 4px; }
   .fine a:hover, .prose a:hover, .link:hover { text-decoration-color: var(--night); }
-  .more { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: var(--night); text-decoration: none; border-bottom: 2px solid var(--lamp); padding-bottom: 3px; }
+  .more { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: var(--night); text-decoration: none; border-bottom: 2px solid var(--mint); padding-bottom: 3px; }
   .more:hover { border-color: var(--night); }
   .more svg { width: 16px; height: 16px; flex: none; }
   .sec h2:not(.big) { font-size: clamp(30px, 3.4vw, 44px); line-height: 1.12; font-weight: 400; letter-spacing: -0.01em; margin-bottom: 28px; }
 
   /* ---------- page head (inner pages) ---------- */
-  .ph { position: relative; background: var(--night-deep); color: #fff; padding-top: 40px; }
-  .ph .wrap { position: relative; padding-top: 34px; padding-bottom: 96px; padding-right: min(46%, 560px); }
-  .ph-tiles { position: absolute; right: max(32px, calc((100% - 1200px) / 2 + 32px)); top: 50%; translate: 0 -50%; margin-top: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: min(38%, 460px); }
-  canvas[data-tile] { display: block; width: 100%; aspect-ratio: 1; border-radius: 4px; background: rgba(255, 255, 255, 0.06); cursor: pointer; }
-  canvas[data-tile][data-empty], [data-noredraw] canvas[data-tile] { cursor: default; }
-  .ph .kicker { color: #ffd27a; }
-  .ph .kicker::before { background: #ffd27a; }
-  .ph h1 { color: #fff; font-size: clamp(42px, 5.2vw, 72px); line-height: 1.04; font-weight: 400; letter-spacing: -0.015em; max-width: 10em; text-wrap: balance; }
-  .ph h1 em { font-family: var(--serif); font-style: italic; font-weight: 400; color: #ffd27a; }
-  .ph .lede { margin-top: 22px; max-width: 26em; color: #e6e7f4; font-weight: 400; }
-  .ph .note { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 210, 122, 0.7); color: #fff; }
-  .ph .note b { color: #fff; }
-  .ph .note a { color: #fff; }
+  .ph { position: relative; overflow: hidden; background: linear-gradient(var(--lav-tint), var(--paper)); border-bottom: 1px solid var(--rule); }
+  .ph .wrap { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: center; min-height: 400px; padding-top: 48px; padding-bottom: 56px; padding-right: min(46%, 580px); }
+  .ph canvas.ph-art { position: absolute; right: max(32px, calc((100% - 1200px) / 2 + 32px)); bottom: 0; width: min(40%, 470px); }
+  canvas[data-scene] { display: block; width: 100%; cursor: pointer; }
+  a canvas[data-scene], [data-noredraw] canvas[data-scene], canvas[data-scene][data-noredraw] { cursor: inherit; }
+  .ph h1 { font-size: clamp(42px, 5.2vw, 72px); line-height: 1.04; font-weight: 400; letter-spacing: -0.015em; max-width: 10em; text-wrap: balance; }
+  .ph h1 em { font-family: var(--serif); font-style: italic; font-weight: 400; color: var(--lav-deep); }
+  .ph .lede { margin-top: 22px; max-width: 26em; color: var(--text); font-weight: 400; }
 
   /* ---------- buttons ---------- */
   .btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; font-family: var(--body); font-weight: 700; font-size: 17px; line-height: 1.1; text-decoration: none; padding: 16px 28px; min-height: 54px; border-radius: 10px; border: 2px solid transparent; cursor: pointer; background: none; color: var(--night); text-align: center; }
-  .btn.gold { background: var(--lamp); color: var(--night-deep); }
-  .btn.gold:hover { background: #f6c364; }
-  .btn.dark { background: var(--night); color: #fff; }
+  /* the butter button: an ink outline with the colour a little off register, as in the logo; it snaps true on hover */
+  .btn.gold, .nav .give { background: linear-gradient(var(--butter), var(--butter)) no-repeat 5px 5px; color: var(--ink); border: 1.75px solid var(--ink); border-radius: var(--wob); }
+  .btn.gold:hover, .nav .give:hover, .nav .give[aria-current] { background-position: 0 0; }
+  .btn.dark { background: var(--night); color: #fff; border-radius: var(--wob); }
   .btn.dark:hover { background: var(--night-deep); }
-  .btn.ghost { border-color: var(--night); color: var(--night); }
+  .btn.ghost { border-color: var(--night); color: var(--night); border-radius: var(--wob); }
   .btn.ghost:hover { background: var(--sel); }
   .btn.sm { padding: 10px 18px; min-height: 46px; font-size: 16px; }
   .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
-  .textbtn { background: none; border: 0; padding: 4px 0; cursor: pointer; font-weight: 700; font-size: 16.5px; border-bottom: 2px solid var(--lamp); color: var(--night); text-decoration: none; }
+  .textbtn { background: none; border: 0; padding: 4px 0; cursor: pointer; font-weight: 700; font-size: 16.5px; border-bottom: 2px solid var(--mint); color: var(--night); text-decoration: none; }
   .textbtn:hover { border-bottom-color: var(--night); }
   .textbtn.quiet { border-bottom-color: var(--edge); font-weight: 600; color: var(--muted); }
   .pill { display: inline-flex; padding: 12px 22px; border: 2px solid var(--rule); border-radius: 999px; font-weight: 700; text-decoration: none; color: var(--ink); font-size: 16.5px; }
@@ -133,7 +134,7 @@ const tiles = PH[active] ?? 'lamp,bowl,house';
   .hint { font-size: 16px; color: var(--muted); line-height: 1.45; }
   .field input:not([type=checkbox]):not([type=radio]), .field select, .field textarea { width: 100%; padding: 12px 16px; min-height: 54px; border-radius: 10px; border: 2px solid var(--edge); background: #fff; font-size: 17px; color: var(--ink); }
   .field textarea { min-height: 96px; resize: vertical; }
-  .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--night); box-shadow: 0 0 0 4px rgba(242, 177, 65, 0.5); }
+  .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--night); box-shadow: 0 0 0 4px rgba(192, 176, 208, 0.6); }
   .field.bad input, .field.bad select, .field.bad textarea { border-color: var(--err); }
   .err { color: var(--err); font-size: 16px; font-weight: 600; }
   .err:empty { display: none; }
@@ -152,17 +153,17 @@ const tiles = PH[active] ?? 'lamp,bowl,house';
   /* spots meter */
   .meter { height: 8px; border-radius: 4px; background: #e4e5ef; overflow: hidden; }
   .meter i { display: block; height: 100%; border-radius: 4px; background: var(--night); }
-  .meter.low i { background: var(--lamp-deep); }
+  .meter.low i { background: #b98a1c; }
   .meter.full i { background: #9a9db3; }
   .spots { font-size: 16px; font-weight: 700; color: var(--night); }
   .spots.low { color: var(--lamp-ink); }
   .spots.full { color: var(--muted); }
 
-  .badge { display: inline-block; font-size: 14.5px; font-weight: 700; line-height: 1; padding: 7px 12px; border-radius: 99px; background: #fde7b8; color: #4d3200; white-space: nowrap; }
-  .badge.green { background: #e1e3f6; color: var(--night); }
+  .badge { display: inline-block; font-size: 14.5px; font-weight: 700; line-height: 1; padding: 7px 12px; border-radius: 99px; background: var(--butter); color: #43330a; white-space: nowrap; }
+  .badge.green { background: #d6ece5; color: var(--night); }
   .badge.grey { background: #e9e9ef; color: var(--muted); }
 
-  .note { padding: 16px 20px 16px 22px; border-radius: 4px 12px 12px 4px; background: var(--tint); border-left: 5px solid var(--lamp); font-size: 17px; color: var(--text); }
+  .note { padding: 16px 20px 16px 22px; border-radius: 4px 12px 12px 4px; background: var(--tint); border-left: 5px solid var(--mint); font-size: 17px; color: var(--text); }
   .note b { color: var(--ink); font-weight: 700; }
 
   /* ---------- lists ---------- */
@@ -186,7 +187,7 @@ const tiles = PH[active] ?? 'lamp,bowl,house';
   .vf-stepper output { min-width: 48px; text-align: center; font-family: var(--head); font-weight: 700; font-size: 24px; color: var(--ink); }
   .vf-tick { width: 72px; height: 72px; margin: 0 auto 18px; }
   .vf-done .vf-sub { margin-inline: auto; }
-  .vf-ticket { text-align: left; background: #fff; border: 1px solid var(--rule); border-left: 6px solid var(--lamp); border-radius: 6px 14px 14px 6px; padding: 8px 26px; margin: 8px 0 26px; }
+  .vf-ticket { text-align: left; background: #fff; border: 1px solid var(--rule); border-left: 6px solid var(--butter); border-radius: 6px 14px 14px 6px; padding: 8px 26px; margin: 8px 0 26px; }
   .vf-ticket dl { margin: 0; }
   .vf-ticket dt { font-size: 16px; color: var(--muted); font-weight: 600; }
   .vf-ticket dd { margin: 0; font-weight: 600; color: var(--ink); }
@@ -194,35 +195,33 @@ const tiles = PH[active] ?? 'lamp,bowl,house';
   .vf-ticket dl > div:last-child { border-bottom: 0; }
   .vf-ticket dd small { display: block; font-weight: 400; color: var(--muted); font-size: 16px; }
   .vf-demo { margin-top: 26px; }
-  .vf-ico { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 16px; background: #e8e9f6; color: var(--night); flex: none; }
+  .vf-ico { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 16px; background: var(--lav-tint); color: var(--night); flex: none; }
   .vf-ico svg { width: 38px; height: 38px; }
   .vf-ico.sm { width: 52px; height: 52px; border-radius: 13px; margin-bottom: 8px; }
   .vf-ico.sm svg { width: 32px; height: 32px; }
 
   /* ---------- quote band (home and about) ---------- */
-  .quote { background: var(--tint); padding: 104px 0; text-align: center; }
-  .quote .mark { display: block; font-family: var(--serif); font-style: italic; font-size: 120px; line-height: 0.6; color: var(--lamp-deep); height: 50px; }
+  .quote { background: var(--mint-tint); padding: 104px 0; text-align: center; }
+  .quote .mark { display: block; font-family: var(--serif); font-style: italic; font-size: 120px; line-height: 0.6; color: var(--lav); height: 50px; }
   .quote blockquote { margin: 0 auto; max-width: 22em; font-family: var(--serif); font-style: italic; font-weight: 400; font-size: clamp(30px, 3.5vw, 48px); line-height: 1.22; letter-spacing: -0.01em; color: var(--ink); text-wrap: balance; }
   .quote p { margin: 30px auto 0; font-size: 17px; color: var(--muted); max-width: 32em; }
   .quote p b { color: var(--ink); }
 
   /* ---------- footer ---------- */
-  .foot { background: hsl(240, 30%, 12%); color: #d9dbee; }
-  .closing { border-bottom: 1px solid rgba(255, 255, 255, 0.14); padding: 0 0 clamp(56px, 7vw, 96px); }
-  .frieze { display: grid; grid-template-columns: repeat(12, 1fr); margin-bottom: clamp(56px, 7vw, 96px); }
-  .frieze canvas[data-tile] { border-radius: 0; }
-  @media (max-width: 760px) { .frieze { grid-template-columns: repeat(6, 1fr); } .frieze canvas:nth-child(n+7) { display: none; } }
-  .closing p { margin: 0; font-family: var(--serif); font-style: italic; font-size: clamp(30px, 4vw, 56px); line-height: 1.12; color: #fff; text-wrap: balance; max-width: 16em; }
-  .closing p span { display: block; font-family: var(--body); font-style: normal; font-size: 17px; line-height: 1.5; color: #b9bcd6; margin-top: 18px; max-width: 30em; }
+  .closing { padding-top: clamp(64px, 8vw, 110px); overflow: hidden; }
+  .closing p { margin: 0 auto; text-align: center; font-family: var(--head); font-size: clamp(32px, 4.2vw, 58px); line-height: 1.1; color: var(--ink); text-wrap: balance; max-width: 16em; }
+  .closing p span { display: block; font-family: var(--body); font-size: 18px; line-height: 1.55; color: var(--muted); margin: 20px auto 0; max-width: 31em; }
+  .closing canvas { margin-top: clamp(28px, 4vw, 56px); margin-bottom: -1.2%; }
+  .foot { background: var(--night-deep); color: #dcd9e6; }
   .fwrap { padding-top: 40px; padding-bottom: 40px; }
   .fgrid { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1.2fr; gap: 56px; }
   .fgrid .fb { font-family: var(--head); font-size: 30px; font-weight: 400; color: #fff; letter-spacing: -0.01em; line-height: 1.1; margin: 0 0 16px; }
-  .fgrid p { margin: 0 0 26px; max-width: 24em; font-size: 16.5px; color: #d9dbee; }
-  .fgrid h4 { margin: 0 0 18px; font-family: var(--body); font-size: 15px; color: #ffd27a; font-weight: 600; letter-spacing: 0.02em; }
+  .fgrid p { margin: 0 0 26px; max-width: 24em; font-size: 16.5px; color: #dcd9e6; }
+  .fgrid h4 { margin: 0 0 18px; font-family: var(--body); font-size: 15px; color: var(--butter); font-weight: 600; letter-spacing: 0.02em; }
   .fgrid ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
   .fgrid ul a { text-decoration: none; font-size: 17px; color: #fff; overflow-wrap: anywhere; }
-  .fgrid ul a:hover { text-decoration: underline; text-underline-offset: 5px; text-decoration-color: var(--lamp); }
-  .fbar { margin-top: 64px; padding-top: 26px; border-top: 1px solid rgba(255, 255, 255, 0.16); display: flex; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; font-size: 15.5px; color: #b9bcd6; }
+  .fgrid ul a:hover { text-decoration: underline; text-underline-offset: 5px; text-decoration-color: var(--mint); }
+  .fbar { margin-top: 64px; padding-top: 26px; border-top: 1px solid rgba(255, 255, 255, 0.16); display: flex; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; font-size: 15.5px; color: #b3afc4; }
 
   @media (max-width: 1080px) {
     .fgrid { grid-template-columns: 1fr 1fr; }
@@ -234,15 +233,17 @@ const tiles = PH[active] ?? 'lamp,bowl,house';
   @media (max-width: 760px) {
     body { font-size: 17.5px; }
     .wrap { padding: 0 22px; }
-    .nav { flex-wrap: wrap; gap: 8px 14px; padding: 16px 22px 10px; }
-    .nav nav { order: 3; width: 100%; gap: 20px; font-size: 16px; overflow-x: auto; }
-    .brand { font-size: 20px; }
-    .nav .give { padding: 10px 18px; }
+    .nav { flex-wrap: wrap; gap: 4px 14px; padding: 8px 18px 6px; }
+    .nav nav { order: 3; width: 100%; gap: 22px; font-size: 16px; overflow-x: auto; }
+    .brand { gap: 8px; }
+    .brand img { width: 44px; }
+    .brand span { font-size: 18px; letter-spacing: 0.02em; }
+    .brand small { display: none; }
+    .nav .give { padding: 9px 18px; }
     .sec { padding-block: 64px; }
     .wrap.sec { padding-block: 32px; }
-    .ph { padding-top: 12px; }
-    .ph .wrap { padding-top: 22px; padding-bottom: 28px; padding-right: 22px; }
-    .ph-tiles { position: static; translate: none; width: auto; margin: 0 22px; padding-bottom: 40px; gap: 8px; }
+    .ph .wrap { min-height: 0; padding-top: 36px; padding-bottom: 20px; padding-right: 22px; }
+    .ph canvas.ph-art { position: static; width: calc(100% - 44px); max-width: 420px; margin: 0 auto; }
     .quote { padding: 68px 0; }
     .quote .mark { font-size: 96px; height: 40px; }
     .vf-ticket { padding: 4px 18px; }
@@ -251,33 +252,18 @@ const tiles = PH[active] ?? 'lamp,bowl,house';
     .fgrid > div:first-child { grid-column: 1 / -1; }
     .fwrap { padding-top: 32px; }
   }
-  /* ---------- the little motion there is: text rises in, paintings settle, lamps breathe ---------- */
-  .fx { position: absolute; pointer-events: none; overflow: hidden; }
-  .fx i { position: absolute; border-radius: 50%; margin: 0; translate: -50% -50%; opacity: 0; }
+  /* ---------- the little motion there is: pictures draw themselves, text rises in ---------- */
   @media (prefers-reduced-motion: no-preference) {
-    canvas[data-tile] { transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1); }
-    canvas[data-tile]:not([data-empty]):hover { transform: scale(1.04) rotate(-0.6deg); }
-    .fx-on canvas.art { opacity: 0; transition: opacity 1.4s ease; }
-    .fx-on canvas.art.done { opacity: 1; }
     .fx-on [data-rv] { opacity: 0; transform: translateY(24px); transition: opacity 0.9s ease var(--rd, 0s), transform 1s cubic-bezier(0.2, 0.7, 0.2, 1) var(--rd, 0s); }
     .fx-on [data-rv].in { opacity: 1; transform: none; }
-    .fx-on figure[data-rv] > canvas.art { transform: scale(1.07); transition: opacity 1.4s ease, transform 2.2s cubic-bezier(0.2, 0.7, 0.2, 1); }
-    .fx-on figure[data-rv].in > canvas.art { transform: none; }
     .fx-on .ph .wrap > *, .fx-on .hero-body > * { animation: fx-rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
     .fx-on .ph .wrap > :nth-child(2), .fx-on .hero-body > :nth-child(2) { animation-delay: 0.1s; }
     .fx-on .ph .wrap > :nth-child(3), .fx-on .hero-body > :nth-child(3) { animation-delay: 0.22s; }
     .fx-on .ph .wrap > :nth-child(n+4), .fx-on .hero-body > :nth-child(n+4) { animation-delay: 0.34s; }
-    .fx .star { background: #fff; box-shadow: 0 0 6px 1px rgba(255, 255, 255, 0.75); animation: fx-twinkle var(--d) ease-in-out var(--o) infinite; }
-    .fx .lamp { background: radial-gradient(closest-side, rgba(255, 200, 100, 0.5), rgba(255, 184, 76, 0.18) 55%, rgba(255, 184, 76, 0)); mix-blend-mode: screen; animation: fx-breathe var(--d) ease-in-out var(--o) infinite; }
-    .fx .steam { background: radial-gradient(closest-side, rgba(255, 238, 212, 0.34), rgba(255, 238, 212, 0)); filter: blur(5px); animation: fx-steam var(--d) linear var(--o) infinite; }
-    .btn, .nav .give, .chip, .pill, .choice { transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease; }
-    .btn.gold:hover, .nav .give:hover { transform: translateY(-1px); box-shadow: 0 10px 24px -10px rgba(242, 177, 65, 0.7); }
+    .btn, .nav .give, .chip, .pill, .choice { transition: background-color 0.18s ease, background-position 0.2s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease; }
     .more svg, .quiet svg, .need svg { transition: transform 0.2s ease; }
     .more:hover svg, .quiet:hover svg, .need:hover svg { transform: translateX(4px); }
     @keyframes fx-rise { from { opacity: 0; transform: translateY(18px); } }
-    @keyframes fx-twinkle { 0%, 100% { opacity: 0; } 50% { opacity: 0.95; } }
-    @keyframes fx-breathe { 0%, 100% { opacity: 0.15; scale: 0.9; } 50% { opacity: 0.95; scale: 1.08; } }
-    @keyframes fx-steam { 0% { opacity: 0; transform: translate(0, 0) scale(0.5); } 18% { opacity: 0.8; } 100% { opacity: 0; transform: translate(var(--x), var(--h)) scale(2.1); } }
   }
   @media (prefers-reduced-motion: reduce) {
     @view-transition { navigation: none; }

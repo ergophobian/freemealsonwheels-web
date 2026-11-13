@@ -2,12 +2,12 @@
 const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const MAIL = 'mailto:info@freemealsonwheels.com';
 ---
-<footer class="foot">
-  <div class="closing"><div class="frieze" aria-hidden="true">
-    {['house', 'bowl', 'lamp', 'pot', 'house', 'thali', 'bowl', 'tiffin', 'house', 'lamp', 'bowl', 'house'].map((t, i) => <canvas data-tile={t} data-seed={500 + i * 7} data-spec={i * 5 + 3}></canvas>)}
-  </div><div class="wrap">
-    <p>No neighbor should go to bed hungry.<span>So every Saturday morning, we cook. Come and stand at the stove with us, or put a meal in someone&rsquo;s hands from wherever you are.</span></p>
-  </div></div>
+<footer>
+  <div class="closing">
+    <div class="wrap"><p data-rv>No neighbor should go to bed hungry.<span>So every Saturday morning, we cook. Come and stand at the stove with us, or put a meal in a family&rsquo;s hands from wherever you are.</span></p></div>
+    <canvas data-scene="line" data-seed="5" role="img" aria-label="A long line of neighbors of every age, drawn in ink, standing hand in hand."></canvas>
+  </div>
+  <div class="foot">
   <div class="wrap fwrap">
     <div class="fgrid">
       <div>
@@ -44,5 +44,6 @@ const MAIL = 'mailto:info@freemealsonwheels.com';
       </div>
     </div>
     <div class="fbar"><span>&copy; 2026 Free Meals on Wheels. A 501(c)(3) nonprofit.</span><span>Payments by Stripe. San Jose and San Ramon, California.</span></div>
+  </div>
   </div>
 </footer>

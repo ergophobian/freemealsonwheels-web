@@ -1,29 +1,26 @@
 ---
-// Home page. The art is one simple thing, a bowl of food, drawn again and again by code (src/lib/bowls), each time
-// with a different hand-made mark. Tiles draw themselves stroke by stroke the first time they come into view and are
-// then still; clicking one draws it again another way. No images or video.
+// Home page, told as one meal's journey. The pictures are people, drawn live by code (src/lib/ink) in the manner of
+// the logo: a loose ink line over lavender, butter, mint and sage. Below the hero a road runs down the page from the
+// kitchen to a family's table; it is traced as you scroll and a small van follows it. No images or video besides the logo.
 import HearthLayout from '../layouts/HearthLayout.astro';
-import SiteNav from '../components/SiteNav.astro';
 const B = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const MAIL = 'mailto:info@freemealsonwheels.com';
 const arrow = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4"/></svg>';
-const heroSpecs = [0, 2, 3, 6, 4, 1, 7, 8, 11, 5, 9, 10];
-const day = [
-  { tile: 'pot', spec: 12, seed: 61, time: '6:00 in the morning', h: 'We cook', lead: 'Before the city wakes, the first pot goes up.', p: 'Volunteers cook fresh meals together in our San Jose and San Ramon kitchens, the same morning they are delivered. Never frozen, never days old.', alt: 'A drawing of a lidded cooking pot with steam, made of fine ringed lines.' },
-  { tile: 'tiffin', spec: 3, seed: 62, time: '9:30', h: 'We pack', lead: 'Every meal is packed by hand.', p: 'Each one is checked and sealed while it is still hot, then lined up by the door for the drivers.', alt: 'A drawing of a stacked steel tiffin carrier, woven from short strokes.' },
-  { tile: 'house', spec: 6, seed: 63, time: '11:00 to 1:00', h: 'We deliver', lead: 'Someone is already waiting at the door.', p: 'Meals are carried to neighbors across both cities and handed over at the door, still warm. No forms, and no one asking why.', alt: 'A drawing of a small house with an open door, covered in vines.' },
-  { tile: 'thali', spec: 4, seed: 64, time: 'Evening', h: 'We share', lead: 'By night, there are more people at the table than there were at dawn.', p: 'At Thanksgiving everyone gets a seat. When it turns cold we pair a hot meal with a warm blanket. A good meal is better shared.', alt: 'A drawing of a round plate with three small bowls and a flatbread, in a star lattice pattern.' },
+const stops = [
+  { scene: 'kitchen', seed: 11, time: '6:00 in the morning', h: 'The kitchen wakes', lead: 'Before the city is up, the first pot goes on.', p: 'Volunteers of every age cook together in our San Jose and San Ramon kitchens, the same morning the food goes out. Never frozen, never days old.', alt: 'An ink drawing of volunteers cooking around a large steaming pot while a child carries in vegetables.' },
+  { scene: 'pack', seed: 12, time: '9:30', h: 'Packed by hand', lead: 'Every meal passes through a neighbor’s hands.', p: 'Each one is filled, checked and sealed while it is still hot, then stacked by the door for the drivers.', alt: 'An ink drawing of three volunteers at a long table filling and stacking meal boxes, with a child carrying a bag.' },
+  { scene: 'van', seed: 13, time: '10:30', h: 'On the road', lead: 'Families load their cars and head out.', p: 'Drivers fan out across both cities. Many bring their children along, so the next generation learns what a Saturday is for.', alt: 'An ink drawing of a volunteer and a child loading meal boxes into a van.' },
+  { scene: 'knock', seed: 14, time: '11:00 to 1:00', h: 'A knock at the door', lead: 'Someone is already waiting.', p: 'The meal is handed over at the door, still warm, with a hello and a few minutes to talk. No forms, and no one asking why.', alt: 'An ink drawing of a volunteer and her child handing a warm meal to an elderly woman at her front door.' },
+  { scene: 'table', seed: 15, time: 'That evening', h: 'A full table', lead: 'Tonight a family eats together.', p: 'Grandparents, parents and children around one table, with nothing to worry about until morning. This is what every Saturday is for.', alt: 'An ink drawing of a family of five sharing a hot meal around a table under a lamp.' },
 ];
-const N = 300;
 ---
-<HearthLayout title="Free Meals on Wheels: dignity starts with a full belly" fullTitle bare>
+<HearthLayout title="Free Meals on Wheels: bringing smiles, one meal at a time" fullTitle>
   <section class="hero" id="top">
-    <SiteNav overlay />
     <div class="wrap hero-in">
       <div class="hero-body">
-        <p class="when">Every Saturday, in San Jose and San Ramon.</p>
-        <h1>Dignity starts<br />with <em>a full belly.</em></h1>
-        <p class="sub">A fresh, hot meal, cooked that morning and handed to a neighbor at the door. Three hundred of them, every week.</p>
+        <p class="hand when">Every Saturday, in San Jose and San Ramon</p>
+        <h1>Dignity starts with <em>a&nbsp;full&nbsp;belly.</em></h1>
+        <p class="sub">Neighbors cook a fresh, hot meal in the morning and carry it to a family&rsquo;s door by noon. Three hundred meals a week, always free.</p>
         <div class="acts">
           <a class="btn gold" href={`${B}donate`}>Give a meal</a>
           <a class="quiet" href={`${B}volunteer`}>Volunteer on a Saturday <Fragment set:html={arrow} /></a>
@@ -31,50 +28,71 @@ const N = 300;
         <a class="need" href={`${B}get-a-meal`}><b>Need a meal?</b> It&rsquo;s free, and no one will ask why. <span>Request one <Fragment set:html={arrow} /></span></a>
       </div>
       <figure class="hero-art">
-        <div class="mosaic" role="img" aria-label="Twelve bowls of food, each drawn in a different way: pen hatching, weaving, stitching, vines, stripes and stone.">
-          {heroSpecs.map((s, i) => <canvas data-tile="bowl" data-seed={i + 1} data-spec={s}></canvas>)}
-        </div>
-        <figcaption>No two neighbors are alike, so no two bowls are. Each one is drawn by code as you watch. Tap one to draw it again.</figcaption>
+        <canvas data-scene="door" data-seed="7" role="img" aria-label="An ink drawing of a volunteer and a child handing a warm meal to a mother, her daughter and a grandfather at their front door."></canvas>
+        <figcaption class="hand">drawn by code as you watch, in the colours of our logo</figcaption>
       </figure>
     </div>
   </section>
 
   <section class="intro">
     <div class="wrap">
-      <p class="say" data-rv>No forms, no questions. Just a fresh, hot meal, handed over at the door by a neighbor.</p>
       <dl class="figs" data-rv>
-        <div><dt>400+</dt><dd>volunteers who give up a Saturday morning</dd></div>
-        <div><dt>300+</dt><dd>meals cooked and delivered every week</dd></div>
-        <div><dt>100%</dt><dd>of every donation goes to food</dd></div>
+        <div><dt><span>400+</span></dt><dd>volunteers who give up a Saturday morning</dd></div>
+        <div><dt><span>300+</span></dt><dd>meals cooked and delivered every week</dd></div>
+        <div><dt><span>100%</span></dt><dd>of every donation goes to food</dd></div>
       </dl>
-      <p class="founders" data-rv>Started by Japjot Sethi and Devinder Kumar, because no neighbor should go to bed hungry. <a class="more" href={`${B}about`}>Our story <Fragment set:html={arrow} /></a></p>
     </div>
   </section>
 
-  <section class="day" aria-labelledby="day-h">
+  <section class="story" id="story" aria-labelledby="story-h">
     <div class="wrap">
-      <h2 id="day-h" class="day-h" data-rv>One Saturday</h2>
-      <ol class="moments">
-        {day.map((m, i) => (
-          <li class:list={['moment', { flip: i % 2 === 1 }]}>
-            <figure data-rv><canvas data-tile={m.tile} data-seed={m.seed} data-spec={m.spec} role="img" aria-label={m.alt}></canvas></figure>
-            <div class="txt" data-rv style="--rd:.15s">
-              <p class="time">{m.time}</p>
-              <h3>{m.h}</h3>
-              <p class="lead">{m.lead}</p>
-              <p>{m.p}</p>
-            </div>
-          </li>
-        ))}
-      </ol>
+      <header class="story-h" data-rv>
+        <p class="hand">Follow one meal</p>
+        <h2 id="story-h" class="big">From our stove to a family&rsquo;s table</h2>
+        <p>One Saturday, start to finish. Scroll down the road.</p>
+      </header>
+      <div class="road">
+        <svg class="road-svg" aria-hidden="true">
+          <defs><mask id="road-mask" maskUnits="userSpaceOnUse"><path class="road-go" fill="none" stroke="#fff" stroke-linecap="round" /></mask></defs>
+          <path class="road-bed" fill="none" stroke-linecap="round" />
+          <path class="road-faint" fill="none" stroke-linecap="round" />
+          <path class="road-line" fill="none" stroke-linecap="round" mask="url(#road-mask)" />
+        </svg>
+        <div class="road-van" aria-hidden="true">
+          <svg viewBox="0 0 64 44" fill="none" stroke="#1c1a22" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 33V13l3-4h28l7 10 13 3v11z" fill="#fff" />
+            <path d="M8 25h50v6H8z" fill="#94c8b8" stroke="none" transform="translate(1.5 1.2)" />
+            <path d="M32 12h4l5 7h-9zM17 12h11v7H17z" fill="#f2d988" />
+            <path d="M4 33h56" />
+            <circle cx="17" cy="34" r="5.4" fill="#322c3b" /><circle cx="45" cy="34" r="5.4" fill="#322c3b" />
+            <circle cx="17" cy="34" r="1.6" fill="#fff" stroke="none" /><circle cx="45" cy="34" r="1.6" fill="#fff" stroke="none" />
+          </svg>
+        </div>
+        <ol class="stops">
+          {stops.map((m, i) => (
+            <li class:list={['stop', { flip: i % 2 === 1 }]}>
+              <figure data-rv><canvas data-scene={m.scene} data-seed={m.seed} role="img" aria-label={m.alt}></canvas></figure>
+              <span class="pin" aria-hidden="true">{i + 1}</span>
+              <div class="txt" data-rv style="--rd:.12s">
+                <p class="hand time">{m.time}</p>
+                <h3>{m.h}</h3>
+                <p class="lead">{m.lead}</p>
+                <p>{m.p}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <p class="road-end hand" data-rv>and next Saturday, we do it all again</p>
+      </div>
     </div>
   </section>
 
-  <section class="bowls" aria-labelledby="bowls-h">
-    <div class="wrap bowls-in">
-      <div class="bowls-txt" data-rv>
-        <h2 id="bowls-h">Three hundred meals. Each one is someone.</h2>
-        <p>Every square is one meal we will hand over this Saturday. The last one is still empty. Ten dollars fills it.</p>
+  <section class="people" aria-labelledby="people-h">
+    <svg class="edge" viewBox="0 0 1200 40" preserveAspectRatio="none" aria-hidden="true"><path d="M0 40V22c80-14 150-16 240-8s170 18 270 12 190-22 290-20 170 16 250 14 110-8 150-6v26z" /></svg>
+    <div class="wrap people-in">
+      <div class="people-txt" data-rv>
+        <h2 id="people-h">Three hundred meals. Each one is someone.</h2>
+        <p>Every face here is a neighbor we will bring a meal to this Saturday. The last one is still waiting. Ten dollars gets a meal to their door.</p>
         <div class="give">
           <a class="btn gold" href={`${B}donate?freq=once&amt=10`}>Give $10</a>
           <a class="chip" href={`${B}donate?freq=once&amt=50`}>$50</a>
@@ -83,39 +101,40 @@ const N = 300;
         </div>
         <p class="fine-d">Tax-deductible. Every penny goes to food.</p>
       </div>
-      <a class="field" href={`${B}donate?freq=once&amt=10`} data-noredraw aria-label="Three hundred small drawn bowls. The last one is an empty outline. Give ten dollars to fill it.">
-        {Array.from({ length: N }, (_, i) => i === N - 1
-          ? <canvas data-tile="bowl" data-empty data-quick={i} data-seed={i}></canvas>
-          : <canvas data-tile="bowl" data-quick={i} data-seed={900 + i} data-spec={(i * 7 + (i % 5) * 3) % 18}></canvas>)}
+      <a class="crowd" href={`${B}donate?freq=once&amt=10`} aria-label="Three hundred neighbors drawn in ink. The last one is an empty outline. Give ten dollars to bring them a meal.">
+        <canvas data-scene="crowd" data-seed="21"></canvas>
       </a>
     </div>
+    <svg class="edge flip" viewBox="0 0 1200 40" preserveAspectRatio="none" aria-hidden="true"><path d="M0 40V22c80-14 150-16 240-8s170 18 270 12 190-22 290-20 170 16 250 14 110-8 150-6v26z" /></svg>
   </section>
 
   <section class="quote">
     <div class="wrap">
-      <blockquote data-rv>&ldquo;A fresh, hot, and nutritious meal is not just satiating, but more importantly, enabling and liberating.&rdquo;</blockquote>
-      <p><b>Japjot Sethi and Devinder Kumar</b>, founders</p>
+      <span class="mark" aria-hidden="true">&ldquo;</span>
+      <blockquote data-rv>A fresh, hot, and nutritious meal is not just satiating, but more importantly, enabling and liberating.</blockquote>
+      <p><b>Japjot Sethi and Devinder Kumar</b>, founders. <a class="link" href={`${B}about`}>Read our story</a></p>
     </div>
   </section>
 
   <section class="sec table" aria-labelledby="table-h">
     <div class="wrap">
+      <p class="hand" data-rv>Three ways in</p>
       <h2 id="table-h" class="big" data-rv>Come to the table</h2>
       <div class="ways" data-rv>
-        <article>
-          <p class="time">Volunteer</p>
+        <article style="--c:var(--lav)">
+          <p class="hand time">Volunteer</p>
           <h3>Give a Saturday morning</h3>
-          <p>Pick a kitchen, a date and a role: cooking, packing, delivering or cleaning up. Your spot is confirmed instantly.</p>
+          <p>Pick a kitchen, a date and a role: cooking, packing, delivering or cleaning up. Bring your family. Your spot is confirmed instantly.</p>
           <a class="more" href={`${B}volunteer`}>Pick a shift <Fragment set:html={arrow} /></a>
         </article>
-        <article>
-          <p class="time">Get a meal</p>
+        <article style="--c:var(--mint)">
+          <p class="hand time">Get a meal</p>
           <h3>A hot meal, free</h3>
-          <p>For anyone who needs one. Tell us where to bring it and how many are at your table. No one will ask why.</p>
+          <p>For any family that needs one. Tell us where to bring it and how many are at your table. No one will ask why.</p>
           <a class="more" href={`${B}get-a-meal`}>Request a meal <Fragment set:html={arrow} /></a>
         </article>
-        <article>
-          <p class="time">Donate</p>
+        <article style="--c:var(--butter)">
+          <p class="hand time">Donate</p>
           <h3>Ten dollars is one meal</h3>
           <p>Every penny goes to food. One-time or monthly, and tax-deductible. We are a 501(c)(3).</p>
           <a class="more" href={`${B}donate`}>Give a meal <Fragment set:html={arrow} /></a>
@@ -130,97 +149,161 @@ const N = 300;
   </section>
 </HearthLayout>
 
+<script>
+  // The road: a path through the numbered pins, traced as the page scrolls, with a van at its tip.
+  const road = document.querySelector<HTMLElement>('.road');
+  const svg = road?.querySelector<SVGSVGElement>('.road-svg');
+  if (road && svg) {
+    const paths = [...svg.querySelectorAll<SVGPathElement>('path')];
+    const go = svg.querySelector<SVGPathElement>('.road-go')!;
+    const van = road.querySelector<HTMLElement>('.road-van')!;
+    const pins = [...road.querySelectorAll<HTMLElement>('.pin')];
+    const fx = document.documentElement.classList.contains('fx-on');
+    let L = 0, at: number[] = [];
+    const build = () => {
+      const R = road.getBoundingClientRect(), W = R.width, H = R.height;
+      svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+      const pts = pins.map((p) => { const r = p.getBoundingClientRect(); return [r.left + r.width / 2 - R.left, r.top + r.height / 2 - R.top]; });
+      const all = [[pts[0][0], 0], ...pts, [pts[pts.length - 1][0] + (W > 700 ? 0 : 0), H - 26]];
+      let d = `M${all[0][0]} ${all[0][1]}`;
+      for (let i = 1; i < all.length; i++) { const a = all[i - 1], b = all[i], m = (a[1] + b[1]) / 2; d += ` C${a[0]} ${m} ${b[0]} ${m} ${b[0]} ${b[1]}`; }
+      paths.forEach((p) => p.setAttribute('d', d));
+      L = go.getTotalLength();
+      go.style.strokeDasharray = `${L}`;
+      // how far along the road each pin sits
+      at = pts.map((pt) => { let lo = 0, hi = L; for (let k = 0; k < 22; k++) { const m = (lo + hi) / 2; if (go.getPointAtLength(m).y < pt[1]) lo = m; else hi = m; } return lo; });
+      tick();
+    };
+    const tick = () => {
+      const R = road.getBoundingClientRect();
+      const p = fx ? Math.max(0, Math.min(1, (innerHeight * 0.62 - R.top) / R.height)) : 1;
+      go.style.strokeDashoffset = `${L * (1 - p)}`;
+      pins.forEach((pin, i) => pin.classList.toggle('on', p * L >= at[i] - 4));
+      if (!fx) return;
+      const a = go.getPointAtLength(p * L), b = go.getPointAtLength(Math.min(L, p * L + 24));
+      van.style.transform = `translate(${a.x}px, ${a.y}px) translate(-50%, -62%) scaleX(${b.x < a.x - 0.5 ? -1 : 1})`;
+      van.classList.toggle('show', p > 0.004 && p < 0.996);
+    };
+    let q = false;
+    const onScroll = () => { if (q) return; q = true; requestAnimationFrame(() => { q = false; tick(); }); };
+    build();
+    addEventListener('scroll', onScroll, { passive: true });
+    new ResizeObserver(build).observe(road);
+  }
+</script>
+
 <style>
-  /* ---------- hero: twelve bowls ---------- */
-  .hero { background: var(--night-deep); color: #fff; }
-  .hero-in { display: grid; grid-template-columns: minmax(0, 0.86fr) minmax(0, 1fr); gap: clamp(32px, 4vw, 64px); align-items: center; padding-top: clamp(24px, 4vw, 56px); padding-bottom: clamp(56px, 7vw, 100px); }
-  .when { font-family: var(--serif); font-style: italic; font-size: 21px; color: #c9cbe6; margin-bottom: 18px; }
-  .hero h1 { color: #fff; font-size: clamp(42px, 4.5vw, 68px); line-height: 1.02; letter-spacing: -0.02em; }
-  .hero h1 em { font-family: var(--serif); font-style: italic; color: #ffd27a; letter-spacing: -0.01em; white-space: nowrap; }
-  .sub { margin-top: 26px; max-width: 25em; font-size: clamp(18px, 1.5vw, 21px); line-height: 1.55; color: #e3e4f3; }
-  .acts { display: flex; align-items: center; flex-wrap: wrap; gap: 18px 30px; margin-top: 36px; }
-  .acts .btn { min-width: 180px; border-radius: 999px; font-size: 18px; }
-  .quiet { display: inline-flex; align-items: center; gap: 10px; color: #fff; font-weight: 600; text-decoration: none; border-bottom: 1.5px solid rgba(255, 255, 255, 0.5); padding-bottom: 3px; }
-  .quiet:hover { border-color: #ffd27a; }
+  .hand { font-family: var(--hand); font-weight: 600; font-size: clamp(25px, 2.2vw, 30px); line-height: 1.1; color: var(--mint-deep); }
+
+  /* ---------- hero: a meal handed to a family ---------- */
+  .hero { background: radial-gradient(60% 70% at 78% 40%, var(--butter-tint), transparent 70%), linear-gradient(var(--lav-tint), var(--paper) 78%); }
+  .hero-in { display: grid; grid-template-columns: minmax(0, 0.82fr) minmax(0, 1fr); gap: clamp(24px, 3vw, 56px); align-items: center; padding-top: clamp(28px, 4vw, 56px); padding-bottom: clamp(40px, 5vw, 72px); }
+  .when { margin-bottom: 14px; }
+  .hero h1 { font-size: clamp(44px, 5vw, 76px); line-height: 1.02; letter-spacing: -0.02em; text-wrap: balance; }
+  .hero h1 em { font-family: var(--serif); font-style: italic; color: var(--lav-deep); letter-spacing: -0.01em; background: linear-gradient(var(--butter), var(--butter)) no-repeat 6px 88% / 100% 0.26em; }
+  .sub { margin-top: 26px; max-width: 26em; font-size: clamp(18px, 1.5vw, 21px); line-height: 1.55; color: var(--text); }
+  .acts { display: flex; align-items: center; flex-wrap: wrap; gap: 18px 30px; margin-top: 34px; }
+  .acts .btn { min-width: 190px; font-size: 18px; }
+  .quiet { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); font-weight: 600; text-decoration: none; border-bottom: 2px solid var(--mint); padding-bottom: 3px; }
+  .quiet:hover { border-color: var(--ink); }
   .quiet :global(svg), .need :global(svg), .more :global(svg) { width: 16px; height: 16px; flex: none; }
-  .need { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 48px; color: #d6d8ec; text-decoration: none; font-size: 16.5px; }
-  .need b { color: #fff; font-weight: 600; }
-  .need span { display: inline-flex; align-items: center; gap: 8px; color: #ffd27a; font-weight: 600; }
+  .need { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 40px; padding-top: 22px; border-top: 1px dashed var(--edge); color: var(--text); text-decoration: none; font-size: 16.5px; max-width: 30em; }
+  .need b { color: var(--ink); font-weight: 700; }
+  .need span { display: inline-flex; align-items: center; gap: 8px; color: var(--lav-deep); font-weight: 700; }
   .need:hover span { text-decoration: underline; text-underline-offset: 4px; }
   .hero-art { margin: 0; }
-  .mosaic { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-  .hero-art figcaption { margin-top: 16px; font-family: var(--serif); font-style: italic; font-size: 17px; line-height: 1.4; color: #b9bcd6; max-width: 30em; }
+  .hero-art figcaption { margin-top: 2px; text-align: right; font-size: 21px; font-weight: 500; color: var(--muted); }
 
-  /* ---------- intro ---------- */
-  .intro { padding: clamp(80px, 10vw, 140px) 0 clamp(64px, 8vw, 110px); }
-  .say { font-family: var(--head); color: var(--ink); font-size: clamp(32px, 4vw, 56px); line-height: 1.14; letter-spacing: -0.015em; max-width: 17em; text-wrap: balance; }
-  .figs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; margin: clamp(48px, 6vw, 80px) 0 0; padding-top: 34px; border-top: 1px solid var(--rule); }
-  .figs dt { font-family: var(--head); font-size: clamp(44px, 5vw, 68px); line-height: 1; color: var(--night); }
-  .figs dd { margin: 12px 0 0; max-width: 15em; color: var(--muted); font-size: 17px; }
-  .founders { margin-top: 44px; font-family: var(--serif); font-style: italic; font-size: clamp(20px, 1.8vw, 24px); color: var(--text); display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 20px; }
-  .founders .more { font-family: var(--body); font-style: normal; font-size: 17px; }
+  /* ---------- three numbers ---------- */
+  .intro { padding: clamp(36px, 5vw, 64px) 0 0; }
+  .figs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; margin: 0; }
+  .figs dt { font-family: var(--head); font-size: clamp(46px, 5vw, 70px); line-height: 1; color: var(--ink); }
+  .figs dt span { background: linear-gradient(var(--c, var(--lav)), var(--c, var(--lav))) no-repeat 8px 82% / 100% 0.34em; padding-right: 8px; }
+  .figs div:nth-child(2) { --c: var(--butter); }
+  .figs div:nth-child(3) { --c: var(--mint); }
+  .figs dd { margin: 14px 0 0; max-width: 15em; color: var(--muted); font-size: 17.5px; }
 
-  /* ---------- one Saturday ---------- */
-  .day { padding: 20px 0 clamp(80px, 9vw, 130px); }
-  .day-h { font-family: var(--serif); font-style: italic; font-size: clamp(26px, 2.6vw, 34px); color: var(--muted); margin-bottom: 40px; }
-  .moments { list-style: none; margin: 0; padding: 0; display: grid; gap: clamp(56px, 7vw, 100px); }
-  .moment { display: grid; grid-template-columns: minmax(0, 420px) 1fr; gap: clamp(32px, 6vw, 96px); align-items: center; }
-  .moment.flip { grid-template-columns: 1fr minmax(0, 420px); }
-  .moment.flip figure { order: 2; }
-  .moment figure { margin: 0; box-shadow: 0 30px 60px -34px rgba(18, 21, 58, 0.55); }
-  .time { font-family: var(--serif); font-style: italic; font-size: 20px; color: var(--lamp-deep); margin-bottom: 10px; }
-  .moment h3 { font-size: clamp(38px, 4vw, 56px); line-height: 1.04; color: var(--ink); }
-  .moment .lead { margin: 18px 0 14px; font-family: var(--serif); font-size: clamp(22px, 2vw, 27px); line-height: 1.3; color: var(--ink); }
-  .moment .txt > p:last-child { color: var(--text); max-width: 28em; }
+  /* ---------- the road ---------- */
+  .story { padding: clamp(72px, 9vw, 130px) 0 clamp(40px, 5vw, 70px); }
+  .story-h { text-align: center; margin-bottom: clamp(20px, 3vw, 40px); }
+  .story-h h2 { margin: 6px auto 14px; max-width: 14em; text-wrap: balance; }
+  .story-h > p:last-child { color: var(--muted); }
+  .road { position: relative; padding: 70px 0 110px; }
+  .road-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+  .road-bed { stroke: var(--lav-tint); stroke-width: 34; }
+  .road-faint { stroke: var(--edge); stroke-width: 2.5; stroke-dasharray: 1 13; opacity: 0.6; }
+  .road-line { stroke: var(--ink); stroke-width: 3; stroke-dasharray: 14 12; }
+  .road-go { stroke-width: 12; }
+  .road-van { position: absolute; left: 0; top: 0; width: 64px; z-index: 2; opacity: 0; transition: opacity 0.3s ease; pointer-events: none; will-change: transform; }
+  .road-van.show { opacity: 1; }
+  .road-van svg { display: block; width: 100%; }
+  .stops { position: relative; list-style: none; margin: 0; padding: 0; display: grid; gap: clamp(64px, 8vw, 120px); }
+  .stop { display: grid; grid-template-columns: minmax(0, 1fr) 190px minmax(0, 1fr); align-items: center; }
+  .stop figure { margin: 0; grid-column: 1; grid-row: 1; }
+  .stop .pin { grid-column: 2; grid-row: 1; justify-self: center; translate: -48px 0; }
+  .stop .txt { grid-column: 3; grid-row: 1; }
+  .stop.flip figure { grid-column: 3; }
+  .stop.flip .txt { grid-column: 1; justify-self: end; }
+  .stop.flip .pin { translate: 48px 0; }
+  .pin { position: relative; z-index: 1; display: grid; place-items: center; width: 50px; height: 50px; background: var(--paper); border: 2px solid var(--ink); border-radius: 52% 48% 50% 50% / 48% 52% 48% 52%; font-family: var(--head); font-size: 22px; color: var(--ink); transition: background-color 0.4s ease, box-shadow 0.4s ease; }
+  .pin.on { background: var(--butter); box-shadow: 4px 4px 0 var(--mint); }
+  .time { margin-bottom: 6px; }
+  .stop h3 { font-size: clamp(36px, 3.8vw, 54px); line-height: 1.04; color: var(--ink); }
+  .stop .lead { margin: 16px 0 12px; font-family: var(--serif); font-style: italic; font-size: clamp(22px, 2vw, 27px); line-height: 1.3; color: var(--ink); }
+  .stop .txt { max-width: 25em; }
+  .stop .txt > p:last-child { color: var(--text); }
+  .road-end { position: absolute; left: 0; right: 0; bottom: 34px; text-align: center; }
+  .road-end::before { content: ""; display: block; width: 14px; height: 14px; margin: 0 auto 30px; }
 
-  /* ---------- three hundred bowls ---------- */
-  .bowls { background: var(--night-deep); color: #e3e4f3; }
-  .bowls-in { display: grid; grid-template-columns: 1fr 1.3fr; gap: clamp(32px, 5vw, 72px); align-items: center; padding-block: clamp(72px, 8vw, 120px); }
-  .bowls h2 { color: #fff; font-size: clamp(36px, 4.2vw, 58px); line-height: 1.06; text-wrap: balance; }
-  .bowls-txt > p:first-of-type { margin-top: 22px; font-size: 19px; max-width: 26em; }
-  .give { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
-  .give .btn { border-radius: 999px; }
-  .chip { display: inline-flex; align-items: center; min-height: 54px; padding: 0 22px; border-radius: 999px; border: 1.5px solid rgba(255, 255, 255, 0.35); color: #fff; text-decoration: none; font-weight: 600; }
-  .chip:hover { border-color: #ffd27a; color: #ffd27a; }
-  .fine-d { margin-top: 18px; font-size: 15.5px; color: #a9acc9; }
-  .field { display: grid; grid-template-columns: repeat(20, 1fr); gap: 3px; }
-  .field :global(canvas) { border-radius: 2px; }
-  .field :global(canvas[data-empty]) { outline: 2px solid #ffd27a; outline-offset: 1px; }
+  /* ---------- three hundred neighbors ---------- */
+  .people { position: relative; background: var(--lav-tint); margin: 40px 0; }
+  .edge { position: absolute; left: 0; bottom: 100%; width: 100%; height: 40px; display: block; fill: var(--lav-tint); margin-bottom: -1px; }
+  .edge.flip { bottom: auto; top: 100%; transform: scaleY(-1); margin: -1px 0 0; }
+  .people-in { display: grid; grid-template-columns: 1fr 1.35fr; gap: clamp(32px, 5vw, 72px); align-items: center; padding-block: clamp(56px, 6vw, 96px); }
+  .people h2 { font-size: clamp(36px, 4.2vw, 58px); line-height: 1.06; text-wrap: balance; }
+  .people-txt > p:first-of-type { margin-top: 22px; font-size: 19px; max-width: 26em; }
+  .give { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+  .chip { display: inline-flex; align-items: center; min-height: 54px; padding: 0 22px; border-radius: var(--wob); border: 1.75px solid var(--ink); color: var(--ink); background: var(--paper); text-decoration: none; font-weight: 700; }
+  .chip:hover { background: var(--mint); }
+  .fine-d { margin-top: 18px; font-size: 15.5px; color: var(--muted); }
+  .crowd { display: block; }
 
   /* ---------- come to the table ---------- */
-  .ways { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 44px; border-top: 1px solid var(--ink); }
-  .ways article { padding: 30px 32px 34px 0; display: flex; flex-direction: column; gap: 12px; }
-  .ways article + article { padding-left: 32px; border-left: 1px solid var(--rule); }
-  .ways .time { margin: 0; font-size: 19px; }
-  .ways h3 { font-size: clamp(28px, 2.6vw, 36px); line-height: 1.1; }
+  .quote { margin-top: 40px; }
+  .table > .wrap > .hand { margin-bottom: 4px; }
+  .ways { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 40px; }
+  .ways article { display: flex; flex-direction: column; gap: 12px; padding: 28px 28px 30px; border: 1.75px solid var(--ink); border-radius: var(--wob); background: linear-gradient(var(--c), var(--c)) no-repeat 8px 8px / 100% 9px, var(--paper); }
+  .ways .time { margin: 6px 0 0; font-size: 27px; }
+  .ways h3 { font-size: clamp(27px, 2.5vw, 34px); line-height: 1.1; }
   .ways p:not(.time) { color: var(--text); flex: 1; }
   .ways .more { align-self: flex-start; margin-top: 8px; }
-  .know { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; margin-top: 56px; padding: 28px 32px; background: var(--tint); border-radius: 8px; font-size: 16px; color: var(--muted); }
+  .know { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; margin-top: 48px; padding-top: 28px; border-top: 1px dashed var(--edge); font-size: 16px; color: var(--muted); }
   .know b { color: var(--ink); }
   .know a { color: var(--night); font-weight: 600; }
 
   @media (max-width: 900px) {
     .hero-in { grid-template-columns: 1fr; }
-    .moment, .moment.flip { grid-template-columns: 1fr; gap: 26px; }
-    .moment.flip figure { order: 0; }
-    .moment figure { max-width: 340px; }
-    .bowls-in { grid-template-columns: 1fr; }
-    .field { grid-template-columns: repeat(15, 1fr); }
+    .hero-art { max-width: 560px; margin: 0 auto; width: 100%; }
+    .road { padding: 50px 0 100px; }
+    .road-bed { stroke-width: 22; }
+    .stop, .stop.flip { grid-template-columns: 58px minmax(0, 1fr); column-gap: 10px; row-gap: 14px; align-items: start; }
+    .stop figure, .stop.flip figure { grid-column: 2; grid-row: 1; }
+    .stop .txt, .stop.flip .txt { grid-column: 2; grid-row: 2; justify-self: start; }
+    .stop .pin, .stop.flip .pin { grid-column: 1; grid-row: 1; justify-self: start; align-self: center; width: 42px; height: 42px; font-size: 19px; translate: 0 0; }
+    .stop.flip .pin { translate: 12px 0; }
+    .road-van { width: 46px; }
+    .people-in { grid-template-columns: 1fr; }
     .ways, .know { grid-template-columns: 1fr; }
-    .ways article, .ways article + article { padding: 26px 0; border-left: 0; border-bottom: 1px solid var(--rule); }
-    .figs { grid-template-columns: 1fr; gap: 26px; }
-    .figs div { display: grid; grid-template-columns: 120px 1fr; align-items: baseline; gap: 16px; }
+    .know { gap: 16px; }
+    .figs { grid-template-columns: 1fr; gap: 22px; }
+    .figs div { display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 16px; }
     .figs dd { margin: 0; }
   }
   @media (max-width: 760px) {
-    .hero-in { padding-top: 22px; }
-    .hero-art { order: -1; }
-    .mosaic { gap: 6px; }
-    .hero-art figcaption { font-size: 15.5px; }
-    .when { font-size: 18px; }
-    .need { font-size: 15.5px; margin-top: 30px; }
+    .hero-in { padding-top: 20px; }
     .acts .btn { width: 100%; }
-    .field { grid-template-columns: repeat(12, 1fr); gap: 2px; }
-    .know { padding: 22px; gap: 18px; }
+    .need { font-size: 15.5px; margin-top: 28px; }
+    .hero-art figcaption { font-size: 18px; }
+    .figs div { grid-template-columns: 124px 1fr; }
   }
 </style>
